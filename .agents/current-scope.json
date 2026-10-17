@@ -1,28 +1,6 @@
 {
-  "mission": "Normal Backend Restoration & Parent GAS Deprecation (Residual Rectification)",
+  "mission": "MIE-03 Spreadsheet-bound GAS Production Activation & Legacy GAS Retirement",
   "files": [
-    ".agents/agents/deployer/agent.md",
-    ".agents/os-registry.json",
-    ".agents/skills/backend-architecture/SKILL.md",
-    "AGENTS.md",
-    "docs/api/API_CONTRACT.md",
-    "docs/architecture/01_DESIGN_CONTRACT.md",
-    "docs/architecture/CURRENT_ARCHITECTURE.md",
-    "docs/architecture/UNIVERSAL_RELEASE_BASELINE.md",
-    "docs/architecture/decisions/ADR-001.md",
-    "docs/architecture/decisions/ADR-010.md",
-    "docs/architecture/decisions/ADR-016_SECURITY_ARCHITECTURE.md",
-    "docs/architecture/decisions/ADR-022_MULTI_REGION_ARCHITECTURE_SPECIFICATION.md",
-    "docs/architecture/specifications/BrandArchitecture.md",
-    "docs/architecture/specifications/LINEDevelopersArchitecture.md",
-    "docs/data/DATA_LIFECYCLE.md",
-    "docs/operations/BACKUP_RESTORE_RUNBOOK.md",
-    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
-    "docs/security/SECURITY_BASELINE.md",
-    "tests/test_multi_district_routing_auth.mjs",
-    "tests/test_phase15_security_verification.mjs",
-    "tests/test_phase21_multiregion_verification.mjs",
-    "tests/test_registry_provisioning_gate.mjs",
-    "tests/test_sec007_district_maps_api_key.mjs"
+    "data/config.js"
   ]
 }
