@@ -165,12 +165,14 @@ try {
       if (ref === T1) return '2222222222222222222222222222222222222222';
       return ref + '000000000000000000000000000000000';
     };
+    const mockDiff = () => ['test.mjs'];
 
     const res = verifyAuditorGate({
       baseCommit: B1,
       targetCommit: T1,
       transcriptLines,
-      gitResolver: mockGit
+      gitResolver: mockGit,
+      diffResolver: mockDiff
     });
 
     assert.equal(res.pass, false);
@@ -238,12 +240,14 @@ try {
       if (ref === T1) return '2222222222222222222222222222222222222222';
       return ref + '000000000000000000000000000000000';
     };
+    const mockDiff = () => ['test.mjs'];
 
     const gateRes = verifyAuditorGate({
       baseCommit: B1,
       targetCommit: T1,
       transcriptLines,
-      gitResolver: mockGit
+      gitResolver: mockGit,
+      diffResolver: mockDiff
     });
 
     assert.equal(gateRes.pass, true);

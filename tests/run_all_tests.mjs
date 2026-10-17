@@ -55,6 +55,7 @@ const testSuites = [
   'test_knowledge_sync_gate.mjs',
   'test_cleanup_gate.mjs',
   'test_auditor_gate.mjs',
+  'test_district_app_deployment_skill.mjs',
   'test_secret_leak_guard.mjs'
 ];
 

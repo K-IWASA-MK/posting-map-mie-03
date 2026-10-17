@@ -12,6 +12,7 @@ tools:
 skills:
   - official-data-audit
   - address-master-generation
+  - district-app-deployment
 model: inherit
 ---
 
@@ -26,7 +27,7 @@ Execution AI（Chief Orchestrator）からの内部ディスパッチ（`invoke_
 
 ## 🎯 最重要ミッション
 
-新地区プロビジョニングランブック（`docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md`）に従い、必要な外部リソースが揃った状態から、マスターデータ調達・地区DBおよび当該Spreadsheetに付属する1地区専用GASの接続・`TARGET_SPREADSHEET_ID` バインド・受入品質検証までの一連のパイプラインを自律的に完走させ、親Executionへ `[DEPLOYER REPORT]` を返却すること。
+新地区プロビジョニングランブック（`docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md`）および標準本番アクティベーションスキル（[`.agents/skills/district-app-deployment/SKILL.md`](../../skills/district-app-deployment/SKILL.md)）に従い、必要な外部リソースが揃った状態から、マスターデータ調達・District Initialization（`data/**` 新地区化と Spreadsheet Master 新地区同期の不可分一体執行）・当該Spreadsheetに付属する1地区専用GASの接続・`TARGET_SPREADSHEET_ID` バインド・受入品質検証までの一連のパイプラインを自律的に完走させ、親Executionへ `[DEPLOYER REPORT]` を返却すること。
 
 ---
 
@@ -57,16 +58,16 @@ Execution AI（Chief Orchestrator）からの内部ディスパッチ（`invoke_
 
 1. **Phase 1: Drive Physical Layout & Resource Derivation**:
    - `BRANCH_ROOT_FOLDER_ID` から `03_BRANCH/{districtId}/`、`{districtId} 支部_STORAGE/`、`SOURCE_ARCHIVE/`、および `{districtId}`（スプレッドシートDB）を決定論的に解決・導出（`EXTERNAL_WRITE: YES` 認可時）。
-2. **Phase 2: Data Acquisition & Master Generation**:
-   - 公式データ自律取得。
-   - `address-master-generation` および `official-data-audit` プロトコル執行（住所マスター・境界GeoJSON・自治体マスター生成）。
+2. **Phase 2: Data Acquisition & District Initialization (`data/**` + Spreadsheet Master 一体同期)**:
+   - 公式データ自律取得および `address-master-generation` / `official-data-audit` プロトコル執行（住所マスター・境界GeoJSON・自治体マスター生成）。
+   - `district-app-deployment` スキル §4 に従い、Git `data/**` 新地区化と Spreadsheet `配布実績<Active Dataset Key>`（`A2:C(N+1)` 同期・`D2:Q(N+1)` 空欄化）を単一不可分の `District Initialization` 作業単位として一体執行する（コピー元の既存行・既存実績は Migration しない。片側先行更新時は Recovery Path として同期完結させる）。
 3. **Phase 3: District Database & Dedicated GAS Binding**:
-   - 当該Spreadsheetに付属する1地区専用GASおよび Script Properties（`TARGET_SPREADSHEET_ID`, `STORAGE_FOLDER_ID` 等）と `SYSTEM_INFO`（`地区コード` 等）を地区専用にバインド。
-4. **Phase 4: Acceptance Gate 機械的検証**:
-   - 受入ゲート（単一地区解決、`SYSTEM_INFO` 整合、DB分離、フォールバック不発生、MapsKey、Drive物理階層契約・Human Navigation等）の全件 PASS を確認（`node tests/test_registry_provisioning_gate.mjs`）。
-5. **Phase 5: GitHub Pages & Production Verification**:
-   - `CNAME`, `data/config.js` を同期し、実機稼働（HTTP 200 OK, 認証ゲート到達, Maps Key 取得）を確認。
-   - 親Execution へ `[DEPLOYER REPORT]`（受入ゲート全件合格証跡、生成差分リスト）を返却。
+   - `SYSTEM_INFO!B4`（`https://<DOMAIN>/`）および `SYSTEM_INFO!B16`（`<GOOGLE_MAPS_API_KEY>`）は MASTER が直接入力した値を READ ONLY で参照する（Normal Path では `A4`/`A16` 欄の既存を確認するのみとし、`syncSystemInfo()` は絶対実行禁止、`B16` 生値は非露出）。
+   - 当該Spreadsheetに付属する1地区専用GAS（`<BOUND_SCRIPT_ID>`）および Script Properties（Tier 1 標準9キー：`TARGET_SPREADSHEET_ID`, `SPREADSHEET_ID`, `DISTRICT_ID`, `GOOGLE_MAPS_API_KEY_<DISTRICT_ID>` 等）を地区専用にバインドし、`<NEW_DEPLOYMENT>` を発行する。
+4. **Phase 4: Acceptance Gate 機械的検証 & Pre-Cutover Verification**:
+   - 受入ゲート（`node tests/test_registry_provisioning_gate.mjs`）および `<NEW_DEPLOYMENT>` に対する Pre-Cutover 5 項目検証（`getDashboardData` $N$ 件一致、`getMapsApiKey` `isFallback: false`、`MISSING_DISTRICT_ID`、`DISTRICT_MISMATCH`、`switchDistrictSpreadsheet` の 3 意味論的不変条件）の全件 PASS を確認。
+5. **Phase 5: GitHub Pages Cutover & Legacy Deployment Retirement**:
+   - 親Execution へ `[DEPLOYER REPORT]`（受入ゲート全件合格証跡、生成差分リスト）を返却し、Stage 7 独立監査・Push・本番実機確認後の `<LEGACY_DEPLOYMENT>` 廃止（`clasp undeploy`）へ繋げる。
 
 ---
 

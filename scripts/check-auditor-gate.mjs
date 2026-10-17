@@ -107,6 +107,7 @@ export function verifyAuditorGate({
   targetCommit,
   transcriptLines,
   gitResolver = null,
+  diffResolver = null,
   mission = null,
   enforceEntranceGate = false
 }) {
@@ -136,6 +137,45 @@ export function verifyAuditorGate({
 
   const shortBase = fullBase.substring(0, 7);
   const shortTarget = fullTarget.substring(0, 7);
+
+  // 1.1. BASE === TARGET 遮断 (Fail-Closed)
+  if (fullBase === fullTarget) {
+    return {
+      pass: false,
+      error: `Fail-Closed: BASE (${shortBase}) and TARGET (${shortTarget}) resolve to the same commit (${fullBase}). Auditor Gate requires a non-empty committed diff range (<BASE>..<TARGET>).`
+    };
+  }
+
+  // 1.2. 変更ファイル実在検証 (架空 fallback 禁止・custom gitResolver 時は diffResolver 必須)
+  if (gitResolver && typeof diffResolver !== 'function') {
+    return {
+      pass: false,
+      error: 'Fail-Closed: Custom gitResolver provided without explicit diffResolver. Fake changedFiles fallback is prohibited.'
+    };
+  }
+
+  const resolveDiff = diffResolver || ((base, target) => {
+    try {
+      const out = execSync(`git diff --name-only "${base}..${target}"`, { cwd: rootDir }).toString().trim();
+      return out ? out.split('\n').map(s => s.trim()).filter(Boolean) : [];
+    } catch (e) {
+      throw new Error(`Failed to compute git diff --name-only for ${base}..${target}: ${e.message}`);
+    }
+  });
+
+  let changedFiles;
+  try {
+    changedFiles = resolveDiff(fullBase, fullTarget);
+  } catch (e) {
+    return { pass: false, error: `Fail-Closed: ${e.message}` };
+  }
+
+  if (!Array.isArray(changedFiles) || changedFiles.length === 0) {
+    return {
+      pass: false,
+      error: `Fail-Closed: Zero changed tracked files in range ${shortBase}..${shortTarget} (changedFiles === 0).`
+    };
+  }
 
   // 2. Transcript 行の走査・相関チェーン抽出
   if (!Array.isArray(transcriptLines)) {

@@ -847,9 +847,9 @@ export function runKnowledgeGate(options = {}) {
     recordFail('K1-20', `Registry activationState must be "active", got "${registry ? registry.activationState : 'undefined'}"`);
     coherenceFail = true;
   } else {
-    // If active, ensure 0 legacy assets, 5 roles, 11 packs
-    if (canonicalRoles.length !== 5 || declaredPacks.length !== 11) {
-      recordFail('K1-20', `ACTIVE registry requires exactly 5 roles and 11 packs (found ${physicalRoles.length} roles, ${declaredPacks.length} packs)`);
+    // If active, ensure 0 legacy assets, 5 roles, 12 packs
+    if (canonicalRoles.length !== 5 || declaredPacks.length !== 12) {
+      recordFail('K1-20', `ACTIVE registry requires exactly 5 roles and 12 packs (found ${physicalRoles.length} roles, ${declaredPacks.length} packs)`);
       coherenceFail = true;
     }
 

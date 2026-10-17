@@ -26,6 +26,11 @@ const mockGitResolver = (ref) => {
   throw new Error(`Invalid git ref: ${ref}`);
 };
 
+const mockDiffResolver = (base, target) => {
+  if (base === target) return [];
+  return ['data/config.js'];
+};
+
 const B1 = '1111111';
 const T1 = '2222222';
 const T2 = '3333333';
@@ -111,7 +116,7 @@ runTest('N1: Auditor未起動 (Fail-Closed)', () => {
   const lines = [
     JSON.stringify({ step_index: 10, source: 'MODEL', type: 'PLANNER_RESPONSE', content: 'Ready' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Independent Auditor was NOT invoked/);
 });
@@ -122,7 +127,7 @@ runTest('N2: wrong child ID (未承認 Auditor ID による偽装)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: 'WRONG_CONVERSATION_ID', base: B1, target: T1 })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Waiting for \[AUDITOR VERDICT\]/);
 });
@@ -133,7 +138,7 @@ runTest('N3: parent fake verdict (親Execution自作自演 source: MODEL)', () =
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, source: 'MODEL', type: 'PLANNER_RESPONSE' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
 });
 
@@ -143,7 +148,7 @@ runTest('N4: USER_EXPLICIT fake verdict (MASTER貼付偽装 source: USER_EXPLICI
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, source: 'USER_EXPLICIT', type: 'USER_INPUT' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
 });
 
@@ -153,7 +158,7 @@ runTest('N5: BASE mismatch (Base Commit不一致)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: '9999999', target: T1 })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /commit range does not match/);
 });
@@ -164,7 +169,7 @@ runTest('N6: TARGET mismatch (Target Commit不一致)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: '9999999' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /commit range does not match/);
 });
@@ -176,7 +181,7 @@ runTest('N7: Scope mismatch (Scope未確認 / 未バインド)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1 })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /bind MISSION_SCOPE/);
 });
@@ -192,7 +197,7 @@ runTest('N8: stale prior PASS fallback禁止 (最新チェーンがREJECTなの�
     makeAuditorEventB(21, 'second-auditor-id'),
     makeAuditorEventC({ step: 22, sender: 'second-auditor-id', base: B1, target: T1, verdict: 'REJECT' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Final Verdict is 'REJECT'\. Expected PASS/);
 });
@@ -203,7 +208,7 @@ runTest('N9: latest REJECT (最新AuditorがREJECT判定)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'REJECT' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Final Verdict is 'REJECT'/);
 });
@@ -214,7 +219,7 @@ runTest('N10: Event order invalid (stepA < stepB < stepC 順序破綻)', () => {
     makeAuditorEventA(10, B1, T1),
     makeAuditorEventB(11, AUDITOR_CONV)
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
 });
 
@@ -231,7 +236,7 @@ runTest('N11: mandatory command evidence missing (独立コマンド実行証跡
       commands: ['git diff', 'npm test']
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /missing mandatory independent command evidence/);
 });
@@ -252,7 +257,7 @@ runTest('N12: Event C後 write_to_file (Post-Audit Mutation 検出 & VOID)', () 
       }]
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Post-Audit Mutation detected.*write_to_file.*Auditor PASS is VOID/);
 });
@@ -273,7 +278,7 @@ runTest('N13: Event C後 replace_file_content (Post-Audit Mutation 検出 & VOID
       }]
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Post-Audit Mutation detected.*replace_file_content.*Auditor PASS is VOID/);
 });
@@ -294,7 +299,7 @@ runTest('N14: Event C後 mutating run_command (Post-Audit Mutation 検出 & VOID
       }]
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Post-Audit Mutating Command detected.*Auditor PASS is VOID/);
 });
@@ -310,7 +315,7 @@ runTest('N15: malformed transcript / missing env (Fail-Closed)', () => {
     makeAuditorEventA(10, B1, T1),
     '{ malformed json :::'
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, false);
   assert.match(res.error, /Malformed JSONL entry/);
 });
@@ -325,7 +330,7 @@ runTest('P1: Fresh isolated Auditor PASS (単独合格)', () => {
     makeAuditorEventB(11, AUDITOR_CONV),
     makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, true);
   assert.equal(res.chain.verdict, 'PASS');
 });
@@ -336,7 +341,7 @@ runTest('P2: exact Event A/B/C correlation (厳格な相関チェーン合致)',
     makeAuditorEventB(101, AUDITOR_CONV),
     makeAuditorEventC({ step: 102, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, true);
   assert.equal(res.chain.stepA, 100);
   assert.equal(res.chain.stepB, 101);
@@ -359,7 +364,7 @@ runTest('P3: PASS後 zero mutation (READ ONLY コマンドのみ実行された�
       }]
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, true);
 });
 
@@ -374,7 +379,7 @@ runTest('P4: Authorization Envelope permitted transition (再試行後の最新P
     makeAuditorEventB(21, 'auditor-pass'),
     makeAuditorEventC({ step: 22, sender: 'auditor-pass', base: B1, target: T2, verdict: 'PASS' })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T2, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T2, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, true);
   assert.equal(res.chain.verdict, 'PASS');
 });
@@ -403,7 +408,7 @@ runTest('P5: 実機 Transcript 互換性 (外側quote付き CommandLine の正�
       }]
     })
   ];
-  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  const res = verifyAuditorGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver, diffResolver: mockDiffResolver });
   assert.equal(res.pass, true);
   assert.equal(res.chain.verdict, 'PASS');
 });
@@ -559,7 +564,7 @@ runTest('E7: 二重防御 (gate:auditor) — Stage 0 証跡欠落または別Mis
     baseCommit: B1,
     targetCommit: T1,
     transcriptLines: lines,
-    gitResolver: mockGitResolver,
+    gitResolver: mockGitResolver, diffResolver: mockDiffResolver,
     mission: MISSION_B,
     enforceEntranceGate: true
   });
@@ -589,7 +594,7 @@ runTest('E8: 二重防御 (gate:auditor) — 同一Missionの Stage 0 PASS が�
     baseCommit: B1,
     targetCommit: T1,
     transcriptLines: lines,
-    gitResolver: mockGitResolver,
+    gitResolver: mockGitResolver, diffResolver: mockDiffResolver,
     mission: MISSION_A,
     enforceEntranceGate: true
   });
@@ -613,7 +618,7 @@ runTest('N16: mandatory semantic review evidence missing (全文査読・反証�
     baseCommit: B1,
     targetCommit: T1,
     transcriptLines: lines,
-    gitResolver: mockGitResolver
+    gitResolver: mockGitResolver, diffResolver: mockDiffResolver
   });
   assert.equal(res.pass, false);
   assert.match(res.error, /missing mandatory semantic review evidence/i);
@@ -637,10 +642,77 @@ runTest('N17: partial semantic review missing falsification analysis (反証分�
     baseCommit: B1,
     targetCommit: T1,
     transcriptLines: lines,
-    gitResolver: mockGitResolver
+    gitResolver: mockGitResolver, diffResolver: mockDiffResolver
   });
   assert.equal(res.pass, false);
   assert.match(res.error, /missing mandatory semantic review evidence.*Universal Invariants & Falsification/i);
+});
+
+runTest('N18: BASE === TARGET (同一コミット指定時は Fail-Closed で即拒否)', () => {
+  const lines = [
+    makeAuditorEventA(1, B1, B1),
+    makeAuditorEventB(2, AUDITOR_CONV),
+    makeAuditorEventC({ step: 3, sender: AUDITOR_CONV, base: B1, target: B1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: B1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(res.pass, false);
+  assert.match(res.error, /BASE.*and TARGET.*resolve to the same commit/i);
+});
+
+runTest('N19: changedFiles === 0 (変更ファイル0件のコミットレンジは Fail-Closed で即拒否)', () => {
+  const lines = [
+    makeAuditorEventA(1, B1, T1),
+    makeAuditorEventB(2, AUDITOR_CONV),
+    makeAuditorEventC({ step: 3, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver,
+    diffResolver: () => []
+  });
+  assert.equal(res.pass, false);
+  assert.match(res.error, /Zero changed tracked files in range.*changedFiles === 0/i);
+});
+
+runTest('N20: custom gitResolver without diffResolver (架空fallback禁止・diffResolver未指定時は Fail-Closed)', () => {
+  const lines = [
+    makeAuditorEventA(1, B1, T1),
+    makeAuditorEventB(2, AUDITOR_CONV),
+    makeAuditorEventC({ step: 3, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver
+  });
+  assert.equal(res.pass, false);
+  assert.match(res.error, /Custom gitResolver provided without explicit diffResolver/i);
+});
+
+runTest('P6: valid BASE..TARGET (BASE !== TARGET かつ changedFiles > 0 で PASS)', () => {
+  const lines = [
+    makeAuditorEventA(1, B1, T1),
+    makeAuditorEventB(2, AUDITOR_CONV),
+    makeAuditorEventC({ step: 3, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver,
+    diffResolver: () => ['data/config.js']
+  });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.verdict, 'PASS');
 });
 
 runTest('S1: Independent Auditor Effectiveness Regression Suite executes with 100% PASS', () => {

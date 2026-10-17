@@ -6,16 +6,18 @@
 - **Supreme Authority**: [AGENTS.md](../../AGENTS.md)
 - **Release Baseline**: [UNIVERSAL_RELEASE_BASELINE.md](../architecture/UNIVERSAL_RELEASE_BASELINE.md)
 - **Security Baseline**: [SECURITY_BASELINE.md](../security/SECURITY_BASELINE.md)
+- **Companion Activation Skill**: [district-app-deployment](../../.agents/skills/district-app-deployment/SKILL.md)
 
 ---
 
 ## 1. 目的と最上位原則
 
 本書は、日本全国の新しい自治体・地域（以下「新地区」）を Universal POSTING MAP に投入し、安全・確実・反復可能に本番稼働（ACTIVE）させるための **唯一の標準運用手順書（SSOT）** である。
+完成コピーから出発した新地区の具体的な本番アクティベーション実行契約（Human Input 最小化 2 項目 `SYSTEM_INFO!B4` / `B16` の READ ONLY 参照、`data/**` 新地区化と Spreadsheet `配布実績<Key>` 新地区同期を不可分一体で行う District Initialization、Script Properties 3 区分、`<NEW_DEPLOYMENT>` / `<LEGACY_DEPLOYMENT>` の切替・Stage 7 独立監査順序・Legacy Deployment Retirement）は、本書の Companion Skill である [`.agents/skills/district-app-deployment/SKILL.md`](../../.agents/skills/district-app-deployment/SKILL.md) に定式化されており、AI 社員は本書と当該 Skill を一体として遵守する（二重定義による SSOT Drift を防ぐため、13 章の詳細実行手順は当該 Skill を正本とする）。
 
 ### 最重要不変原則
 1. **Zero Code Duplication / Zero Runtime Modification**:
-   - 新地区追加は **「データ投入（Provisioning）」** であり、開発ではない。
+   - 新地区追加は **「データ投入・初期設定（Provisioning & District Initialization）」** であり、開発ではない。
    - `active/` 配下のソースコード、HTML、共通GASスクリプトを1行たりとも変更してはならない。
    - プロビジョニング中に `active/` 変更が必要と判明した場合は、直ちに **HARD STOP（プロビジョニング失敗）** とする。
 2. **1地区自己完結型バックエンド（当該Spreadsheetに付属する1地区専用GAS）**:

@@ -84,6 +84,11 @@ Google Drive / Google Sheets / Google Apps Script等のGoogleサービスを操�
   - 未承認 Deploy
   - 他地区リポジトリの参照・探索・読み取り・比較（永久原則）
 
+### 不要なアーキテクチャ・Runtime拡張提案の絶対禁止 (No Unsolicited Architecture / Runtime Expansion — ABSOLUTE)
+- 既存の `data/**`、`SYSTEM_INFO`（`A1:B16`）、Script Properties、または確立済み標準スキル（[`.agents/skills/district-app-deployment/SKILL.md`](../skills/district-app-deployment/SKILL.md) 等）の範囲内で解決可能な事項に対して、`active/**`（Universal Engine）、H-App、Manager Dashboard のコード・API・UI 改修を提案または実装してはならない。
+- `.env` ファイルの新設、新しい設定読込機構の追加、`SYSTEM_INFO` 自動同期スクリプトの追加など、MASTER が明示的に要求していない新しい仕組み・アーキテクチャを勝手に提案してはならない。
+- 新地区展開（District Initialization）において、コピー元 Spreadsheet に残存していた旧地区マスター行やコピー元由来の既存実績（`D〜Q` 列）は初期コピー状態であり、これを「本番実績（Migration 要）」や「Master Mismatch 異常」と誤認して不要なデータ移行設計や HARD STOP を提案してはならない。
+
 ### 並列実装における排他原則 (File Exclusion Principle — ABSOLUTE)
 - 同一ファイルを同時に複数の Worker に担当させることを絶対禁止とする。
 - 共通設定ファイル（`package.json`, `.agents/current-scope.json` 等）は子Workerに触らせず、親Executionが直列に管理する。
