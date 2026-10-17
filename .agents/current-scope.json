@@ -1,6 +1,17 @@
 {
-  "mission": "MIE-03 Spreadsheet-bound GAS Production Activation & Legacy GAS Retirement",
+  "mission": "MIE-03 Proven Procedure Skillization & Next District One-Pass Provisioning Hardening",
   "files": [
-    "data/config.js"
+    ".agents/skills/district-app-deployment/SKILL.md",
+    ".agents/os-registry.json",
+    ".agents/agents/deployer/agent.md",
+    ".agents/agents/execution/agent.md",
+    ".agents/rules/agent-authority.md",
+    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
+    "scripts/check-knowledge-gate.mjs",
+    "scripts/check-auditor-gate.mjs",
+    "tests/test_auditor_gate.mjs",
+    "tests/test_auditor_effectiveness_regression.mjs",
+    "tests/test_district_app_deployment_skill.mjs",
+    "tests/run_all_tests.mjs"
   ]
 }
