@@ -1,7 +1,6 @@
 {
-  "mission": "H-App Normal Screens Header & Bottom Nav Auto-Hide",
+  "mission": "H-App Bottom Nav Liquid Glass Background",
   "files": [
-    "active/h-app/style.css",
-    "active/h-app/modules/navigation.js"
+    "active/h-app/style.css"
   ]
 }
