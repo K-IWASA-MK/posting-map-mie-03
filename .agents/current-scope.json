@@ -1,6 +1,7 @@
 {
-  "mission": "H-App Floating Bottom Navigation Dock (Step 1)",
+  "mission": "H-App Normal Screens Header & Bottom Nav Auto-Hide",
   "files": [
-    "active/h-app/style.css"
+    "active/h-app/style.css",
+    "active/h-app/modules/navigation.js"
   ]
 }
