@@ -1,9 +1,8 @@
 {
-  "mission": "H-App MAP専用 市名→町名 2段階エリア選択UI",
+  "mission": "H-App ID Screen Guide Cards (3rd Card~) Addition",
   "files": [
-    "active/h-app/index.html",
+    "active/h-app/components/staff.js",
     "active/h-app/style.css",
-    "active/h-app/modules/navigation.js",
-    "active/h-app/render.js"
+    "active/h-app/index.html"
   ]
 }
