@@ -77,6 +77,113 @@ window.renderStaffCard = function(userInfo, options = {}) {
           <br>
         </p>
       </div>
+
+      <!-- 第3カード: 説明書（枚数登録） -->
+      <div class="w-full max-w-sm gyro-card id-guide-card flex flex-col items-center justify-center py-8 px-6 relative overflow-hidden text-center select-none" style="margin-top: 18px; --glow-x: 0px; --glow-y: 0px; --glow-opacity: 0.08; --edge-opacity: 0.08; --edge-angle: 180deg;">
+        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 pointer-events-none rounded-[28px]"></div>
+        <div class="id-ambient-sheen pointer-events-none"></div>
+        <div class="id-guide-badge z-10">
+          <span class="id-guide-badge-icon">📦</span>
+          <span class="id-guide-badge-label">枚数登録</span>
+        </div>
+        <div class="id-guide-anim-stage z-10" aria-hidden="true">
+          <div class="guide-stock-scene">
+            <div class="guide-stock-box">📦</div>
+            <div class="guide-stock-arrow">➔</div>
+            <div class="guide-stock-pill">
+              <span class="guide-stock-pill-num">6,000</span>
+              <span class="guide-stock-pill-unit">枚</span>
+            </div>
+          </div>
+        </div>
+        <p class="id-guide-card-copy z-10">
+          今あるチラシの枚数を登録<br>
+          変わったらすぐ更新しよう！
+        </p>
+      </div>
+
+      <!-- 第4カード: 説明書（在庫確認） -->
+      <div class="w-full max-w-sm gyro-card id-guide-card flex flex-col items-center justify-center py-8 px-6 relative overflow-hidden text-center select-none" style="margin-top: 18px; --glow-x: 0px; --glow-y: 0px; --glow-opacity: 0.08; --edge-opacity: 0.08; --edge-angle: 180deg;">
+        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 pointer-events-none rounded-[28px]"></div>
+        <div class="id-ambient-sheen pointer-events-none"></div>
+        <div class="id-guide-badge z-10">
+          <span class="id-guide-badge-icon">📊</span>
+          <span class="id-guide-badge-label">在庫確認</span>
+        </div>
+        <div class="id-guide-anim-stage z-10" aria-hidden="true">
+          <div class="guide-transfer-scene">
+            <div class="guide-transfer-node guide-node-1">📊</div>
+            <div class="guide-transfer-track">
+              <span class="guide-transfer-dot"></span>
+            </div>
+            <div class="guide-transfer-node guide-node-2">🤝</div>
+            <div class="guide-transfer-track">
+              <span class="guide-transfer-dot guide-dot-delay"></span>
+            </div>
+            <div class="guide-transfer-node guide-node-3">📱</div>
+          </div>
+        </div>
+        <p class="id-guide-card-copy z-10">
+          近くの保管者を探して<br>
+          LINEで受渡要請を送ろう！
+        </p>
+      </div>
+
+      <!-- 第5カード: 説明書（地図） -->
+      <div class="w-full max-w-sm gyro-card id-guide-card flex flex-col items-center justify-center py-8 px-6 relative overflow-hidden text-center select-none" style="margin-top: 18px; --glow-x: 0px; --glow-y: 0px; --glow-opacity: 0.08; --edge-opacity: 0.08; --edge-angle: 180deg;">
+        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 pointer-events-none rounded-[28px]"></div>
+        <div class="id-ambient-sheen pointer-events-none"></div>
+        <div class="id-guide-badge z-10">
+          <span class="id-guide-badge-icon">🗺️</span>
+          <span class="id-guide-badge-label">地図</span>
+        </div>
+        <div class="id-guide-anim-stage z-10" aria-hidden="true">
+          <div class="guide-map-scene">
+            <div class="guide-pin-step guide-pin-green">
+              <span class="guide-pin-dot"></span>
+              <span class="guide-pin-text">未配布</span>
+            </div>
+            <span class="guide-pin-arrow">➔</span>
+            <div class="guide-pin-step guide-pin-blue">
+              <span class="guide-pin-dot"></span>
+              <span class="guide-pin-text">配布中</span>
+            </div>
+            <span class="guide-pin-arrow">➔</span>
+            <div class="guide-pin-step guide-pin-orange">
+              <span class="guide-pin-dot"></span>
+              <span class="guide-pin-text">完了</span>
+            </div>
+          </div>
+        </div>
+        <p class="id-guide-card-copy z-10">
+          緑のピンから配布スタート！<br>
+          提出するとオレンジに変化
+        </p>
+      </div>
+
+      <!-- 第6カード: 説明書（掲示板） -->
+      <div class="w-full max-w-sm gyro-card id-guide-card flex flex-col items-center justify-center py-8 px-6 relative overflow-hidden text-center select-none" style="margin-top: 18px; --glow-x: 0px; --glow-y: 0px; --glow-opacity: 0.08; --edge-opacity: 0.08; --edge-angle: 180deg;">
+        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-white/0 pointer-events-none rounded-[28px]"></div>
+        <div class="id-ambient-sheen pointer-events-none"></div>
+        <div class="id-guide-badge z-10">
+          <span class="id-guide-badge-icon">💬</span>
+          <span class="id-guide-badge-label">掲示板</span>
+        </div>
+        <div class="id-guide-anim-stage z-10" aria-hidden="true">
+          <div class="guide-bulletin-scene">
+            <div class="guide-bulletin-bubble">
+              <span class="guide-bulletin-icon">💬</span>
+              <div class="guide-bulletin-dots">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="id-guide-card-copy z-10">
+          地域の状況をみんなで共有！<br>
+          投稿者へ個別に連絡もOK
+        </p>
+      </div>
     </div>
   `;
 };
