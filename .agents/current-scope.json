@@ -1,6 +1,9 @@
 {
-  "mission": "H-App Bottom Navigation Label Simplification",
+  "mission": "H-App MAP専用 市名→町名 2段階エリア選択UI",
   "files": [
-    "active/h-app/components/navigation.js"
+    "active/h-app/index.html",
+    "active/h-app/style.css",
+    "active/h-app/modules/navigation.js",
+    "active/h-app/render.js"
   ]
 }
