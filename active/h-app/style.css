@@ -128,20 +128,30 @@ body {
 #bottom-nav {
   flex: none;
   width: 100%;
-  background-color: #111315;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  padding-bottom: env(safe-area-inset-bottom);
+  max-width: 375px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  background-color: transparent;
+  border-top: none;
+  box-sizing: border-box;
   z-index: 4000;
 }
 
-/* Bottom Navigation Tier Inner (375px Baseline Container) */
+/* Bottom Navigation Tier Inner (375px Baseline / 343px Capsule) */
 #nav-tier-1,
 #nav-tier-2 {
   width: 100%;
-  max-width: 375px;
+  max-width: 343px;
   margin-inline: auto;
   padding-inline: 8px;
-  height: 64px;
+  height: 72px;
+  border-radius: 30px;
+  background: rgba(24, 26, 30, 0.84);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   box-sizing: border-box;
 }
 
