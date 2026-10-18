@@ -160,6 +160,41 @@ body {
   box-sizing: border-box;
 }
 
+/* Normal Screens Only: Header Overlay & Header/Bottom-Nav Auto-Hide */
+#app.nav-auto-enabled > header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4000;
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+#app.nav-auto-enabled .page:not(#page-areas) {
+  padding-top: calc(64px + var(--space-24));
+}
+
+#app.nav-auto-enabled #bottom-nav {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+#app.nav-auto-enabled.nav-auto-hidden > header {
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+#app.nav-auto-enabled.nav-auto-hidden #bottom-nav {
+  transform: translateY(calc(100% + 24px));
+  pointer-events: none;
+}
+
+#app.nav-auto-enabled.nav-auto-hidden #nav-tier-1,
+#app.nav-auto-enabled.nav-auto-hidden #nav-tier-2 {
+  pointer-events: none;
+}
+
 
 .page {
   display: block;

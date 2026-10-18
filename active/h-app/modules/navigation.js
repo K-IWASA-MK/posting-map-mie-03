@@ -10,6 +10,43 @@ var pageIdMap = {
 let _prevPageBeforeTier2 = 'areas';
 var lastAreaSubPage = 'areas';
 var scrollPositions = { areas: 0, settings: 0, ranking: 0 };
+let _autoHideScrollBound = false;
+let _previousScrollTop = 0;
+let _suppressAutoHideScroll = false;
+
+function bindNormalScreenAutoHide() {
+  if (_autoHideScrollBound || typeof document === 'undefined') return;
+  const contentEl = document.getElementById('content');
+  if (!contentEl) return;
+  _autoHideScrollBound = true;
+
+  contentEl.addEventListener('scroll', function() {
+    const appEl = document.getElementById('app');
+    if (!appEl || !appEl.classList.contains('nav-auto-enabled')) return;
+
+    const currentScrollTop = Math.max(0, contentEl.scrollTop || 0);
+
+    if (_suppressAutoHideScroll) {
+      _previousScrollTop = currentScrollTop;
+      return;
+    }
+
+    if (currentScrollTop <= 16) {
+      appEl.classList.remove('nav-auto-hidden');
+      _previousScrollTop = currentScrollTop;
+      return;
+    }
+
+    const delta = currentScrollTop - _previousScrollTop;
+    if (delta >= 8 && currentScrollTop > 24) {
+      appEl.classList.add('nav-auto-hidden');
+      _previousScrollTop = currentScrollTop;
+    } else if (delta <= -6) {
+      appEl.classList.remove('nav-auto-hidden');
+      _previousScrollTop = currentScrollTop;
+    }
+  }, { passive: true });
+}
 
 async function switchPage(id, force = false) {
   const pages = document.querySelectorAll('.page');
@@ -59,8 +96,20 @@ async function switchPage(id, force = false) {
 
   updateBottomNavVisibility();
 
+  const appEl = document.getElementById('app');
+  if (appEl) {
+    appEl.dataset.autoHideInitialized = 'true';
+    appEl.classList.remove('nav-auto-hidden');
+    if (id === 'areas') {
+      appEl.classList.remove('nav-auto-enabled');
+    } else {
+      appEl.classList.add('nav-auto-enabled');
+    }
+  }
+
   const contentEl = document.getElementById('content');
   if (contentEl) {
+    _suppressAutoHideScroll = true;
     contentEl.scrollTop = 0;
     contentEl.style.overflowY = 'auto';
   }
@@ -85,7 +134,22 @@ async function switchPage(id, force = false) {
   }
 
   const scrollContent = document.getElementById('content');
-  if (scrollContent) scrollContent.scrollTo(0, scrollPositions[id] || 0);
+  if (scrollContent) {
+    _suppressAutoHideScroll = true;
+    scrollContent.scrollTo(0, scrollPositions[id] || 0);
+    _previousScrollTop = Math.max(0, scrollContent.scrollTop || 0);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        _previousScrollTop = Math.max(0, scrollContent.scrollTop || 0);
+        _suppressAutoHideScroll = false;
+      });
+    } else {
+      _suppressAutoHideScroll = false;
+    }
+  } else {
+    _previousScrollTop = 0;
+    _suppressAutoHideScroll = false;
+  }
 }
 
 function toggleNavTier(tier) {
@@ -112,6 +176,14 @@ function updateBottomNavVisibility() {
   const nav = document.getElementById('bottom-nav');
   const hasUser = typeof localStorage !== 'undefined' && !!localStorage.getItem('user_info');
   if (nav) nav.style.display = hasUser ? '' : 'none';
+  bindNormalScreenAutoHide();
+  const appEl = typeof document !== 'undefined' ? document.getElementById('app') : null;
+  if (appEl && !appEl.dataset.autoHideInitialized) {
+    appEl.dataset.autoHideInitialized = 'true';
+    appEl.classList.add('nav-auto-enabled');
+    appEl.classList.remove('nav-auto-hidden');
+    _previousScrollTop = 0;
+  }
 }
 
 window.pageIdMap = pageIdMap;
