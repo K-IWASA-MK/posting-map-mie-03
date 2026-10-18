@@ -1795,6 +1795,12 @@ window.initMainMap = function() {
         disableDoubleClickZoom: true
       });
     }
+    const capsuleEl = document.getElementById('map-area-selector-capsule');
+    const citySelectEl = document.getElementById('map-city-select');
+    const townSelectEl = document.getElementById('map-town-select');
+    if (capsuleEl) capsuleEl.classList.add('is-locked');
+    if (citySelectEl) citySelectEl.disabled = true;
+    if (townSelectEl) townSelectEl.disabled = true;
   }
 
   function unlockMapControls() {
@@ -1806,6 +1812,19 @@ window.initMainMap = function() {
         disableDoubleClickZoom: savedMapOptions.disableDoubleClickZoom
       });
       savedMapOptions = null;
+    }
+    const capsuleEl = document.getElementById('map-area-selector-capsule');
+    const citySelectEl = document.getElementById('map-city-select');
+    const townSelectEl = document.getElementById('map-town-select');
+    const townTextEl = document.getElementById('map-town-select-text');
+    if (capsuleEl) capsuleEl.classList.remove('is-locked');
+    if (citySelectEl) citySelectEl.disabled = false;
+    if (townSelectEl) {
+      townSelectEl.value = '';
+      townSelectEl.disabled = !(citySelectEl && citySelectEl.value);
+    }
+    if (townTextEl) {
+      townTextEl.textContent = '🏘 町名を選択';
     }
   }
 
@@ -1920,8 +1939,154 @@ window.initMainMap = function() {
     return 1.05;
   };
 
+  let _mapSelectorTownsByCity = {};
+
+  function populateMapTownSelect(selectedCity) {
+    const townSelectEl = document.getElementById('map-town-select');
+    const townTextEl = document.getElementById('map-town-select-text');
+    const capsuleEl = document.getElementById('map-area-selector-capsule');
+    if (!townSelectEl) return;
+
+    townSelectEl.innerHTML = '';
+    const placeholderOpt = document.createElement('option');
+    placeholderOpt.value = '';
+    placeholderOpt.textContent = '町名を選択';
+    townSelectEl.appendChild(placeholderOpt);
+
+    const towns = selectedCity && Array.isArray(_mapSelectorTownsByCity[selectedCity])
+      ? _mapSelectorTownsByCity[selectedCity]
+      : [];
+
+    towns.forEach(item => {
+      const opt = document.createElement('option');
+      opt.value = item.rowId;
+      opt.textContent = item.label;
+      townSelectEl.appendChild(opt);
+    });
+
+    townSelectEl.value = '';
+    if (townTextEl) {
+      townTextEl.textContent = '🏘 町名を選択';
+    }
+    const isCapsuleLocked = !!(capsuleEl && capsuleEl.classList.contains('is-locked'));
+    townSelectEl.disabled = isCapsuleLocked || towns.length === 0;
+  }
+
+  function initMapAreaSelector(pins) {
+    if (!Array.isArray(pins) || pins.length === 0) return;
+    const citySelectEl = document.getElementById('map-city-select');
+    const townSelectEl = document.getElementById('map-town-select');
+    const cityTextEl = document.getElementById('map-city-select-text');
+    const capsuleEl = document.getElementById('map-area-selector-capsule');
+    if (!citySelectEl || !townSelectEl) return;
+
+    const cityList = [];
+    const rawByCity = {};
+
+    pins.forEach(row => {
+      if (typeof row.latitude !== 'number' || typeof row.longitude !== 'number') return;
+      const cityName = String(row.city_name || '').trim();
+      const townName = String(row.town_name || '').trim();
+      if (!cityName || !townName) return;
+      if (!rawByCity[cityName]) {
+        rawByCity[cityName] = [];
+        cityList.push(cityName);
+      }
+      rawByCity[cityName].push({
+        rowId: String(row.rowId),
+        townName: townName
+      });
+    });
+
+    const nextTownsByCity = {};
+    cityList.forEach(cityName => {
+      const rows = rawByCity[cityName] || [];
+      const counts = {};
+      rows.forEach(r => {
+        counts[r.townName] = (counts[r.townName] || 0) + 1;
+      });
+      const seq = {};
+      nextTownsByCity[cityName] = rows.map(r => {
+        if (counts[r.townName] > 1) {
+          seq[r.townName] = (seq[r.townName] || 0) + 1;
+          return {
+            rowId: r.rowId,
+            label: `${r.townName} (${seq[r.townName]})`
+          };
+        }
+        return {
+          rowId: r.rowId,
+          label: r.townName
+        };
+      });
+    });
+    _mapSelectorTownsByCity = nextTownsByCity;
+
+    const prevCity = citySelectEl.value;
+    citySelectEl.innerHTML = '';
+    const cityPlaceholder = document.createElement('option');
+    cityPlaceholder.value = '';
+    cityPlaceholder.textContent = '市名を選択';
+    citySelectEl.appendChild(cityPlaceholder);
+
+    cityList.forEach(cityName => {
+      const opt = document.createElement('option');
+      opt.value = cityName;
+      opt.textContent = cityName;
+      citySelectEl.appendChild(opt);
+    });
+
+    const restoredCity = prevCity && cityList.includes(prevCity) ? prevCity : '';
+    citySelectEl.value = restoredCity;
+    if (cityTextEl) {
+      cityTextEl.textContent = restoredCity ? `📍 ${restoredCity}` : '📍 市名を選択';
+    }
+    const isCapsuleLocked = !!(capsuleEl && capsuleEl.classList.contains('is-locked'));
+    citySelectEl.disabled = isCapsuleLocked;
+
+    populateMapTownSelect(restoredCity);
+
+    if (!citySelectEl.dataset.listenerBound) {
+      citySelectEl.dataset.listenerBound = 'true';
+      citySelectEl.addEventListener('change', function() {
+        const selectedCity = this.value || '';
+        const labelEl = document.getElementById('map-city-select-text');
+        if (labelEl) {
+          labelEl.textContent = selectedCity ? `📍 ${selectedCity}` : '📍 市名を選択';
+        }
+        populateMapTownSelect(selectedCity);
+      });
+    }
+
+    if (!townSelectEl.dataset.listenerBound) {
+      townSelectEl.dataset.listenerBound = 'true';
+      townSelectEl.addEventListener('change', function() {
+        const selectedRowId = this.value || '';
+        const labelEl = document.getElementById('map-town-select-text');
+        if (!selectedRowId) {
+          if (labelEl) labelEl.textContent = '🏘 町名を選択';
+          return;
+        }
+        const selectedOpt = this.options && this.selectedIndex >= 0 ? this.options[this.selectedIndex] : null;
+        if (labelEl) {
+          labelEl.textContent = selectedOpt && selectedOpt.textContent
+            ? `🏘 ${selectedOpt.textContent}`
+            : '🏘 町名を選択';
+        }
+        const markers = typeof masterMarkers !== 'undefined' && Array.isArray(masterMarkers) ? masterMarkers : [];
+        const targetMarker = markers.find(m => m && String(m.rowId) === String(selectedRowId));
+        if (targetMarker && typeof google !== 'undefined' && google.maps && google.maps.event) {
+          google.maps.event.trigger(targetMarker, 'click');
+        }
+      });
+    }
+  }
+
   // 初回のみ Marker 生成を実行（2回目以降は既存Markerを保持・再利用、二重生成防止）
   const renderMasterMarkers = async () => {
+    if (typeof masterPins !== 'undefined' && Array.isArray(masterPins) && masterPins.length > 0) {
+      initMapAreaSelector(masterPins);
+    }
     if (window.masterMarkers.length > 0) return;
 
     let pins = [];
@@ -1934,6 +2099,7 @@ window.initMainMap = function() {
     }
 
     if (!Array.isArray(pins) || pins.length === 0) return;
+    initMapAreaSelector(pins);
     if (window.masterMarkers.length > 0) return;
 
     window.masterPins = pins;
@@ -2178,6 +2344,8 @@ window.initMainMap = function() {
         window.masterMarkers.push(marker);
       }
     });
+
+    initMapAreaSelector(pins);
 
     if (typeof window.refreshMainMapPins === 'function') {
       window.refreshMainMapPins();

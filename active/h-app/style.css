@@ -201,6 +201,119 @@ body {
   pointer-events: none;
 }
 
+/* MAP Page Dedicated Header Suppression & 2-Stage Area Selector Capsule */
+#map-area-selector-dock {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 375px;
+  margin-inline: auto;
+  padding-inline: 16px;
+  padding-top: calc(12px + env(safe-area-inset-top));
+  pointer-events: none;
+  box-sizing: border-box;
+  z-index: 4000;
+}
+
+#app.is-map-page > header {
+  display: none !important;
+}
+
+#app.is-map-page #map-area-selector-dock {
+  display: block;
+}
+
+#map-area-selector-capsule {
+  width: 100%;
+  max-width: 343px;
+  margin-inline: auto;
+  height: 48px;
+  border-radius: 24px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(24, 26, 30, 0.16) 100%
+  );
+  backdrop-filter: blur(0px) saturate(180%);
+  -webkit-backdrop-filter: blur(0px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: stretch;
+  pointer-events: auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+#map-area-selector-capsule.is-locked {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.map-selector-segment {
+  position: relative;
+  flex: 1 1 50%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding-inline: 12px;
+  box-sizing: border-box;
+}
+
+.map-selector-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.16);
+  margin-block: 10px;
+  flex-shrink: 0;
+}
+
+.map-selector-label {
+  font-size: 12px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  user-select: none;
+}
+
+.map-selector-chevron {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+#map-city-select,
+#map-town-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 16px;
+  border: none;
+  background: transparent;
+}
+
+#map-city-select:disabled,
+#map-town-select:disabled {
+  cursor: default;
+}
+
 
 .page {
   display: block;

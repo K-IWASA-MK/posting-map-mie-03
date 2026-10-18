@@ -131,6 +131,31 @@
       </div>
     </header>
 
+    <!-- MAP専用 市名→町名 2段階選択 Clear Glass カプセル -->
+    <div id="map-area-selector-dock" aria-label="エリア選択">
+      <div id="map-area-selector-capsule">
+        <div class="map-selector-segment">
+          <span id="map-city-select-text" class="map-selector-label">📍 市名を選択</span>
+          <svg class="map-selector-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7"/>
+          </svg>
+          <select id="map-city-select" aria-label="市名を選択">
+            <option value="">市名を選択</option>
+          </select>
+        </div>
+        <div class="map-selector-divider" aria-hidden="true"></div>
+        <div class="map-selector-segment">
+          <span id="map-town-select-text" class="map-selector-label">🏘 町名を選択</span>
+          <svg class="map-selector-chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M19 9l-7 7-7-7"/>
+          </svg>
+          <select id="map-town-select" aria-label="町名を選択" disabled>
+            <option value="">町名を選択</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
     <main id="content" class="flex-1 overflow-y-auto hide-scrollbar overscroll-y-contain">
       <!-- AREAS PAGE -->
       <section id="page-areas" class="page space-y-8">

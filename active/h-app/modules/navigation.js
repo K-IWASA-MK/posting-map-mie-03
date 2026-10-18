@@ -23,10 +23,12 @@ function syncInitialAutoHidePage() {
   if (!activePage) return;
 
   if (activePage.id === 'page-areas') {
+    appEl.classList.add('is-map-page');
     appEl.classList.remove('nav-auto-enabled');
     appEl.classList.remove('nav-auto-hidden');
   } else {
     _autoHidePageSynced = true;
+    appEl.classList.remove('is-map-page');
     appEl.classList.add('nav-auto-enabled');
     appEl.classList.remove('nav-auto-hidden');
     const contentEl = document.getElementById('content');
@@ -121,8 +123,10 @@ async function switchPage(id, force = false) {
     _autoHidePageSynced = true;
     appEl.classList.remove('nav-auto-hidden');
     if (id === 'areas') {
+      appEl.classList.add('is-map-page');
       appEl.classList.remove('nav-auto-enabled');
     } else {
+      appEl.classList.remove('is-map-page');
       appEl.classList.add('nav-auto-enabled');
     }
   }
