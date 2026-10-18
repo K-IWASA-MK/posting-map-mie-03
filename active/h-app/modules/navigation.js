@@ -98,7 +98,6 @@ async function switchPage(id, force = false) {
 
   const appEl = document.getElementById('app');
   if (appEl) {
-    appEl.dataset.autoHideInitialized = 'true';
     appEl.classList.remove('nav-auto-hidden');
     if (id === 'areas') {
       appEl.classList.remove('nav-auto-enabled');
@@ -177,13 +176,6 @@ function updateBottomNavVisibility() {
   const hasUser = typeof localStorage !== 'undefined' && !!localStorage.getItem('user_info');
   if (nav) nav.style.display = hasUser ? '' : 'none';
   bindNormalScreenAutoHide();
-  const appEl = typeof document !== 'undefined' ? document.getElementById('app') : null;
-  if (appEl && !appEl.dataset.autoHideInitialized) {
-    appEl.dataset.autoHideInitialized = 'true';
-    appEl.classList.add('nav-auto-enabled');
-    appEl.classList.remove('nav-auto-hidden');
-    _previousScrollTop = 0;
-  }
 }
 
 window.pageIdMap = pageIdMap;
