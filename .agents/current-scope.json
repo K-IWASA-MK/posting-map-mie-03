@@ -1,6 +1,6 @@
 {
-  "mission": "H-App Bottom Nav Liquid Glass Background",
+  "mission": "H-App Bottom Navigation Label Simplification",
   "files": [
-    "active/h-app/style.css"
+    "active/h-app/components/navigation.js"
   ]
 }
