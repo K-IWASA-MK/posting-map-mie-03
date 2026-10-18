@@ -1,6 +1,6 @@
 {
-  "mission": "Manager Dashboard LINE OGP / Meta Description Fix",
+  "mission": "H-App Floating Bottom Navigation Dock (Step 1)",
   "files": [
-    "active/manager/index.html"
+    "active/h-app/style.css"
   ]
 }
