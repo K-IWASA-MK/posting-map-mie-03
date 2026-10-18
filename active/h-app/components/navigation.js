@@ -11,19 +11,19 @@ window.renderBottomNavigation = function(activePage) {
     <div id="nav-tier-1" class="flex justify-around items-center ${isTier2 ? 'hidden' : ''}">
       <button data-page="storage-register" onclick="switchPage('storage-register')" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all ${getOpacity('storage-register')}">
         <div class="text-xl">📦</div>
-        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('storage-register')}">在庫登録</span>
+        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('storage-register')}">枚数登録</span>
       </button>
       <button data-page="storage-list" onclick="switchPage('storage-list')" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all ${getOpacity('storage-list')}">
         <div class="text-xl">📊</div>
-        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('storage-list')}">在庫一覧</span>
+        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('storage-list')}">在庫確認</span>
       </button>
       <button data-page="settings" onclick="switchPage('settings')" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all ${getOpacity('settings')}">
         <div class="text-xl">👤</div>
-        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('settings')}">ID</span>
+        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('settings')}">トップ</span>
       </button>
       <button data-page="next" onclick="toggleNavTier(2)" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all opacity-40">
         <div class="text-xl">⚙️</div>
-        <span class="text-[10px] font-black uppercase tracking-widest text-white/40">次へ</span>
+        <span class="text-[10px] font-black uppercase tracking-widest text-white/40">メニュー</span>
       </button>
     </div>
 
@@ -31,7 +31,7 @@ window.renderBottomNavigation = function(activePage) {
     <div id="nav-tier-2" class="flex justify-around items-center ${isTier2 ? '' : 'hidden'}">
       <button data-page="areas" onclick="navigateToAreaTab()" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all ${getOpacity('areas')}">
         <div class="text-xl">🗺️</div>
-        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('areas')}">エリア</span>
+        <span class="text-[10px] font-black uppercase tracking-widest ${getTextClass('areas')}">地図</span>
       </button>
       <button data-page="ranking" onclick="switchPage('ranking')" class="nav-btn flex flex-col items-center gap-1 flex-1 transition-all ${getOpacity('ranking')}">
         <div class="text-xl">🏆</div>
