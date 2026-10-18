@@ -212,7 +212,7 @@ body {
   max-width: 375px;
   margin-inline: auto;
   padding-inline: 16px;
-  padding-top: calc(12px + env(safe-area-inset-top));
+  padding-top: calc(24px + env(safe-area-inset-top));
   pointer-events: none;
   box-sizing: border-box;
   z-index: 4000;
