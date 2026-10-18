@@ -11,8 +11,28 @@ let _prevPageBeforeTier2 = 'areas';
 var lastAreaSubPage = 'areas';
 var scrollPositions = { areas: 0, settings: 0, ranking: 0 };
 let _autoHideScrollBound = false;
+let _autoHidePageSynced = false;
 let _previousScrollTop = 0;
 let _suppressAutoHideScroll = false;
+
+function syncInitialAutoHidePage() {
+  if (_autoHidePageSynced || typeof document === 'undefined') return;
+  const appEl = document.getElementById('app');
+  if (!appEl) return;
+  const activePage = document.querySelector('.page:not(.hidden)');
+  if (!activePage) return;
+
+  if (activePage.id === 'page-areas') {
+    appEl.classList.remove('nav-auto-enabled');
+    appEl.classList.remove('nav-auto-hidden');
+  } else {
+    _autoHidePageSynced = true;
+    appEl.classList.add('nav-auto-enabled');
+    appEl.classList.remove('nav-auto-hidden');
+    const contentEl = document.getElementById('content');
+    _previousScrollTop = Math.max(0, contentEl ? (contentEl.scrollTop || 0) : 0);
+  }
+}
 
 function bindNormalScreenAutoHide() {
   if (_autoHideScrollBound || typeof document === 'undefined') return;
@@ -98,6 +118,7 @@ async function switchPage(id, force = false) {
 
   const appEl = document.getElementById('app');
   if (appEl) {
+    _autoHidePageSynced = true;
     appEl.classList.remove('nav-auto-hidden');
     if (id === 'areas') {
       appEl.classList.remove('nav-auto-enabled');
@@ -176,6 +197,10 @@ function updateBottomNavVisibility() {
   const hasUser = typeof localStorage !== 'undefined' && !!localStorage.getItem('user_info');
   if (nav) nav.style.display = hasUser ? '' : 'none';
   bindNormalScreenAutoHide();
+  if (!_autoHidePageSynced) {
+    syncInitialAutoHidePage();
+    Promise.resolve().then(syncInitialAutoHidePage);
+  }
 }
 
 window.pageIdMap = pageIdMap;
