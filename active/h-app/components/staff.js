@@ -91,7 +91,7 @@ window.renderStaffCard = function(userInfo, options = {}) {
             <div class="guide-stock-box">📦</div>
             <div class="guide-stock-arrow">➔</div>
             <div class="guide-stock-pill">
-              <span class="guide-stock-pill-num">6,000</span>
+              <span class="guide-stock-pill-num">-,---</span>
               <span class="guide-stock-pill-unit">枚</span>
             </div>
           </div>
@@ -151,7 +151,7 @@ window.renderStaffCard = function(userInfo, options = {}) {
             <span class="guide-pin-arrow">➔</span>
             <div class="guide-pin-step guide-pin-orange">
               <span class="guide-pin-dot"></span>
-              <span class="guide-pin-text">完了</span>
+              <span class="guide-pin-text">配布済</span>
             </div>
           </div>
         </div>
