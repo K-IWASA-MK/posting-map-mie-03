@@ -332,9 +332,9 @@ test('10. ピン統計情報: ピンタップ時の世帯数・人口・市前�
 
   const testElectionData = {
     elections: [
-      { electionId: 'OLD', electionDate: '2018-12-02', turnout: 48.3, municipalities: { '桑名市': 48.3 } },
-      { electionId: 'LATEST', electionDate: '2022-11-20', turnout: 45.08, municipalities: { '桑名市': 45.08 } },
-      { electionId: 'OLDEST', electionDate: '2014-11-16', turnout: 49.0, municipalities: { '桑名市': 49.0 } }
+      { electionId: 'OLD', electionDate: '2018-12-02', turnout: 48.3, municipalities: { 'テスト市': 48.3 } },
+      { electionId: 'LATEST', electionDate: '2022-11-20', turnout: 45.08, municipalities: { 'テスト市': 45.08 } },
+      { electionId: 'OLDEST', electionDate: '2014-11-16', turnout: 49.0, municipalities: { 'テスト市': 49.0 } }
     ]
   };
 
@@ -357,6 +357,255 @@ test('10. ピン統計情報: ピンタップ時の世帯数・人口・市前�
     turnoutResolutionSnippet.includes('latestElection.municipalities[cityName]'),
     '指定自治体の投票率のみを厳格に取得すること'
   );
+});
+
+// ----------------------------------------------------------------------------
+// 11. Navigation 200ms Async Race Guard (HAPP-WEEKLY-006)
+// ----------------------------------------------------------------------------
+test('11. Navigation Race Guard: 200ms非同期遷移中の連続タップで最新遷移のみがcommitされ単一ページ不変条件が維持されること (HAPP-WEEKLY-006)', async (t) => {
+  const navigationJsPath = path.join(rootDir, 'active/h-app/modules/navigation.js');
+  const navigationJs = fs.readFileSync(navigationJsPath, 'utf8');
+
+  function createNavigationHarness() {
+    const createClassList = (initial = []) => {
+      const set = new Set(initial);
+      return {
+        add: (...cls) => cls.forEach(c => set.add(c)),
+        remove: (...cls) => cls.forEach(c => set.delete(c)),
+        contains: (c) => set.has(c),
+        toArray: () => Array.from(set)
+      };
+    };
+
+    const pageIds = [
+      'page-areas',
+      'page-settings',
+      'page-ranking',
+      'page-storage-register',
+      'page-storage-list',
+      'page-bulletin'
+    ];
+
+    const pages = pageIds.map(id => ({
+      id,
+      classList: createClassList(id === 'page-areas' ? [] : ['hidden']),
+      style: { opacity: id === 'page-areas' ? '1' : '0', transform: 'translateY(0)' },
+      offsetHeight: 100
+    }));
+
+    const appEl = {
+      id: 'app',
+      classList: createClassList(['is-map-page'])
+    };
+
+    const contentEl = {
+      id: 'content',
+      scrollTop: 0,
+      style: { overflowY: 'auto' },
+      classList: createClassList(['is-map-view']),
+      addEventListener: () => {},
+      scrollTo: (x, y) => {
+        contentEl.scrollTop = y;
+      }
+    };
+
+    const bottomNavEl = {
+      id: 'bottom-nav',
+      innerHTML: 'nav:areas',
+      style: { display: '' }
+    };
+
+    const elementsById = new Map([
+      ['app', appEl],
+      ['content', contentEl],
+      ['bottom-nav', bottomNavEl],
+      ...pages.map(p => [p.id, p])
+    ]);
+
+    const onPageEnterCalls = [];
+    const timerHistory = [];
+
+    const documentMock = {
+      getElementById: (id) => elementsById.get(id) || null,
+      querySelectorAll: (sel) => {
+        if (sel === '.page') return pages;
+        if (sel === '.page:not(.hidden)') return pages.filter(p => !p.classList.contains('hidden'));
+        return [];
+      },
+      querySelector: (sel) => {
+        if (sel === '.page:not(.hidden)') return pages.find(p => !p.classList.contains('hidden')) || null;
+        return null;
+      }
+    };
+
+    const sandbox = {
+      document: documentMock,
+      localStorage: {
+        getItem: (k) => (k === 'user_info' ? '{"id":"S001"}' : null)
+      },
+      currentCity: null,
+      setTimeout: (fn, ms) => {
+        timerHistory.push(ms);
+        return setTimeout(fn, ms);
+      },
+      clearTimeout,
+      requestAnimationFrame: (cb) => cb(),
+      Promise
+    };
+    sandbox.window = sandbox;
+    sandbox.window.onPageEnter = (pageId) => {
+      onPageEnterCalls.push(pageId);
+    };
+    sandbox.window.renderBottomNavigation = (pageId) => `nav:${pageId}`;
+    sandbox.renderBottomNavigation = sandbox.window.renderBottomNavigation;
+
+    vm.createContext(sandbox);
+    vm.runInContext(navigationJs, sandbox);
+
+    return {
+      sandbox,
+      switchPage: sandbox.window.switchPage,
+      pages,
+      appEl,
+      contentEl,
+      bottomNavEl,
+      onPageEnterCalls,
+      timerHistory,
+      getVisiblePages: () => documentMock.querySelectorAll('.page:not(.hidden)').map(p => p.id)
+    };
+  }
+
+  // Test Case A — Single Navigation & 200ms contract preserved
+  {
+    const h = createNavigationHarness();
+    assert.deepEqual(h.getVisiblePages(), ['page-areas']);
+    h.contentEl.scrollTop = 140;
+
+    const p = h.switchPage('settings');
+    // Immediately after call (during 200ms fade), outgoing page opacity is 0 and translateY(-12px)
+    const areasPage = h.pages.find(pg => pg.id === 'page-areas');
+    assert.equal(areasPage.style.opacity, '0', 'フェードアウト開始時に outgoing page の opacity が 0 になること');
+    assert.equal(areasPage.style.transform, 'translateY(-12px)', 'フェードアウト開始時に translateY(-12px) になること');
+
+    await p;
+
+    assert.ok(h.timerHistory.includes(200), '既存の 200ms トランジション待機が維持されていること');
+    assert.deepEqual(h.getVisiblePages(), ['page-settings'], 'Test Case A: visible pages = [page-settings]');
+    assert.equal(areasPage.classList.contains('hidden'), true, 'areas hidden = true');
+    const settingsPage = h.pages.find(pg => pg.id === 'page-settings');
+    assert.equal(settingsPage.classList.contains('hidden'), false, 'settings hidden = false');
+    assert.equal(settingsPage.style.opacity, '1', 'settings opacity = 1');
+    assert.equal(settingsPage.style.transform, 'translateY(0)', 'settings transform = translateY(0)');
+    assert.deepEqual(h.onPageEnterCalls, ['settings'], 'onPageEnter(settings) = exactly 1');
+    assert.equal(h.bottomNavEl.innerHTML, 'nav:settings', 'bottom-nav が settings に更新されること');
+    assert.equal(h.sandbox.scrollPositions.areas, 140, 'outgoing page の scroll 位置が保存されること');
+  }
+
+  // Test Case B — Two Rapid Calls (areas -> settings -> ranking within 200ms)
+  {
+    const h = createNavigationHarness();
+    h.sandbox.scrollPositions.settings = 320;
+    h.sandbox.scrollPositions.ranking = 85;
+
+    const p1 = h.switchPage('settings');
+    await new Promise(r => setTimeout(r, 40));
+    const p2 = h.switchPage('ranking');
+
+    await Promise.all([p1, p2]);
+
+    const visible = h.getVisiblePages();
+    assert.equal(visible.length, 1, 'Test Case B: visible page count = 1');
+    assert.deepEqual(visible, ['page-ranking'], 'Test Case B: visible page = page-ranking');
+    assert.equal(h.pages.find(pg => pg.id === 'page-settings').classList.contains('hidden'), true, 'page-settings hidden = true');
+    assert.equal(h.pages.find(pg => pg.id === 'page-areas').classList.contains('hidden'), true, 'page-areas hidden = true');
+    assert.equal(h.bottomNavEl.innerHTML, 'nav:ranking', 'final bottom nav = ranking');
+    assert.deepEqual(h.onPageEnterCalls, ['ranking'], 'obsolete settings の onPageEnter は発火せず ranking のみ発火すること');
+    assert.equal(h.contentEl.scrollTop, 85, 'scroll 位置も最新 ranking の保存値のみが復元されること');
+  }
+
+  // Test Case C & F — Three Rapid Calls & Obsolete onPageEnter Suppression (areas -> settings -> ranking -> bulletin within 200ms)
+  {
+    const h = createNavigationHarness();
+
+    const p1 = h.switchPage('settings');
+    await new Promise(r => setTimeout(r, 25));
+    const p2 = h.switchPage('ranking');
+    await new Promise(r => setTimeout(r, 25));
+    const p3 = h.switchPage('bulletin');
+
+    await Promise.all([p1, p2, p3]);
+
+    const visible = h.getVisiblePages();
+    assert.equal(visible.length, 1, 'Test Case C: visible page count = 1');
+    assert.deepEqual(visible, ['page-bulletin'], 'Test Case C: visible = page-bulletin');
+    assert.equal(h.pages.find(pg => pg.id === 'page-settings').classList.contains('hidden'), true, 'settings = hidden');
+    assert.equal(h.pages.find(pg => pg.id === 'page-ranking').classList.contains('hidden'), true, 'ranking = hidden');
+    assert.equal(h.pages.find(pg => pg.id === 'page-areas').classList.contains('hidden'), true, 'areas = hidden');
+    assert.deepEqual(h.onPageEnterCalls, ['bulletin'], 'Test Case F: obsolete navigation が onPageEnter を発火せず bulletin 1回のみであること');
+    assert.equal(h.bottomNavEl.innerHTML, 'nav:bulletin', 'latest bottom-nav state only');
+    assert.equal(h.appEl.classList.contains('is-map-page'), false, 'normal page では is-map-page OFF');
+    assert.equal(h.appEl.classList.contains('nav-auto-enabled'), true, 'normal page では nav-auto-enabled ON');
+  }
+
+  // Test Case D — Re-entry to Original Page (areas -> settings -> areas within 200ms)
+  {
+    const h = createNavigationHarness();
+
+    const p1 = h.switchPage('settings');
+    await new Promise(r => setTimeout(r, 30));
+    const p2 = h.switchPage('areas');
+
+    await Promise.all([p1, p2]);
+
+    const visible = h.getVisiblePages();
+    assert.equal(visible.length, 1, 'Test Case D: visible page count = 1');
+    assert.deepEqual(visible, ['page-areas'], 'Test Case D: visible = page-areas');
+    assert.equal(h.appEl.classList.contains('is-map-page'), true, 'Test Case D: app.is-map-page = true');
+    assert.equal(h.appEl.classList.contains('nav-auto-enabled'), false, 'Test Case D: nav-auto-enabled = false');
+    assert.deepEqual(h.onPageEnterCalls, ['areas'], 'onPageEnter は最新 areas のみ');
+    assert.equal(h.bottomNavEl.innerHTML, 'nav:areas', 'bottom-nav は areas');
+  }
+
+  // Test Case E — force semantics preserved with generation ownership
+  {
+    const h = createNavigationHarness();
+
+    // First single transition to settings
+    await h.switchPage('settings');
+    assert.deepEqual(h.getVisiblePages(), ['page-settings']);
+    h.onPageEnterCalls.length = 0;
+
+    // Rapid force transition vs subsequent transition
+    const pForce = h.switchPage('settings', true);
+    await new Promise(r => setTimeout(r, 30));
+    const pNext = h.switchPage('ranking', true);
+
+    await Promise.all([pForce, pNext]);
+
+    assert.deepEqual(h.getVisiblePages(), ['page-ranking'], 'Test Case E: force=true でも最新世代のみが commit されること');
+    assert.deepEqual(h.onPageEnterCalls, ['ranking'], 'Test Case E: obsolete force 呼び出しは commit しないこと');
+
+    // Also verify standalone force=true on already visible page still executes transition
+    await h.switchPage('ranking', true);
+    assert.deepEqual(h.getVisiblePages(), ['page-ranking']);
+    assert.deepEqual(h.onPageEnterCalls, ['ranking', 'ranking'], 'Test Case E: 単独 force=true は既存通り再遷移を実行すること');
+  }
+
+  // Test Case G — Final DOM Normalization from abnormal 2-pages-visible state
+  {
+    const h = createNavigationHarness();
+    // Intentionally corrupt DOM state: make both areas and settings visible
+    const settingsPage = h.pages.find(pg => pg.id === 'page-settings');
+    settingsPage.classList.remove('hidden');
+    settingsPage.style.opacity = '1';
+    assert.equal(h.getVisiblePages().length, 2, '事前条件: 2 pages visible の異常DOM状態');
+
+    await h.switchPage('ranking');
+
+    const visible = h.getVisiblePages();
+    assert.equal(visible.length, 1, 'Test Case G: visible count = 1 へ自己収束すること');
+    assert.deepEqual(visible, ['page-ranking'], 'Test Case G: target 以外全ページが hidden になること');
+  }
 });
 
 console.log('✅ ALL PHASE 8 H-APP CORE VERIFICATION CHECKS DEFINED SUCCESSFULLY.\n');

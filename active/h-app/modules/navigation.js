@@ -14,6 +14,7 @@ let _autoHideScrollBound = false;
 let _autoHidePageSynced = false;
 let _previousScrollTop = 0;
 let _suppressAutoHideScroll = false;
+let _navGeneration = 0;
 
 function syncInitialAutoHidePage() {
   if (_autoHidePageSynced || typeof document === 'undefined') return;
@@ -83,6 +84,8 @@ async function switchPage(id, force = false) {
 
   if (!force && !target.classList.contains('hidden') && target.style.opacity === '1') return;
 
+  const navGeneration = ++_navGeneration;
+
   const mapContentEl = document.getElementById('content');
   if (mapContentEl) {
     if (id === 'areas' && (typeof currentCity === 'undefined' || currentCity === null)) {
@@ -108,6 +111,7 @@ async function switchPage(id, force = false) {
     activePage.style.opacity = '0';
     activePage.style.transform = 'translateY(-12px)';
     await new Promise(r => setTimeout(r, 200));
+    if (navGeneration !== _navGeneration) return;
     activePage.classList.add('hidden');
   } else {
     pages.forEach(p => {
@@ -115,6 +119,13 @@ async function switchPage(id, force = false) {
       p.style.opacity = '0';
     });
   }
+
+  pages.forEach(p => {
+    if (p !== target) {
+      p.classList.add('hidden');
+      p.style.opacity = '0';
+    }
+  });
 
   updateBottomNavVisibility();
 
