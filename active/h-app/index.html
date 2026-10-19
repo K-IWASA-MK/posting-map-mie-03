@@ -299,7 +299,7 @@
             <span id="bulletin-char-counter" class="text-[10px] font-mono font-bold text-white/40">0 / 150</span>
           </div>
           <div class="relative w-full bg-[#1C1C1E] border border-white/10 rounded-2xl p-3 transition-colors focus-within:border-[#2563eb]">
-            <textarea id="bulletin-message-input" maxlength="150" rows="3" placeholder="配布員同士で情報交換しよう&#10;（150文字以内）" class="w-full bg-transparent text-sm font-medium text-[#111827] placeholder-gray-400 focus:outline-none resize-none" style="color: #111827;" oninput="updateBulletinCharCount(this)"></textarea>
+            <textarea id="bulletin-message-input" maxlength="150" rows="9" placeholder="配布員同士で情報交換しよう&#10;（150文字以内）" class="w-full bg-transparent text-sm font-medium text-[#111827] placeholder-gray-400 focus:outline-none resize-none" style="color: #111827; min-height: 228px;" oninput="updateBulletinCharCount(this)"></textarea>
           </div>
           <button id="btn-bulletin-submit" onclick="submitBulletinPost()" class="btn-neu w-full bg-[#2563eb] text-white rounded-2xl py-4 text-base font-black shadow-xl uppercase tracking-wider">投稿する</button>
         </div>
