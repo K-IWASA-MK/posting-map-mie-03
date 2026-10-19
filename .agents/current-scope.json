@@ -1,13 +1,11 @@
 {
-  "mission": "HAPP-WEEKLY-003 + HAPP-WEEKLY-005 — Permanent Failure Lifecycle & Manual Retry UI Reachability",
+  "mission": "HAPP-WEEKLY-004 — Month Boundary / Durable Queue",
   "files": [
     ".agents/current-scope.json",
-    "active/h-app/modules/activity.js",
-    "active/h-app/render.js",
+    "active/h-app/db.js",
     "active/h-app/app.js",
-    "tests/test_activity_module_lifecycle.mjs",
-    "tests/test_durable_queue_verification.mjs",
     "active/h-app/index.html",
-    "scripts/test_browser_h_app_activity.mjs"
+    "tests/test_durable_queue_verification.mjs",
+    "docs/architecture/decisions/ADR-012_DURABLE_QUEUE_SPECIFICATION.md"
   ]
 }
