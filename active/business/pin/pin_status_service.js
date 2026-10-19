@@ -90,9 +90,6 @@
         return { success: false, message: e.toString() };
       }
     }
-
-    getGlobalPinStatus() { return this.getStatus(); }
-    setPinInProgress(data) { return this.setInProgress(data); }
   }
 
   PinStatusService.instance = null;

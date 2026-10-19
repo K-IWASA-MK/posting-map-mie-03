@@ -135,15 +135,4 @@ function getMunicipalityOrder() {
   }
 }
 
-/**
- * 自治体順キャッシュのクリア関数 (正本CSV更新時や手動リフレッシュ用)
- */
-function clearMunicipalityOrderCache() {
-  try {
-    if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
-      CacheService.getScriptCache().remove("MUNICIPALITY_ORDER_CACHE");
-    }
-  } catch (e) {}
-}
-
 

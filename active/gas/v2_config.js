@@ -70,18 +70,6 @@ function loadConfigStore() {
   }
 }
 
-function deepMerge(base, override) {
-  const result = JSON.parse(JSON.stringify(base));
-  for (const k in override) {
-    if (typeof override[k] === "object" && override[k] !== null && !Array.isArray(override[k])) {
-      result[k] = deepMerge(result[k] || {}, override[k]);
-    } else {
-      result[k] = override[k];
-    }
-  }
-  return result;
-}
-
 function getConfig() {
   const store = loadConfigStore();
   // 地区固有の設定合成(tenantId)を廃止。常にDEFAULT(システム共通)を返す。

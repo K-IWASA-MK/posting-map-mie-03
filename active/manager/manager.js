@@ -619,7 +619,6 @@ if (typeof window !== 'undefined') {
   window.closeAreaDetail = closeAreaDetail;
   window.AREA_STATUS_CONFIG = AREA_STATUS_CONFIG;
   window.toggleCityDropdown = toggleCityDropdown;
-  window.closeCityDropdown = closeCityDropdown;
   window.selectCity = selectCity;
   window.onCitySelected = onCitySelected;
 }
@@ -652,15 +651,6 @@ function toggleCityDropdown(event, isMobile) {
     listEl.classList.add('hidden');
     if (triggerEl) triggerEl.setAttribute('aria-expanded', 'false');
   }
-}
-
-function closeCityDropdown() {
-  ['city-selector', 'mobile-city-selector'].forEach(suffix => {
-    const listEl = document.getElementById(`${suffix}-list`);
-    const triggerEl = document.getElementById(`${suffix}-trigger`);
-    if (listEl) listEl.classList.add('hidden');
-    if (triggerEl) triggerEl.setAttribute('aria-expanded', 'false');
-  });
 }
 
 // ドロップダウン外部クリック時に自動で閉じる

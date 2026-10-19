@@ -91,10 +91,6 @@ if (typeof DistributionService === 'undefined') {
       return this.repository.fetchDeliveryStats(districtId);
     }
 
-    getRankingData(requestLineUserId = "", districtId = "") {
-      return this.repository.fetchRankingData(requestLineUserId, districtId);
-    }
-
     getRankingPayload(requestLineUserId = "", districtId = "") {
       return this.repository.fetchRankingPayload(requestLineUserId, districtId);
     }

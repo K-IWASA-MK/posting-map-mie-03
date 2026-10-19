@@ -41,17 +41,3 @@ if (typeof DistributionEvent === 'undefined') {
     }
   };
 }
-
-if (typeof DistributionRecord === 'undefined') {
-  DistributionRecord = class DistributionRecord {
-    constructor(params) {
-      this.rowId = params ? params.rowId : 0;
-      this.isComplete = params ? params.isComplete : false;
-      this.completedAt = params ? params.completedAt : "";
-      this.count = (params && params.count !== undefined) ? params.count : 0;
-      this.staffName = params ? params.staffName : "";
-      this.staffId = params ? params.staffId : "";
-      this.areaName = params ? params.areaName : "";
-    }
-  };
-}

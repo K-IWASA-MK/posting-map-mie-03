@@ -89,55 +89,6 @@
 
       return [...map.values()];
     }
-
-    /**
-     * 3. 指定された市町村配下の町名一覧 (town_name) と total 件数を集計・一括抽出する
-     */
-    async getTowns(cityName, csvUrl = DEFAULT_CSV_PATH) {
-      const master = await this.loadMaster(csvUrl);
-      const map = new Map();
-
-      for (const item of master) {
-        if (item.city_name !== cityName || !item.town_name) continue;
-        if (!map.has(item.town_name)) {
-          map.set(item.town_name, {
-            rowId: item.rowId,
-            city_name: item.city_name,
-            town_name: item.town_name,
-            latitude: item.latitude,
-            longitude: item.longitude,
-            done: 0,
-            total: 0
-          });
-        }
-        map.get(item.town_name).total++;
-      }
-
-      return [...map.values()];
-    }
-
-    /**
-     * 4. rowId による単一ヒット直引き検索 API
-     */
-    async findByRowId(rowId, csvUrl = DEFAULT_CSV_PATH) {
-      const master = await this.loadMaster(csvUrl);
-      const targetId = Number(rowId);
-      return master.find(item => item.rowId === targetId) || null;
-    }
-
-    /**
-     * 5. キーワード部分一致検索 API (city_name または town_name)
-     */
-    async search(keyword, csvUrl = DEFAULT_CSV_PATH) {
-      if (!keyword || typeof keyword !== 'string') return [];
-      const master = await this.loadMaster(csvUrl);
-      const q = keyword.trim().toLowerCase();
-
-      return master.filter(item => 
-        (item.city_name && item.city_name.toLowerCase().includes(q)) ||
-        (item.town_name && item.town_name.toLowerCase().includes(q))
-      );
-    }
   }
 
   AddressMasterService.instance = null;

@@ -1073,31 +1073,6 @@ const RankingView = (function() {
   };
 })();
 
-function renderRanking() {
-  const container = $('ranking-list');
-  if (!container) return;
-
-  const userInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
-  const myStaffId = userInfo.id ? String(userInfo.id).trim() : '';
-
-  if (typeof RankingModule !== 'undefined' && typeof RankingView !== 'undefined') {
-    const snap = RankingModule.getSnapshot();
-    if (snap.fetched) {
-      if (Array.isArray(snap.ranking) && snap.ranking.length === 0) {
-        RankingView.renderEmpty(container);
-      } else if (Array.isArray(snap.ranking)) {
-        const cardFn = typeof renderRankingCard === 'function' ? renderRankingCard : null;
-        RankingView.renderSuccess(container, snap.ranking, snap.mySummary, myStaffId, cardFn);
-      } else {
-        RankingView.renderError(container, '応答形式が不正です');
-      }
-      return;
-    }
-  }
-
-  RankingView.renderEmpty(container);
-}
-
 // チラシ保管状況の描画処理
 function renderStorageList(stocks, fallbackCities = null) {
   const container = $('storage-list-container');

@@ -19,15 +19,6 @@ if (typeof AreaService === 'undefined') {
       return AreaService.instance;
     }
 
-    getCityName(areaName) {
-      if (!areaName) return 'その他';
-      const match = areaName.match(/^[^市町\(\d]+(?:市|町)/);
-      if (match) return match[0];
-      return areaName;
-    }
-
-
-
     getAreaDetails(areaName, districtId = "") {
       return this.repository.findAreaPoints(areaName, districtId);
     }

@@ -48,35 +48,6 @@ let allPoints = [];
 let currentCity = null;
 
 
-// ─── グローバル・ローディング二重制御ヘルパー ─────────────────────
-let _loadingCount = 0;
-
-function showLoading(label = 'CONNECTING...') {
-  _loadingCount++;
-  const loadingEl = $('loading');
-  if (loadingEl) {
-    const statusEl = $('loading-status');
-    if (statusEl) statusEl.textContent = label;
-    loadingEl.classList.remove('hidden');
-    loadingEl.classList.remove('opacity-0');
-  }
-}
-
-function hideLoading() {
-  _loadingCount = Math.max(0, _loadingCount - 1);
-  if (_loadingCount === 0) {
-    const loadingEl = $('loading');
-    if (loadingEl) {
-      loadingEl.classList.add('opacity-0');
-      setTimeout(() => {
-        if (_loadingCount === 0) {
-          loadingEl.classList.add('hidden');
-        }
-      }, 300);
-    }
-  }
-}
-
 function setLoadingProgress(pct, label) {
   const bar = document.getElementById('loading-bar');
   const txt = document.getElementById('loading-status');
@@ -1451,11 +1422,5 @@ window.openBulletinContactDialog = function(targetStaffId) {
         return { requestUserId, requestId };
       }
     });
-  }
-};
-
-window.closeBulletinContactDialog = function() {
-  if (typeof BulletinView !== 'undefined' && BulletinView.closeContactDialog) {
-    BulletinView.closeContactDialog();
   }
 };

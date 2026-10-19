@@ -20,27 +20,6 @@ if (typeof AreaRepository === 'undefined') {
       return AreaRepository.instance;
     }
 
-    getSpreadsheetName(districtId = "") {
-      if (typeof getSS === 'function') {
-        const ss = getSS(districtId);
-        if (ss) {
-          return ss.getName().split(/[ \u3000]/)[0] || "支部";
-        }
-      }
-      return "支部";
-    }
-
-
-
-    getDashboardDataCached() {
-      if (typeof getDashboardData === 'function') {
-        try {
-          return getDashboardData();
-        } catch (e) {}
-      }
-      return null;
-    }
-
     findAreaPoints(areaName, districtId = "") {
       if (!areaName) return { success: false, message: "Area name required" };
 

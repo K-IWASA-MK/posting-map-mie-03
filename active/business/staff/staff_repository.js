@@ -74,49 +74,6 @@ if (typeof StaffRepository === 'undefined') {
       return null;
     }
 
-    findByName(name, districtId = "") {
-      if (!name) return null;
-      const sheet = this.getRosterSheet(districtId);
-      if (!sheet) return null;
-
-      const lastRow = sheet.getLastRow();
-      if (lastRow < 2) return null;
-
-      const values = sheet.getRange(1, 1, lastRow, 4).getValues();
-      const normName = typeof normalizeName === 'function' ? normalizeName(name) : String(name).trim();
-
-      for (let i = 1; i < values.length; i++) {
-        const rowId = typeof normalizeName === 'function' ? normalizeName(values[i][0]) : String(values[i][0] || "").trim();
-        const rowName = typeof normalizeName === 'function' ? normalizeName(values[i][1]) : String(values[i][1] || "").trim();
-        const rowLineUserId = String(values[i][2] || "").trim();
-        const rowRegisteredAt = String(values[i][3] || "").trim();
-
-        if (rowName === normName && rowId !== "") {
-          return {
-            rowIndex: i + 1,
-            staff: new Staff({
-              id: String(values[i][0] || "").trim(),
-              name: String(values[i][1] || "").trim(),
-              lineUserId: rowLineUserId,
-              registeredAt: rowRegisteredAt
-            })
-          };
-        }
-      }
-      return null;
-    }
-
-    findByNameAndApp(name, appName, districtId = "") {
-      return this.findByName(name, districtId);
-    }
-
-    updateLineUserIdAtRow(rowIndex, lineUserId, districtId = "") {
-      const sheet = this.getRosterSheet(districtId);
-      if (!sheet || rowIndex < 2) return false;
-      sheet.getRange(rowIndex, 3).setValue(String(lineUserId).trim());
-      return true;
-    }
-
     insertNewStaff(staff, districtId = "") {
       const sheet = this.getRosterSheet(districtId);
       if (!sheet) throw new Error("Roster sheet not found");
