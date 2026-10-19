@@ -841,8 +841,8 @@ test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状�
   // 1. isDone: false, syncStatus: 'FAILED_PERMANENT' (実データ状態 — テスト用 isDone: true 偽装なし)
   const htmlFailed = renderDetailModalContent({
     rowId: 701,
-    townName: '桑名1',
-    address: '桑名市中央町1-1',
+    townName: 'テスト町1',
+    address: 'テスト市中央町1-1',
     isDone: false,
     syncStatus: 'FAILED_PERMANENT',
     count: 50,
@@ -858,8 +858,8 @@ test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状�
   // 2. isDone: false, syncStatus: 'RETRY'
   const htmlRetry = renderDetailModalContent({
     rowId: 702,
-    townName: '桑名1',
-    address: '桑名市中央町1-2',
+    townName: 'テスト町1',
+    address: 'テスト市中央町1-2',
     isDone: false,
     syncStatus: 'RETRY',
     count: 40,
@@ -874,8 +874,8 @@ test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状�
   for (const qStatus of ['PENDING', 'SYNCING', 'pending', 'submitting']) {
     const htmlPending = renderDetailModalContent({
       rowId: 703,
-      townName: '桑名1',
-      address: '桑名市中央町1-3',
+      townName: 'テスト町1',
+      address: 'テスト市中央町1-3',
       isDone: false,
       syncStatus: qStatus,
       count: 30,
@@ -890,8 +890,8 @@ test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状�
   // 4. isDone: false untouched (新規入力)
   const htmlUntouched = renderDetailModalContent({
     rowId: 704,
-    townName: '桑名1',
-    address: '桑名市中央町1-4',
+    townName: 'テスト町1',
+    address: 'テスト市中央町1-4',
     isDone: false,
     syncStatus: ''
   });
@@ -902,8 +902,8 @@ test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状�
   // 5. isDone: true completed (完了確定済み)
   const htmlCompleted = renderDetailModalContent({
     rowId: 705,
-    townName: '桑名1',
-    address: '桑名市中央町1-5',
+    townName: 'テスト町1',
+    address: 'テスト市中央町1-5',
     isDone: true,
     count: 60,
     staffName: 'テスト配布員',

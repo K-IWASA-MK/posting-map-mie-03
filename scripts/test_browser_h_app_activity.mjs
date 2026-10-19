@@ -232,9 +232,9 @@ async function runActivityBrowserTests() {
       id: 'STF-001',
       last: 'テスト',
       first: 'スタッフ',
-      branch: '桑名市'
+      branch: 'テスト市'
     }));
-    localStorage.setItem('branch_name', '桑名市');
+    localStorage.setItem('branch_name', 'テスト市');
     localStorage.setItem('h_app_auth_token', 'test-valid-token');
   });
 
@@ -522,8 +522,8 @@ async function runActivityBrowserTests() {
     const case11Res = await page.evaluate(async () => {
       const p = {
         rowId: 910,
-        townName: '桑名町',
-        address: '桑名市中央町9-10',
+        townName: 'テスト町',
+        address: 'テスト市中央町9-10',
         isDone: false,
         count: 80,
         staffName: 'テスト スタッフ',
