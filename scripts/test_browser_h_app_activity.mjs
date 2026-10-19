@@ -303,7 +303,7 @@ async function runActivityBrowserTests() {
       };
 
       // テンキーオープン
-      window.openNumpad('桑名町', 901, 100);
+      window.openNumpad('テスト町', 901, 100);
 
       // OK ボタン押下シミュレーション
       window._callSequence.push('click_OK');
@@ -553,7 +553,7 @@ async function runActivityBrowserTests() {
       window.getRowStatus = async () => 'FAILED_PERMANENT';
 
       const startTime = Date.now();
-      await window.submitMissionComplete('桑名町', 910);
+      await window.submitMissionComplete('テスト町', 910);
       const elapsed = Date.now() - startTime;
 
       window.getRowStatus = origGetRowStatus;

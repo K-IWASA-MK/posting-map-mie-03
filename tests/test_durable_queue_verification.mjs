@@ -20,6 +20,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { extractDistrictTokens } from '../scripts/check-universal-invariants.mjs';
 
 const rootDir = process.cwd();
 
@@ -804,12 +805,13 @@ test('11. P1 #5: FAILED_PERMANENT 遷移、自動再送抑止、手動再送復�
 // 9. Scope Lock & Universal 原則の遵守
 // ----------------------------------------------------------------------------
 test('9. Universal 原則遵守 & 厳格な Scope Lock', () => {
-  // 地区名のハードコード禁止チェック
-  const forbiddenDistricts = ['kuwana', 'okayama', 'tsushima'];
-  for (const fileContent of [dbJs, appJs, renderJs]) {
+  // 地区名のハードコード禁止チェック (data/** SSOT から動的抽出)
+  const dynamicDistrictTokens = extractDistrictTokens(path.join(rootDir, 'data'));
+  assert.ok(dynamicDistrictTokens.length > 0, 'data/** SSOT から地区トークンが動的に抽出されること');
+  for (const fileContent of [dbJs, activityJs, appJs, renderJs]) {
     const lower = fileContent.toLowerCase();
-    for (const district of forbiddenDistricts) {
-      assert.equal(lower.includes(district), false, `ファイル内に地区名 "${district}" のハードコードが存在してはならない`);
+    for (const token of dynamicDistrictTokens) {
+      assert.equal(lower.includes(token.toLowerCase()), false, `H-App ファイル内に地区固有トークン "${token}" のハードコードが存在してはならない`);
     }
   }
 

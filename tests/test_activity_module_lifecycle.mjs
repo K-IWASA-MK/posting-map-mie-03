@@ -394,7 +394,7 @@ test('Gate 15: enqueue ペイロード完全性 (14フィールド & 基準HEAD�
     townName: 'フォールバック禁止の町'
   };
   let pld = null;
-  await ActivityModule.submitActivity(point, { areaName: '桑名1' }, {
+  await ActivityModule.submitActivity(point, { areaName: 'テスト町1' }, {
     authorize: async () => {},
     getVerifiedUser: () => ({ staffId: 'STF_115', staffName: 'スタッフ115' }),
     getBranchCode: () => 'BR01',
@@ -405,7 +405,7 @@ test('Gate 15: enqueue ペイロード完全性 (14フィールド & 基準HEAD�
   });
   assert.equal(pld.requestId, 'req_115');
   assert.equal(pld.clientEventId, 'req_115');
-  assert.equal(pld.areaName, '桑名1');
+  assert.equal(pld.areaName, 'テスト町1');
   assert.equal(pld.rowId, 115);
   assert.equal(pld.isDone, true);
   assert.equal(pld.count, 350);
@@ -1321,7 +1321,7 @@ test('Gate 50 (HAPP-WEEKLY-003 Case A): submitActivity FAILED_PERMANENT immediat
   let errorTypeReceived = null;
   let finallyCalls = 0;
 
-  const result = await ActivityModule.submitActivity(point, { rowId: 501, areaName: '桑名1' }, {
+  const result = await ActivityModule.submitActivity(point, { rowId: 501, areaName: 'テスト町1' }, {
     authorize: async () => {},
     getVerifiedUser: () => ({ staffId: 'STF_501', staffName: 'テスト員' }),
     generateRequestId: () => 'req_501',
