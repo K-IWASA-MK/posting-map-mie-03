@@ -1,8 +1,6 @@
 {
-  "mission": "H-App ID Screen Guide Cards (3rd Card~) Addition",
+  "mission": "H-App Bulletin Textarea Height Expansion",
   "files": [
-    "active/h-app/components/staff.js",
-    "active/h-app/style.css",
     "active/h-app/index.html"
   ]
 }
