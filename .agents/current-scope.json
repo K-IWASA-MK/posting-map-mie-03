@@ -4,6 +4,7 @@
     ".agents/current-scope.json",
     "active/business/gps/gps_service.js",
     "active/business/gps/gps_repository.js",
-    "tests/test_posting_flow_verification.mjs"
+    "tests/test_posting_flow_verification.mjs",
+    "tests/test_multi_district_routing_auth.mjs"
   ]
 }
