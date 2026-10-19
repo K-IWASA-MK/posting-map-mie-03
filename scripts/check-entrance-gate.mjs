@@ -152,7 +152,7 @@ export function verifyEntranceGate({
         entry.type === 'GENERIC' &&
         (entry.status === undefined || entry.status === 'DONE') &&
         entry.content &&
-        entry.content.includes('Created the following subagents:')
+        /Created the following subagents?:/.test(entry.content)
       );
 
       if (isImmediateStep && isEventBFormat) {

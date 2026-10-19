@@ -715,6 +715,226 @@ runTest('P6: valid BASE..TARGET (BASE !== TARGET かつ changedFiles > 0 で PAS
   assert.equal(res.chain.verdict, 'PASS');
 });
 
+// ─────────────────────────────────────────────────────────────
+// Event B 単数/複数互換性 & 反例厳格検証 (GOVERNANCE-GATE-001)
+// ─────────────────────────────────────────────────────────────
+
+runTest('E9: Entrance Event B — singular ("Created the following subagent:") => PASS', () => {
+  const lines = [
+    makeGatekeeperEventA(1, MISSION_A),
+    JSON.stringify({
+      step_index: 2,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${GATEKEEPER_CONV}"\n}`
+    }),
+    makeGatekeeperEventC({ step: 3, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const res = verifyEntranceGate({ mission: MISSION_A, transcriptLines: lines });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, GATEKEEPER_CONV);
+  assert.equal(res.chain.verdict, 'PASS');
+});
+
+runTest('E10: Entrance Event B — plural ("Created the following subagents:") => PASS', () => {
+  const lines = [
+    makeGatekeeperEventA(1, MISSION_A),
+    makeGatekeeperEventB(2, GATEKEEPER_CONV),
+    makeGatekeeperEventC({ step: 3, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const res = verifyEntranceGate({ mission: MISSION_A, transcriptLines: lines });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, GATEKEEPER_CONV);
+  assert.equal(res.chain.verdict, 'PASS');
+});
+
+runTest('E11: Entrance Event B — counterexamples (typo / missing colon / missing conversationId / non-immediate) => FAIL', () => {
+  // 1. typo / unrelated string ("Created some subagent:")
+  const linesTypo = [
+    makeGatekeeperEventA(1, MISSION_A),
+    JSON.stringify({
+      step_index: 2,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated some subagent:\n{\n  "conversationId": "${GATEKEEPER_CONV}"\n}`
+    }),
+    makeGatekeeperEventC({ step: 3, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const resTypo = verifyEntranceGate({ mission: MISSION_A, transcriptLines: linesTypo });
+  assert.equal(resTypo.pass, false);
+  assert.match(resTypo.error, /immediate Event B tool result \(conversationId\) was not received/);
+
+  // 2. missing canonical colon ("Created the following subagent")
+  const linesNoColon = [
+    makeGatekeeperEventA(1, MISSION_A),
+    JSON.stringify({
+      step_index: 2,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent\n{\n  "conversationId": "${GATEKEEPER_CONV}"\n}`
+    }),
+    makeGatekeeperEventC({ step: 3, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const resNoColon = verifyEntranceGate({ mission: MISSION_A, transcriptLines: linesNoColon });
+  assert.equal(resNoColon.pass, false);
+  assert.match(resNoColon.error, /immediate Event B tool result \(conversationId\) was not received/);
+
+  // 3. missing conversationId
+  const linesNoConvId = [
+    makeGatekeeperEventA(1, MISSION_A),
+    JSON.stringify({
+      step_index: 2,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "status": "ok"\n}`
+    }),
+    makeGatekeeperEventC({ step: 3, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const resNoConvId = verifyEntranceGate({ mission: MISSION_A, transcriptLines: linesNoConvId });
+  assert.equal(resNoConvId.pass, false);
+  assert.match(resNoConvId.error, /immediate Event B tool result \(conversationId\) was not received/);
+
+  // 4. non-immediate Event B (stepB !== stepA + 1)
+  const linesNonImmediate = [
+    makeGatekeeperEventA(1, MISSION_A),
+    JSON.stringify({
+      step_index: 3,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${GATEKEEPER_CONV}"\n}`
+    }),
+    makeGatekeeperEventC({ step: 4, sender: GATEKEEPER_CONV, mission: MISSION_A, verdict: 'PASS' })
+  ];
+  const resNonImmediate = verifyEntranceGate({ mission: MISSION_A, transcriptLines: linesNonImmediate });
+  assert.equal(resNonImmediate.pass, false);
+  assert.match(resNonImmediate.error, /immediate Event B tool result \(conversationId\) was not received/);
+});
+
+runTest('P7: Auditor Event B — singular ("Created the following subagent:") => PASS', () => {
+  const lines = [
+    makeAuditorEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${AUDITOR_CONV}"\n}`
+    }),
+    makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, AUDITOR_CONV);
+  assert.equal(res.chain.verdict, 'PASS');
+});
+
+runTest('P8: Auditor Event B — plural ("Created the following subagents:") => PASS', () => {
+  const lines = [
+    makeAuditorEventA(10, B1, T1),
+    makeAuditorEventB(11, AUDITOR_CONV),
+    makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const res = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: lines,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, AUDITOR_CONV);
+  assert.equal(res.chain.verdict, 'PASS');
+});
+
+runTest('N21: Auditor Event B — counterexamples (typo / missing colon / missing conversationId / non-immediate) => FAIL', () => {
+  // 1. typo / unrelated string ("Created some subagent:")
+  const linesTypo = [
+    makeAuditorEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated some subagent:\n{\n  "conversationId": "${AUDITOR_CONV}"\n}`
+    }),
+    makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const resTypo = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: linesTypo,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(resTypo.pass, false);
+
+  // 2. missing canonical colon ("Created the following subagent")
+  const linesNoColon = [
+    makeAuditorEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent\n{\n  "conversationId": "${AUDITOR_CONV}"\n}`
+    }),
+    makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const resNoColon = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: linesNoColon,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(resNoColon.pass, false);
+
+  // 3. missing conversationId
+  const linesNoConvId = [
+    makeAuditorEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "status": "ok"\n}`
+    }),
+    makeAuditorEventC({ step: 12, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const resNoConvId = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: linesNoConvId,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(resNoConvId.pass, false);
+
+  // 4. non-immediate Event B (stepB !== stepA + 1)
+  const linesNonImmediate = [
+    makeAuditorEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 12,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${AUDITOR_CONV}"\n}`
+    }),
+    makeAuditorEventC({ step: 13, sender: AUDITOR_CONV, base: B1, target: T1, verdict: 'PASS' })
+  ];
+  const resNonImmediate = verifyAuditorGate({
+    baseCommit: B1,
+    targetCommit: T1,
+    transcriptLines: linesNonImmediate,
+    gitResolver: mockGitResolver,
+    diffResolver: mockDiffResolver
+  });
+  assert.equal(resNonImmediate.pass, false);
+});
+
 runTest('S1: Independent Auditor Effectiveness Regression Suite executes with 100% PASS', () => {
   const regPath = path.join(REPO_ROOT, 'tests', 'test_auditor_effectiveness_regression.mjs');
   const res = spawnSync(process.execPath, [regPath], { stdio: 'pipe', encoding: 'utf8' });

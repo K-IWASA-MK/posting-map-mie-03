@@ -378,6 +378,98 @@ runTest('P4: both zero only PASS (DELETE 0 / GOV 0 合格)', () => {
   assert.equal(res.chain.verdict, 'NO_CLEANUP_NEEDED');
 });
 
+// ─────────────────────────────────────────────────────────────
+// Event B 単数/複数互換性 & 反例厳格検証 (GOVERNANCE-GATE-001)
+// ─────────────────────────────────────────────────────────────
+
+runTest('P5: Cleanup Event B — singular ("Created the following subagent:") => PASS', () => {
+  const lines = [
+    makeEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      status: 'DONE',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${CHILD_CONV}"\n}`
+    }),
+    makeEventC(12, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED', 'SYSTEM', 'SYSTEM_MESSAGE', 0)
+  ];
+  const res = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, CHILD_CONV);
+  assert.equal(res.chain.verdict, 'NO_CLEANUP_NEEDED');
+});
+
+runTest('P6: Cleanup Event B — plural ("Created the following subagents:") => PASS', () => {
+  const lines = [
+    makeEventA(10, B1, T1),
+    makeEventB(11, CHILD_CONV),
+    makeEventC(12, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED', 'SYSTEM', 'SYSTEM_MESSAGE', 0)
+  ];
+  const res = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: lines, gitResolver: mockGitResolver });
+  assert.equal(res.pass, true);
+  assert.equal(res.chain.childConversationId, CHILD_CONV);
+  assert.equal(res.chain.verdict, 'NO_CLEANUP_NEEDED');
+});
+
+runTest('N21: Cleanup Event B — counterexamples (malformed Event B / missing colon / missing conversationId / non-immediate) => FAIL', () => {
+  // 1. malformed Event B ("Created some subagent:")
+  const linesMalformed = [
+    makeEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated some subagent:\n{\n  "conversationId": "${CHILD_CONV}"\n}`
+    }),
+    makeEventC(12, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED')
+  ];
+  const resMalformed = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: linesMalformed, gitResolver: mockGitResolver });
+  assert.equal(resMalformed.pass, false);
+
+  // 2. missing canonical colon ("Created the following subagent")
+  const linesNoColon = [
+    makeEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent\n{\n  "conversationId": "${CHILD_CONV}"\n}`
+    }),
+    makeEventC(12, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED')
+  ];
+  const resNoColon = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: linesNoColon, gitResolver: mockGitResolver });
+  assert.equal(resNoColon.pass, false);
+
+  // 3. missing conversationId
+  const linesNoConvId = [
+    makeEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 11,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "status": "ok"\n}`
+    }),
+    makeEventC(12, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED')
+  ];
+  const resNoConvId = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: linesNoConvId, gitResolver: mockGitResolver });
+  assert.equal(resNoConvId.pass, false);
+
+  // 4. non-immediate Event B (stepB !== stepA + 1)
+  const linesNonImmediate = [
+    makeEventA(10, B1, T1),
+    JSON.stringify({
+      step_index: 12,
+      source: 'MODEL',
+      type: 'GENERIC',
+      content: `Created At: 2026-10-20\nCreated the following subagent:\n{\n  "conversationId": "${CHILD_CONV}"\n}`
+    }),
+    makeEventC(13, CHILD_CONV, B1, T1, 0, 'NO_CLEANUP_NEEDED')
+  ];
+  const resNonImmediate = verifyCleanupGate({ baseCommit: B1, targetCommit: T1, transcriptLines: linesNonImmediate, gitResolver: mockGitResolver });
+  assert.equal(resNonImmediate.pass, false);
+});
+
 console.log('====================================================');
 console.log(`📊 CLEANUP GATE TESTS SUMMARY: ${passedCount} / ${totalCount} PASSED (100%)`);
 console.log('====================================================\n');
