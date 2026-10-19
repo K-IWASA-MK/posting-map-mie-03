@@ -1,6 +1,23 @@
 {
-  "mission": "H-App Bulletin Textarea Height Expansion",
+  "mission": "Tier A-1.1 Pure Isolation Dead and Zombie Code Cleanup",
   "files": [
-    "active/h-app/index.html"
+    ".agents/current-scope.json",
+    "active/h-app/app.js",
+    "active/h-app/render.js",
+    "active/manager/manager.js",
+    "active/business/area/address_master_service.js",
+    "active/business/area/area_repository.js",
+    "active/business/area/area_service.js",
+    "active/business/distribution/distribution_service.js",
+    "active/business/staff/staff_repository.js",
+    "active/business/pin/pin_status_service.js",
+    "active/gas/v2_map.js",
+    "active/gas/v2_extract.js",
+    "active/gas/v2_config.js",
+    "active/infrastructure/spreadsheet/spreadsheet_adapter.js",
+    "active/business/distribution/distribution_model.js",
+    "scripts/check-universal-boundary.mjs",
+    "scripts/verify-runtime-integrity.mjs",
+    "scripts/run-gemini-auditor.mjs"
   ]
 }
