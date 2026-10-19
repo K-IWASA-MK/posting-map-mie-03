@@ -3,7 +3,7 @@
 - **Status**: ACCEPTED
 - **Date**: 2026-09-25
 - **Deciders**: Universal Engine Architecture Team
-- **Consulted**: Master Plan Phase 17 Requirements, DEPLOYMENT_REGISTRY.md, ADR-015, ADR-016, ADR-017
+- **Consulted**: Master Plan Phase 17 Requirements, ADR-015, ADR-016, ADR-017
 
 ---
 
@@ -16,7 +16,7 @@ Code → Git → clasp push → GAS deployment → Production WebApp → API ver
 ```
 
 本システム（Universal POSTING MAP）では、「Git push で完了としない」「本番Runtimeでのエビデンスを完了条件とする」という鉄則を定めている。
-また、[DEPLOYMENT_REGISTRY.md](../../../DEPLOYMENT_REGISTRY.md) にて以下の最高位原則が規定されている：
+また、Phase 17 当時のデプロイ台帳（`DEPLOYMENT_REGISTRY.md`、現在は `SYSTEM_INFO`・`data/config.js`・`district-app-deployment` スキルへ統合廃止）にて以下の最高位原則が規定された：
 > **Production の Web App URL はシステム資産である。**
 > 更新対象は URL ではなく、Deployment のコードのみとする。
 > URL を変更してはならない。
@@ -47,14 +47,14 @@ Phase 17 の実施にあたり、本番インフラの固定化、デプロイ�
    - **`.gitignore` による除外を絶対維持**し、Git管理対象外とする。
 2. **`deployment.template.json`**:
    - Universal リポジトリの純粋テンプレートとしてコミット管理する。
-3. **`DEPLOYMENT_REGISTRY.md`**:
-   - 本番 Deployment 資産の公式 SSOT として記録・コミット管理する。
+3. **本番 Deployment 資産 SSOT（旧 `DEPLOYMENT_REGISTRY.md`）**:
+   - Phase 17 時点では `DEPLOYMENT_REGISTRY.md` に記録し、現行運用では地区専用スプレッドシート `SYSTEM_INFO`、`data/config.js`、および `.agents/skills/district-app-deployment/SKILL.md` を正本として管理する。
 
 ### 2.4 本番 Web App 実機検証ゲート（Production Verification Gates）
 デプロイ完了後、実際に本番 Web App エンドポイントに対して通信を行い、以下の 5 大ゲートでランタイム反映を自動検証する：
 
 1. **Gate 1: SSOT & Deployment Configuration Integrity**
-   - `deployment.json` および `DEPLOYMENT_REGISTRY.md` の整合性
+   - `deployment.json` および `data/config.js` / `SYSTEM_INFO`（Phase 17 時点は旧 `DEPLOYMENT_REGISTRY.md`）の整合性
 2. **Gate 2: Active Deployment Version Gate**
    - `clasp deployments` の結果、本番デプロイIDのアクティブバージョンが新バージョン（`@7`）であること
 3. **Gate 3: Production WebApp Public API Reachability & Health**

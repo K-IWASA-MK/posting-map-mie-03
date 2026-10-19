@@ -67,7 +67,7 @@
 
 - **持ち込み禁止対象**:
   - `data/raw/`（デジタル庁原本CSV、原本ZIP、抽出監査ログ等）
-  - `data/raw_estat_r2/`（e-Stat 令和2年国勢調査小地域境界 Shapefile バイナリ群）
+  - `data/raw_reference/`（旧 `data/raw_estat_r2/` 等の e-Stat 国勢調査小地域境界 Shapefile・一次原本バイナリ群）
 
 ### 遵守事項
 - **リポジトリ汚染の遮断**: コピー元地区の Shapefile や巨大な ZIP ファイルを新地区リポジトリの Git 履歴に混入させてはならない（AGENTS.md 第0条・第4条厳守）。

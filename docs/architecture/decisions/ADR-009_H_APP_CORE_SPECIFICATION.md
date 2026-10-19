@@ -67,11 +67,11 @@ READ ONLY監査において、現場配布員向けUI（Hアプリ）の現行�
 
 ### (3) 非侵襲・0行変更原則の遵守
 - 現行コード（`active/h-app/` 配下）はPhase 8要件を完全に満たしており、バグ・不整合も存在しないため、**プロダクションコードの改変は「0行（無変更）」** とする。
-- `fetchSystemSummary()` の重複記述についても、`_systemSummaryPromise` キャッシュにより同一実行内の重複通信が安全に抑止されているため、リファクタリングを行わず現状維持とする。
+- `fetchSystemSummary()` の重複記述についても、`_systemSummaryPromise` キャッシュにより同一実行内の重複通信が安全に抑止されているため、Phase 8 時点ではリファクタリングを行わず現状維持とする（その後 Wave 16 にて `active/h-app/modules/summary.js` `SummaryModule` へ完全カプセル化・移管完了）。
 
 ### (4) Phase境界の厳格な分離（Phase 8では扱わないもの）
 以下の業務処理・永続化ロジックは **Phase 9以降の専管領域** とし、Phase 8 Coreには一切侵入させない：
-- `DistributionRecord` 配布実績の永続化登録処理
+- `DistributionRecord`（実装クラス `DistributionEvent`）配布実績の永続化登録処理
 - 証跡写真撮影および Google Drive アップロード処理
 - GPS位置測位の確定・誤差判定処理
 - IndexedDB オフラインキュー / Durable Queue 同期処理

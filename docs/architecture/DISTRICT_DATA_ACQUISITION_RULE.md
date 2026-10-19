@@ -246,7 +246,7 @@ System: Universal POSTING MAP Engine / 289 District Expansion OS
 ```
 
 ### 7.2 原本の追跡可能性と骨格対応根拠 (Provenance & Skeleton Evidence)
-外部原本を Google Drive へ保存し、確定データを生成・監査した場合、以下のメタデータを監査記録（`.agents/records/`）に明記する。
+外部原本を Google Drive へ保存し、確定データを生成・監査した場合、以下のメタデータを Provenance ファイル（`data/*_provenance.json` および監査記録）に明記する。
 1. **情報源（発行元機関）**: （例: 都道府県選挙管理委員会、総務省、e-Stat、デジタル庁）
 2. **資料名 & 公表日**: （例: 衆議院小選挙区開票結果、公表年月日）
 3. **公式 URL または取得経路**: 公定公開URL

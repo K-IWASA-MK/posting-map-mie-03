@@ -25,9 +25,9 @@ READ ONLY監査において、現行コードベース（`active/h-app/`）の P
 ## 2. Decision (決定内容)
 
 ### (1) 実装方針: 方針1（最小侵襲・既存フロー温存型）の正式採用
-- 現行の `submitMissionComplete` ➔ `enqueueSync` ➔ `processQueue` ➔ `updateRecordWithGPSPhoto` パイプラインを完全維持する。
+- 現行の `submitMissionComplete` ➔ `enqueueSync` ➔ `processQueue` ➔ `updateRecordWithGPSPhoto` パイプラインを完全維持する（その後 Wave 4 / Wave 7 にて `active/h-app/modules/activity.js` `ActivityModule` へオーケストレーション責務を移管完了）。
 - `submitDistribution` は将来拡張用stubとして削除・改変せず温存する。
-- `requestId` ベースの冪等性移行はPhase 10へ送り、現行の `rowId` ベースの排他制御を維持する。
+- `requestId` ベースの冪等性移行はPhase 10へ送り、Phase 9 時点では現行の `rowId` ベースの排他制御を維持する（Phase 10 にて Q列 `requestId` 照合として実装・検証完了済み）。
 - 写真/GPSの現行必須フローは変更しない。
 - IndexedDB Queue（`PostingMapDB`）そのものの再設計は行わず、Phase 10のOffline/Durable Queueへ境界を残す。
 

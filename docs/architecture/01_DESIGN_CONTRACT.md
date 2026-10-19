@@ -42,7 +42,7 @@
          │                       │                       │
          ▼                       ▼                       ▼
   地区A Spreadsheet       地区B Spreadsheet       地区C Spreadsheet
-  地区専用DB (13シート)   地区専用DB (13シート)   地区専用DB (13シート)
+  地区専用DB (ADR-024準拠)  地区専用DB (ADR-024準拠)  地区専用DB (ADR-024準拠)
 ```
 
 ### 4層物理分離アーキテクチャ (4-Tier Physical Separation)
@@ -74,7 +74,7 @@
 ```
 
 ### 地区専用DBと付属1地区専用GASの原則 (ADR-001)
-- スプレッドシート（Layer 4）内のシート数式による動的集計（`=QUERY`, `=IMPORTRANGE` 等）に依存せず、集計・計算・認証・排他ロック責務はすべて Layer 2（当該Spreadsheetに付属する1地区専用GAS `v2_api.js`）が担い、Spreadsheet は13シート標準台帳として機能させる。これにより他地区への完全な可搬性とバージョン管理容易性を担保する。
+- スプレッドシート（Layer 4）内のシート数式による動的集計（`=QUERY`, `=IMPORTRANGE` 等）に依存せず、集計・計算・認証・排他ロック責務はすべて Layer 2（当該Spreadsheetに付属する1地区専用GAS `v2_api.js`）が担い、Spreadsheet は ADR-024 準拠の標準台帳として機能させる。これにより他地区への完全な可搬性とバージョン管理容易性を担保する。
 
 ### 絶対に採用しない構造
 
@@ -251,17 +251,17 @@ Branch ──×──> AllowedActivityRegion ──×──> Person (活動地�
 
 へ変換しない。
 
-## 4.4 PinStatus と DistributionRecord の厳格な分離 (ADR-005)
+## 4.4 PinStatus と DistributionRecord (DistributionEvent) の厳格な分離 (ADR-005)
 
 システム内の状態管理において、リアルタイムの作業中表示と永続化された実績記録を明確に分離する。
 
-- **PinStatus (作業中排他シグナル - `PinStatus` シート)**:
+- **PinStatus (作業中排他シグナル - `PinStatus<Key>` シート)**:
   - 当日中の他党員による重複着手を自然防止するための「一時的・揮発的な作業中マーカー」。
   - 配布完了（`updateRecordWithGPSPhoto`）時、またはタイムアウト（当日中）によって自動解除される。
   - 実績データではなく、監査証跡としての永続性を持たない。
-- **DistributionRecord (配布実績監査台帳 - `配布実績YYYY-MM` シート)**:
-  - 完了したポスティング活動の事実（町丁目、枚数、スタッフ、GPS、写真URL、Q列 requestId）を記録する「月次進捗台帳（1か月・1 rowId = 1行）」。
-  - 当月の初回完了のみ保存し、同月内の再配布は行わず（完了済みrowIdへの別requestIdはAlready CompletedとしてDB書込0）、翌月に新しい月次シートで未配布から新しく開始する。
+- **DistributionRecord (配布実績監査台帳 / 実装クラス `DistributionEvent` - `配布実績<Key>` シート)**:
+  - 完了したポスティング活動の事実（町丁目、枚数、スタッフ、GPS、写真URL、Q列 requestId）を記録する「進捗台帳（1期間・1 rowId = 1行）」。
+  - 当該期間の初回完了のみ保存し、同一期間内の再配布は行わず（完了済みrowIdへの別requestIdはAlready CompletedとしてDB書込0）、SUBSCRIPTIONモードでは翌月に新しい月次シートで未配布から新しく開始する。
 
 
 ---
@@ -589,7 +589,7 @@ T5 最新差分同期完了
 - ADR-002 自由ポスティング・担当エリア非存在原則
 - ADR-003 個人ランキング（モチベーション機能）原則
 - ADR-004 15秒悲観的スクリプト排他ロック
-- ADR-005 PinStatus と DistributionRecord の分離
+- ADR-005 PinStatus と DistributionRecord (DistributionEvent) の分離
 - ADR-006 LINE LIFF Bearer Token 認証
 - ADR-007 Google Maps Loader 統合
 - ADR-008 4層物理分離アーキテクチャ
@@ -643,24 +643,19 @@ T5 最新差分同期完了
 
 🔵を根拠なく継承・廃止へ変更してはならない。
 
-### 19.1 13シート地区専用DB台帳構成 (DATA_DICTIONARY 整合)
-スプレッドシートを地区専用の標準DBとして運用するための13シート台帳：
+### 19.1 ADR-024 Dual Lifecycle 地区専用DB台帳構成 (DATA_DICTIONARY 整合)
+スプレッドシートを地区専用の標準DBとして運用するための ADR-024 標準台帳（`<Key>` は `ELECTION` モードで固定ラベル、`SUBSCRIPTION` モードで `YYYY-MM`、旧「原本」5シートは廃止済み）：
 
 | # | シート名 | 用途・分類 | 変更特性 | 備考 |
 |---|---|---|---|---|
-| 1 | `SYSTEM_INFO` | 地区メタデータ・設定 | 読取専用 | 地区コード、バージョン、管理者PINハッシュ等 |
-| 2 | `名簿` | 配布員・党員マスター | 低頻度更新 | lineUserId, staffId, 氏名, 所属支部 (SSOT) |
-| 3 | `配布実績YYYY-MM` | 月次配布実績台帳 | 1 rowId = 1行 (月次固定) | rowId, count, staffId, GPS, 写真URL, Q列 requestId |
-| 4 | `PinStatus` | 作業中ピン一時管理 | 高頻度更新 | 当日中の他者重複着手を防止する揮発的シグナル |
-| 5 | `チラシ在庫` | 配布員手持ち在庫台帳 | 更新型 | 配布員ごとのチラシ在庫残数 |
-| 6 | `受渡依頼` | チラシ受渡トランザクション | 追加・更新 | 配布員間のチラシ譲渡リクエストと承認ステータス |
-| 7 | `掲示板` | 連絡・共有ポスト台帳 | 追加型 | 全体アナウンスおよび現場連絡用メッセージ |
-| 8 | `活動履歴` | 監査・操作ログ | Append-Only | 重要な操作やステータス変更のシステム証跡 |
-| 9 | `地区マスター` | 地理・町丁目マスター | 静的参照 | 町丁目コード、町名、カナ、人口、世帯数 |
-| 10 | `境界データ` | 地理境界メタ情報 | 静的参照 | GeoJSONファイルIDおよび境界メタデータ |
-| 11 | `新旧対応表` | 地区再編・統廃合マッピング | 静的参照 | 旧地区コードから新地区コードへの対応表 |
-| 12 | `集計サマリ` | キャッシュド集計スナップショット | 定期更新 | ダッシュボード高速化用スナップショット |
-| 13 | `エラーログ` | システム障害ログ | Append-Only | API実行時エラー、同期失敗の詳細トレース |
+| 1 | `SYSTEM_INFO` | 地区メタデータ・設定 | 読取専用 (`A1:B16`) | 地区コード、管理者用パスワード、運用モード (`B15`)、活動期間キー (`B16`) 等 |
+| 2 | `名簿<Key>` | 配布員・党員マスター | 低頻度更新 | lineUserId, staffId, 氏名, 所属支部 (SSOT) |
+| 3 | `配布実績<Key>` | 期間別配布実績台帳 | 1 rowId = 1行 (期間固定) | rowId, count, staffId, GPS, 写真URL, P列 lineUserId, Q列 requestId |
+| 4 | `PinStatus<Key>` | 作業中ピン一時管理 | 高頻度更新 | 当日中の他者重複着手を防止する揮発的シグナル |
+| 5 | `保有チラシ枚数<Key>` | 配布員手持ち在庫台帳 | 更新型 | 配布員ごとのチラシ在庫残数 (G列 lineUserId) |
+| 6 | `受渡要請履歴<Key>` | チラシ受渡トランザクション | 追加・更新 | 配布員間のチラシ譲渡リクエストと承認ステータス |
+| 7 | `掲示板` | 連絡・共有ポスト台帳 | オンデマンド生成・追加型 | 全体アナウンスおよび現場連絡用メッセージ |
+| 8 | `掲示板連絡履歴` | 掲示板個別連絡監査ログ | オンデマンド生成・Append-Only | 掲示板投稿に対する個別返信の送信証跡 |
 
 ### 19.2 4大要検証事項 (Unconfirmed / Pending Verification Items)
 以下の4項目は、運用ポリシーまたは実機負荷検証が未完了のため「🔵 要検証」として隔離保持する：
@@ -792,7 +787,7 @@ data/
 
 Spreadsheetを地区専用DBとして整理する。
 
-- 13シート標準台帳
+- ADR-024 Dual Lifecycle 標準台帳（`SYSTEM_INFO` + 実運用5シート `<Key>` + 任意掲示板2シート）
 - シート数式による動的集計に依存しない
 - 業務ロジックはAPI層（`v2_api.js`）のみが担う
 
@@ -1038,7 +1033,7 @@ graph TD
    - サーバー側がメンテナンス中・一時遮断時でも、現場での配布入力データは端末内で暗号学的 UUID と共に安全に保留される。
 2. **書き込み停止の実施**:
    - 管理者による事前アナウンスを実施。
-   - スプレッドシート `SYSTEM_INFO` または GAS `LockService` を用いて、業務更新 API（`recordDistribution`, `registerFlyerStock` 等）への書き込みを一時的に遮断・保留する。
+   - スプレッドシート `SYSTEM_INFO` または GAS `LockService` を用いて、業務更新 API（`submitDistribution` / `updateRecordWithGPSPhoto`, `updateFlyerStock` 等）への書き込みを一時的に遮断・保留する。
 3. **インフライトリクエストのドレイン**:
    - 停止宣言後、30 秒間待機して通信中のリクエストが完全に完了（ドレイン）したことを確認する。
 
@@ -1440,7 +1435,7 @@ Universal Engine の完成状態を固定し、無秩序な改変を防ぐため
 ### 凍結対象 (Frozen Scope)
 - **Universal Engine Core (`active/**`)**: フロントエンド、バックエンドGAS、共通ライブラリ
 - **API Contract (`docs/api/API_CONTRACT.md`)**: 公開・管理アクションおよび通信プロトコル
-- **Data Schema (`docs/data/DATA_DICTIONARY.md`)**: 13シート標準構造（初期プロビジョニング時 11 Core Sheets 複製 ➔ 現場2シートオンデマンド生成）およびカラム定義
+- **Data Schema (`docs/data/DATA_DICTIONARY.md`)**: ADR-024 Dual Lifecycle 標準構造（`SYSTEM_INFO` + 実運用5シート `<Key>` + 現場2シートオンデマンド生成、原本5シート廃止）およびカラム定義
 - **Identity / Tenant Boundary**: LINE User ID からの正規導出、`TARGET_SPREADSHEET_ID` → `SPREADSHEET_ID` → `SpreadsheetApp.getActiveSpreadsheet()` 解決、`SYSTEM_INFO` Integrity Guard
 - **Offline / Idempotency Model**: Durable Queue、requestId による重複遮断
 - **Universal Invariants**: INV-001 〜 INV-009
@@ -1638,9 +1633,9 @@ Phase 20 で確立された監視項目を恒久的な運用指標として整�
 
 製品全体の一貫性と追跡可能性を維持するため、以下の4層のバージョン境界を運用する。
 
-1. **Universal Engine Version (`v1.0.0`)**: 共通Runtime全体のバージョン。
+1. **Universal Engine Version (`v1.0.1`)**: 共通Runtime全体のバージョン。
 2. **API Contract Version (`v2.0.0`)**: フロント・バックエンド通信インターフェース。
-3. **Data Schema Version (`v1.0.0`)**: 13シート標準構造の地区専用DBのデータ構造（DATA_DICTIONARY.md 準拠）。
+3. **Data Schema Version (`v1.0.0`)**: ADR-024 Dual Lifecycle 標準構造の地区専用DBのデータ構造（DATA_DICTIONARY.md 準拠）。
 4. **District Provisioning Spec Version (`v1.0.0`)**: プロビジョニング手順・マスター構造。
 
 ### 地区互換性追跡 (DESIGNED / PROPOSED)

@@ -26,7 +26,7 @@
 │                                                                        │
 │   [H App (LINE / LIFF)]                  [Dashboard (Browser)]         │
 │         │                                        │                     │
-│         │ (LINE ID Token)                        │ (Shared PIN / Auth) │
+│         │ (LINE Access Token)                    │ (Shared PIN / Auth) │
 │         ▼                                        ▼                     │
 │   ┌────────────────────────────────────────────────────────────────┐   │
 │   │       Universal 1-District GAS Gateway (`v2_api.js`)           │   │

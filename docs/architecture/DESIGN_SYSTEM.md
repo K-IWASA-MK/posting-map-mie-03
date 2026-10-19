@@ -112,13 +112,11 @@ Composition Root / Boot (active/h-app/app.js)
 現行 Canonical Requirement（規範契約）と現行 Runtime の未達事項（Current Fact）の境界は以下の通りである：
 
 1. **Stateless (ステートレス)**:
-   - **Canonical Requirement**: コンポーネントは内部状態やグローバル変数に依存せず、同じデータ入力に対して常に全く同じ HTML 出力を返す（冪等性）。
-   - **現行 Runtime の未達事項 (Current Fact)**: `active/h-app/components/ranking.js` において、`window._myRankingSummary` のグローバル参照が行われている（Deferred UI Runtime Candidate）。
+   - **Canonical Requirement / Current Fact**: コンポーネントは内部状態やグローバル変数に依存せず、同じデータ入力に対して常に全く同じ HTML 出力を返す（冪等性。Wave 10 にて `active/h-app/components/ranking.js` の `window._myRankingSummary` グローバル参照を廃止し、`mySummary` 引数渡しへ移行完了）。
 2. **No Direct API Access (API 直接呼び出し禁止)**:
    - **Canonical Requirement / Current Fact**: コンポーネント内部で GAS API や外部通信を行ってはならない。通信はページ層（`render.js` / `app.js`）が担う（現行 Runtime 遵守済み）。
 3. **Pure Rendering (純粋レンダリング)**:
-   - **Canonical Requirement**: コンポーネントは、渡された入力データから HTML 文字列を組み立てて返却する。
-   - **現行 Runtime の未達事項 (Current Fact)**: `ranking.js` は `window._myRankingSummary` にも依存するため、引数だけで出力が決まる純粋レンダリングには未達。§4 Stateless と同一の Deferred UI Runtime Candidate として扱う。
+   - **Canonical Requirement / Current Fact**: コンポーネントは、渡された入力データから HTML 文字列を組み立てて返却する（`ranking.js`, `navigation.js`, `staff.js` 遵守済み）。
 4. **No Raw Color Hardcoding (生カラー直書き禁止)**:
    - **Canonical Requirement**: CSS 変数（`--color-*`）を参照し、HTML/JS への直接の色コード埋め込みを禁止する。
    - **現行 Runtime の未達事項 (Current Fact)**: `ranking.js` および `staff.js` において、`#EA5F08` や `#1C1C1E`、`#22c55e` 等の生カラーコードおよびインラインスタイルが残存している（Deferred UI Runtime Candidate）。
@@ -137,8 +135,8 @@ Composition Root / Boot (active/h-app/app.js)
 
 ### ② Ranking Component (`active/h-app/components/ranking.js`)
 - **責務**: 配布実績に基づくランキング一覧・自身のランクサマリのレンダリング。
-- **インターフェース**: `window.renderRankingCard(rankingData, myStaffId)`
-- **入力**: `rankingData` (Array), `myStaffId` (string)
+- **インターフェース**: `window.renderRankingCard(rankingData, myStaffId, mySummary)`
+- **入力**: `rankingData` (Array), `myStaffId` (string), `mySummary` (Object)
 - **出力**: ランキングカード群および自身ランクサマリの HTML 文字列。
 
 ### ③ Staff Component (`active/h-app/components/staff.js`)

@@ -22,8 +22,8 @@
 |---|---|---|---|---|
 | **LINE User ID** | `U` + 32桁hex (`U1234567890abcdef...`) | LINEプラットフォームにおける検証済み本人識別子。内部認証および本人性の唯一の根拠。 | **極秘** (内部限定) | **不可**（フロントエンドSSOTとしての保持・公開を禁止） |
 | **Person ID** | `PRS-` + UUID | 自然人（党員個人）のシステム内部識別子。 | 機密 (内部) | 不可 |
-| **Staff ID** | `STF-` + 5桁連番 (`STF-24205-001`) | Hアプリおよび名簿上で党員・配布員を識別するための人間向けID。 | 支部内限定 | 可（本人のみ、または管理画面） |
-| **Branch ID** | `BR-` + 地域記号 (`BR-MIE-03`) | 党の組織単位である支部（例: 三重3区支部）の識別子。 | 公開 | 可 |
+| **Staff ID** | `STF-` + 5桁コード + 連番 (`STF-00001-001`) | Hアプリおよび名簿上で党員・配布員を識別するための人間向けID。 | 支部内限定 | 可（本人のみ、または管理画面） |
+| **Branch ID** | `BR-` + 地域記号 (`BR-<DISTRICT_ID>`) | 党の組織単位である支部（例: 対象選挙区支部）の識別子。 | 公開 | 可 |
 | **Target Region ID** | `rowId` (`1..N`) ※後段属性: `e_stat_code` | 活動対象となる町丁目の地域行識別子（Phase 1 Area Skeleton で `1..N` 採番）。 | 公開 | 可 |
 | **Activity Record ID** | `evt-` + timestamp + random / UUID | 配布実績（「誰が・いつ・どこで・何枚配ったか」）のイベント一意識別子。 | 内部 | 可 |
 | **Request ID** | `req_` + UUID v4 | Hアプリ等からの通信における重複防止のための冪等性キー（Idempotency Key）。 | 一時情報 | 可 |
@@ -41,14 +41,14 @@ LINE User ID ≠ Staff ID ≠ Person ID ≠ Branch ID ≠ Activity Record ID ≠
 
 | Entity | 論理名 | Owner (所有主体) | SSOT (真実の情報源) | Write Authority (書込権限) | Read Consumers (参照者) | 機密区分 | 保管・履歴ポリシー |
 |---|---|---|---|---|---|---|---|
-| **DistributionRecord** | 配布実績 | 配布実行者 (Person) | Spreadsheet (`配布実績YYYY-MM`) | 認証済み本人のみ (Backend強制) | Hアプリ(自身分・集計), Dashboard | 支部内公開 | 恒久保全 (月次履歴) |
-| **StaffIdentity** | 配布員名簿 | 本人 / 支部管理者 | Spreadsheet (`名簿の原本`) | 本人 (LINE連携時) / 支部管理者 | Backend, Dashboard (名簿タブ) | 個人機密 | 契約期間中保全 |
+| **DistributionRecord** (`DistributionEvent`) | 配布実績 | 配布実行者 (Person) | Spreadsheet (`配布実績<Key>`) | 認証済み本人のみ (Backend強制) | Hアプリ(自身分・集計), Dashboard | 支部内公開 | 恒久保全 (ELECTION固定 / SUBSCRIPTION月次履歴) |
+| **StaffIdentity** | 配布員名簿 | 本人 / 支部管理者 | Spreadsheet (`名簿<Key>`) | 本人 (LINE連携時) / 支部管理者 | Backend, Dashboard (名簿タブ) | 個人機密 | 契約期間中保全 |
 | **ActivityTargetRegion** | 支部活動対象地域マスター (※1) | 支部 (Branch) | CSV (`data/address_master.csv`) | 地区管理責任者 (Gate時) | Hアプリ (地図), Dashboard | 公開マスター | 地区運用期間中固定 |
 | **Municipality** | 自治体マスター | 支部 (Branch) | CSV (`data/municipality_master.csv`)| 地区管理責任者 (Gate時) | Hアプリ (一覧), Dashboard | 公開マスター | 地区運用期間中固定 |
 | **RankingSummary** | 個人ランキング | システム (System) | Backend 動的集計エンジン | Backend バッチ / 動的計算 | Hアプリ (個人順位・全体上位) | 支部内公開 | 月次集計 (随時再計算) |
-| **FlyerStock** | 保有チラシ在庫 | チラシ保管者 (Staff) | Spreadsheet (`保有チラシ枚数の原本`)| 保管者本人 (在庫増減・受渡時) | Hアプリ (在庫一覧), Dashboard | 支部内限定 | 随時更新・月次保全 |
-| **FlyerTransferRequest**| 受渡要請 | 要請者 (Staff) | Spreadsheet (`受渡要請履歴YYYY-MM`)| 要請者本人 (発行) / 保管者 (受諾)| 当事者間, Dashboard (管理タブ)| 支部内限定 | 完了後アーカイブ |
-| **PinStatus** | リアルタイム作業中状態 | 配布実行者 (Staff) | Spreadsheet (`PinStatusYYYY-MM`) | 配布開始/終了者 (Hアプリ) | Hアプリ (ピン表示), Dashboard | 支部内公開 | 当日〜当月限定 (短期) |
+| **FlyerStock** | 保有チラシ在庫 | チラシ保管者 (Staff) | Spreadsheet (`保有チラシ枚数<Key>`)| 保管者本人 (在庫増減・受渡時) | Hアプリ (在庫一覧), Dashboard | 支部内限定 | 随時更新・データセット保全 |
+| **FlyerTransferRequest**| 受渡要請 | 要請者 (Staff) | Spreadsheet (`受渡要請履歴<Key>`)| 要請者本人 (発行) / 保管者 (受諾)| 当事者間, Dashboard (管理タブ)| 支部内限定 | 完了後アーカイブ |
+| **PinStatus** | リアルタイム作業中状態 | 配布実行者 (Staff) | Spreadsheet (`PinStatus<Key>`) | 配布開始/終了者 (Hアプリ) | Hアプリ (ピン表示), Dashboard | 支部内公開 | 当日〜当月限定 (短期) |
 | **BulletinPost** | 掲示板投稿 (🔵要検証) | 投稿者本人 (Staff) | Spreadsheet (`掲示板`) | 認証済み本人 (投稿・削除) | Hアプリ (掲示板タブ), Dashboard| 支部内公開 | 保持期限満了後削除 |
 | **SystemInfo** | システム設定・契約 | 統括管理者 | Spreadsheet (`SYSTEM_INFO`) | 統括管理者のみ | Backend, Hアプリ, Dashboard | システム機密 | 恒久保全 |
 
@@ -57,7 +57,7 @@ LINE User ID ≠ Staff ID ≠ Person ID ≠ Branch ID ≠ Activity Record ID ≠
 ### 【Spreadsheet DB 標準構造台帳 (1地区1DB・ADR-024 Dual Lifecycle 準拠)】
 ADR-024 および本番運用規程に基づく実シート構成:
 1. **システム管理シート (1シート)**:
-   - `SYSTEM_INFO`: 2列 (A〜B列: 項目・内容) ＋ 14標準設定キー・値（地区コード、地区名、HアプリURL、Dashboard URL、LIFFアプリ名、LIFF ID、LIFF URL、Endpoint URL、Manager認証パスワード、状態、契約終了日、**運用モード**、**Active Dataset Key**、**契約開始日時**）。
+   - `SYSTEM_INFO`: 2列 (A〜B列: 項目・内容) ＋ 14標準設定キー・値（地区コード、地区名、HアプリURL、Dashboard URL、LIFFアプリ名、LIFF ID、LIFF URL、Endpoint URL、Manager認証パスワード、状態、契約終了日、**運用モード**、**Active Dataset Key**、**契約開始日時**）＋ 16行目拡張 `GOOGLE_MAPS_API_KEY`（`A1:B16` 保護対象）。
 2. **実運用データセット (5シート: ELECTION固定 または SUBSCRIPTION月次)**:
    - `配布実績<Key>`: 17列 (A〜Q列: P=`lineUserId`, Q=`requestId` 冪等性 Authority)
    - `名簿<Key>`: 4列 (A〜D列: A=`ID`, B=`名前`, C=`LINE_USER_ID`, D=`登録日時`)
@@ -69,25 +69,25 @@ ADR-024 および本番運用規程に基づく実シート構成:
    - ※第1世代の原本5種は ADR-024 により完全撤廃され、新規プロビジョニングでは生成されない。
 3. **現場コミュニケーション・履歴シート群 (2シート: 任意)**:
    - `掲示板`: 5列 (A〜E列: A=`日時`, B=`投稿者ID`, C=`投稿者名`, D=`メッセージ`, E=`lineUserId`)
-   - `掲示板連絡履歴`: 10列 (A〜J列: A=`日時`, B=`送信者ID`, C=`送信者名`, D=`相手ID`, E=`連絡方法`, F=`連絡先`, G=`requestId`, H=`LINE送信状態`, I=`LINE HTTP status`, J=`LINE送信日時`)
+   - `掲示板連絡履歴`: 10列 (A〜J列: A=`日時`, B=`送信者ID`, B=`送信者名`, D=`相手ID`, E=`連絡方法`, F=`連絡先`, G=`requestId`, H=`LINE送信状態`, I=`LINE HTTP status`, J=`LINE送信日時`)
 
 ---
 
 ## 3. 配布実績（DistributionRecord）中心データ項目定義
 
-POSTING MAP の中核である「誰が・いつ・どこで・何枚配ったか」を記録するデータ項目。
+POSTING MAP の中核である「誰が・いつ・どこで・何枚配ったか」を記録するデータ項目（実装クラス: `DistributionEvent` / `active/business/distribution/distribution_model.js`）。
 
-### (1) 配布実績エンティティ (`DistributionRecord`)
+### (1) 配布実績エンティティ (`DistributionRecord` / 実装クラス `DistributionEvent`)
 
 | Field (物理名) | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | 生成者 | 利用者 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | `rowId` | 地域行識別子 | Number | 必須 | 対象町丁目の通し番号 (address_master と連動) | Hアプリ | 配布実績シート A列 | address_master | Hアプリ, Dashboard | address_master | 1以上の整数 |
-| `cityName` | 市町村名 | String | 必須 | 活動対象町丁目が属する自治体名 | address_master | 配布実績シート B列 | address_master | Hアプリ, Dashboard | address_master | 例: `桑名市` |
+| `cityName` | 市町村名 | String | 必須 | 活動対象町丁目が属する自治体名 | address_master | 配布実績シート B列 | address_master | Hアプリ, Dashboard | address_master | 例: `〇〇市` |
 | `townName` | 町域名 | String | 必須 | 活動対象町丁目の正式名称 | address_master | 配布実績シート C列 | address_master | Hアプリ, Dashboard | address_master | 例: `相生町` |
 | `completedAt` | 配布完了日時 | String | 必須 | 現場で配布完了が記録された日時 (JST) | Hアプリ (端末時) | 配布実績シート D列 | 配布員 (完了タップ) | Hアプリ, Dashboard | 配布実績シート | フォーマット: `yyyy/MM/dd HH:mm:ss` |
 | `count` | 配布枚数 | Number | 必須 | 実際に配布されたチラシの枚数 | Hアプリ (テンキー)| 配布実績シート E列 | 配布員 (入力) | Hアプリ, Dashboard | 配布実績シート | 0以上の数値。例: `500` |
-| `staffId` | 担当者ID | String | 必須 | 配布を実施した党員の公式配布員ID | Backend (強制解決)| 配布実績シート F列 | Backend (`resolveStaffIdentity`)| Dashboard | 名簿の原本 | クライアント送信値を上書き強制 |
-| `staffName` | 担当者名 | String | 必須 | 配布を実施した党員の表示名 | Backend (強制解決)| 配布実績シート G列 | Backend (`resolveStaffIdentity`)| Dashboard | 名簿の原本 | クライアント送信値を上書き強制 |
+| `staffId` | 担当者ID | String | 必須 | 配布を実施した党員の公式配布員ID | Backend (強制解決)| 配布実績シート F列 | Backend (`resolveStaffIdentity`)| Dashboard | 名簿<Key> | クライアント送信値を上書き強制 |
+| `staffName` | 担当者名 | String | 必須 | 配布を実施した党員の表示名 | Backend (強制解決)| 配布実績シート G列 | Backend (`resolveStaffIdentity`)| Dashboard | 名簿<Key> | クライアント送信値を上書き強制 |
 | `gpsStatus` | GPS記録状態 | String | 必須 | 座標記録の有効性フラグ | Hアプリ (端末GPS) | 配布実績シート H列 | `modules/device.js` | Dashboard | 配布実績シート | `OK` または `NO` |
 | `photoStatus` | 写真記録状態 | String | 必須 | 完了写真アップロード状態フラグ | Hアプリ (端末カメラ)| 配布実績シート I列 | `modules/device.js` | Dashboard | 配布実績シート | `OK` または `NO` |
 | `latitude` | 配布緯度 | Number | 任意 | 配布完了地点のGPS緯度 (世界測地系) | 端末GPS | 配布実績シート J列 | 端末GPS | Dashboard | 配布実績シート | `0` または欠損時は空文字 |
@@ -104,21 +104,21 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 ### 【重要不変原則】PinStatus と DistributionRecord の厳格な分離
 - **`PinStatus` (リアルタイム作業中状態)**:
   現在誰がどのピン（町丁目）で作業中かを示す「一時的な現在状態」であり、活動員同士が視覚的に重複を避けるための緩やかな協調表示に過ぎない。最新状態により随時上書き更新（Update）される。
-- **`DistributionRecord` (配布完了確定実績)**:
+- **`DistributionRecord` (配布完了確定実績 / `DistributionEvent`)**:
   「誰が・いつ・どこで・何枚配ったか」という当月の完了実績を記録する「月次進捗台帳（1か月・1 rowId = 1行）」である。当月の初回完了のみ保存し、同月内の再配布は行わず翌月に新しい月次シートで新規開始する（Q列は当月受理requestIdによる二重登録防止キー）。
 
 ---
 
 ## 4. その他のエンティティ項目定義
 
-### (2) 配布員名簿 (`StaffIdentity`) — `名簿の原本` / `名簿YYYY-MM`
+### (2) 配布員名簿 (`StaffIdentity`) — `名簿<Key>` (`名簿YYYY-MM`)
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| `id` | 配布員ID (Staff ID) | String | 必須 | 支部内で一意の人間向けスタッフID | Backend | A列 | 名簿の原本 | 例: `STF-24205-001` |
-| `name` | 配布員名 | String | 必須 | 党員の登録表示名 (ニックネーム可) | Hアプリ入力 / LINE名 | B列 | 名簿の原本 | 本人が登録時に設定 |
+| `id` | 配布員ID (Staff ID) | String | 必須 | 支部内で一意の人間向けスタッフID | Backend | A列 | 名簿<Key> | 例: `STF-00001-001` |
+| `name` | 配布員名 | String | 必須 | 党員の登録表示名 (ニックネーム可) | Hアプリ入力 / LINE名 | B列 | 名簿<Key> | 本人が登録時に設定 |
 | `lineUserId` | LINE User ID | String | 必須 | 検証済みLINE User ID | LIFF トークン | C列 | LINE Platform | **機密項目** (内部照合専用) |
-| `registeredAt` | 登録日時 | String | 必須 | 初回名簿登録日時 (JST) | Backend | D列 | 名簿の原本 | `yyyy/MM/dd HH:mm:ss` |
+| `registeredAt` | 登録日時 | String | 必須 | 初回名簿登録日時 (JST) | Backend | D列 | 名簿<Key> | `yyyy/MM/dd HH:mm:ss` |
 
 ### (3) 支部活動対象地域 (`ActivityTargetRegion`) — `data/address_master.csv`
 
@@ -157,57 +157,57 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | `rank` | 順位 | Number | 必須 | 支部内の月間配布実績順位 (1位〜) | 配布実績集計 | メモリ / キャッシュ | 配布実績シート | 同枚数の場合は同順位 |
-| `staffId` | 配布員ID | String | 必須 | 表示用スタッフID | 配布実績集計 | メモリ / キャッシュ | 名簿の原本 | 他人にはIDのみ表示 (匿名性保護) |
+| `staffId` | 配布員ID | String | 必須 | 表示用スタッフID | 配布実績集計 | メモリ / キャッシュ | 名簿<Key> | 他人にはIDのみ表示 (匿名性保護) |
 | `count` | 合計配布枚数 | Number | 必須 | 当月内に完了登録したチラシの合計枚数 | 配布実績集計 | メモリ / キャッシュ | 配布実績シート | 0以上の整数（純粋な配布枚数のみ） |
 | `isMe` | 本人判定フラグ | Boolean | 必須 | リクエスト送信者本人であるかどうかの判定 | Backend | APIレスポンス | Backend認証 | 本人行のみハイライト表示用 |
 
-※ **現物確認結果**: 既存Backend実装（`DistributionRepository.js`）において、ランキング計算は純粋に配布実績の `count` 列のみを集計しており、専用の評価値・ポイント等は一切存在しない。Universal POSTING MAP でもこのシンプルな実績集計を完全継承する。
+※ **現物確認結果**: 既存Backend実装（`distribution_repository.js`）において、ランキング計算は純粋に配布実績の `count` 列のみを集計しており、専用の評価値・ポイント等は一切存在しない。Universal POSTING MAP でもこのシンプルな実績集計を完全継承する。
 
-### (5) 保有チラシ在庫 (`FlyerStock`) — `保有チラシ枚数の原本` / `保有チラシ枚数YYYY-MM`
+### (5) 保有チラシ在庫 (`FlyerStock`) — `保有チラシ枚数<Key>` (`保有チラシ枚数YYYY-MM`)
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| `id` | 在庫ID | Number | 必須 | チラシ保管レコードの連番 | Backend | A列 | 保有チラシ原本 | 1以上の整数 |
-| `staffId` | 保管者スタッフID | String | 必須 | チラシを保管している党員のStaff ID | Backend | B列 | 名簿の原本 | 例: `STF-24205-001` |
-| `staffName` | 保管者名 | String | 必須 | チラシを保管している党員の表示名 | Backend | C列 | 名簿の原本 | 表示用 |
-| `location` | 保管場所 | String | 必須 | 保管場所の自治体名 | Hアプリ選択 | D列 | 保有チラシ原本 | `storage_locations.json` と連動 |
-| `count` | 保有枚数 | Number | 必須 | 現在保管しているチラシの残数 | Hアプリ入力 | E列 | 保有チラシ原本 | 配布や受渡により増減 |
-| `updatedAt` | 最終更新日時 | String | 必須 | 在庫数が最後に更新された日時 (JST) | Backend | F列 | 保有チラシ原本 | `MM/dd HH:mm` |
+| `id` | 在庫ID | Number | 必須 | チラシ保管レコードの連番 | Backend | A列 | 保有チラシ枚数<Key> | 1以上の整数 |
+| `staffId` | 保管者スタッフID | String | 必須 | チラシを保管している党員のStaff ID | Backend | B列 | 名簿<Key> | 例: `STF-00001-001` |
+| `staffName` | 保管者名 | String | 必須 | チラシを保管している党員の表示名 | Backend | C列 | 名簿<Key> | 表示用 |
+| `location` | 保管場所 | String | 必須 | 保管場所の自治体名 | Hアプリ選択 | D列 | 保有チラシ枚数<Key> | `storage_locations.json` と連動 |
+| `count` | 保有枚数 | Number | 必須 | 現在保管しているチラシの残数 | Hアプリ入力 | E列 | 保有チラシ枚数<Key> | 配布や受渡により増減 |
+| `updatedAt` | 最終更新日時 | String | 必須 | 在庫数が最後に更新された日時 (JST) | Backend | F列 | 保有チラシ枚数<Key> | `MM/dd HH:mm` |
 | `lineUserId` | 保管者LINE ID | String | 必須 | 保管者の検証済みLINE User ID | Backend | G列 | LINE Platform | **機密項目** (isMe判定専用) |
 
-### (6) 受渡要請 (`FlyerTransferRequest`) — `受渡要請履歴の原本` / `受渡要請履歴YYYY-MM`
+### (6) 受渡要請 (`FlyerTransferRequest`) — `受渡要請履歴<Key>` (`受渡要請履歴YYYY-MM`)
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| `requestTime` | 要請日時 | String | 必須 | 受渡要請が発行された日時 (JST) | Backend | A列 (1) | 受渡要請履歴 | `yyyy/MM/dd HH:mm:ss` |
-| `requestUserName` | 要請者名 | String | 必須 | 要請を発行した党員の表示名 | Backend | B列 (2) | 名簿の原本 | 表示用 |
-| `requestUserId` | 要請者スタッフID | String | 必須 | 要請を発行した党員のStaff ID | Backend | C列 (3) | 名簿の原本 | 例: `STF-24205-001` |
-| `holderName` | 保管者名 | String | 必須 | チラシを保管している対象党員の表示名 | Backend | D列 (4) | 名簿の原本 | 表示用 |
-| `holderUserId` | 保管者スタッフID | String | 必須 | チラシを保管している対象党員のStaff ID | Backend | E列 (5) | 名簿の原本 | 例: `STF-24205-002` |
-| `contactMethod` | 連絡方法 | String | 必須 | 希望連絡手段 (LINE, 電話等) | Hアプリ選択 | F列 (6) | 受渡要請履歴 | デフォルト: `LINE` |
-| `contactValue` | 連絡先 | String | 必須 | 連絡先の詳細（電話番号等） | Hアプリ入力 | G列 (7) | 受渡要請履歴 | |
-| `status` | 状態 | String | 必須 | 要請ステータス (`要請中` 等) | Backend | H列 (8) | 受渡要請履歴 | |
-| `requestId` | 冪等性キー | String | 必須 | 1回の要請を一意に特定する UUID v4 | Hアプリ (端末生成) | I列 (9) | 受渡要請履歴 | 重複防止キー |
-| `lineStatus` | LINE送信状態 | String | 必須 | LINE Push 通知送信状態 (`SENT`, `PROCESSING` 等) | Backend | J列 (10) | 受渡要請履歴 | |
-| `lineHttpStatus` | LINE HTTPステータス | String | 任意 | LINE API のレスポンスコード (`200` 等) | Backend | K列 (11) | 受渡要請履歴 | |
-| `lineTime` | LINE送信日時 | String | 任意 | LINE通知が送信された日時 (JST) | Backend | L列 (12) | 受渡要請履歴 | `yyyy/MM/dd HH:mm:ss` |
+| `requestTime` | 要請日時 | String | 必須 | 受渡要請が発行された日時 (JST) | Backend | A列 (1) | 受渡要請履歴<Key> | `yyyy/MM/dd HH:mm:ss` |
+| `requestUserName` | 要請者名 | String | 必須 | 要請を発行した党員の表示名 | Backend | B列 (2) | 名簿<Key> | 表示用 |
+| `requestUserId` | 要請者スタッフID | String | 必須 | 要請を発行した党員のStaff ID | Backend | C列 (3) | 名簿<Key> | 例: `STF-00001-001` |
+| `holderName` | 保管者名 | String | 必須 | チラシを保管している対象党員の表示名 | Backend | D列 (4) | 名簿<Key> | 表示用 |
+| `holderUserId` | 保管者スタッフID | String | 必須 | チラシを保管している対象党員のStaff ID | Backend | E列 (5) | 名簿<Key> | 例: `STF-00001-002` |
+| `contactMethod` | 連絡方法 | String | 必須 | 希望連絡手段 (LINE, 電話等) | Hアプリ選択 | F列 (6) | 受渡要請履歴<Key> | デフォルト: `LINE` |
+| `contactValue` | 連絡先 | String | 必須 | 連絡先の詳細（電話番号等） | Hアプリ入力 | G列 (7) | 受渡要請履歴<Key> | |
+| `status` | 状態 | String | 必須 | 要請ステータス (`要請中` 等) | Backend | H列 (8) | 受渡要請履歴<Key> | |
+| `requestId` | 冪等性キー | String | 必須 | 1回の要請を一意に特定する UUID v4 | Hアプリ (端末生成) | I列 (9) | 受渡要請履歴<Key> | 重複防止キー |
+| `lineStatus` | LINE送信状態 | String | 必須 | LINE Push 通知送信状態 (`SENT`, `PROCESSING` 等) | Backend | J列 (10) | 受渡要請履歴<Key> | |
+| `lineHttpStatus` | LINE HTTPステータス | String | 任意 | LINE API のレスポンスコード (`200` 等) | Backend | K列 (11) | 受渡要請履歴<Key> | |
+| `lineTime` | LINE送信日時 | String | 任意 | LINE通知が送信された日時 (JST) | Backend | L列 (12) | 受渡要請履歴<Key> | `yyyy/MM/dd HH:mm:ss` |
 | `requesterLineUserId` | 要請者LINE ID | String | 任意 | 要請者の検証済みLINE User ID | Backend | M列 (13) | LINE Platform | **機密項目** (内部照合専用) |
 | `holderLineUserId` | 保管者LINE ID | String | 任意 | 保管者の検証済みLINE User ID | Backend | N列 (14) | LINE Platform | **機密項目** (通知送信専用) |
 
-### (7) リアルタイム作業中状態 (`PinStatus`) — `PinStatusの原本` / `PinStatusYYYY-MM`
+### (7) リアルタイム作業中状態 (`PinStatus`) — `PinStatus<Key>` (`PinStatusYYYY-MM`)
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| `rowId` | 地域行識別子 | Number | 必須 | 対象町丁目の通し番号 | Hアプリ | A列 (1) | PinStatus | address_master と連動 |
-| `status` | 作業状態 | String | 必須 | 現在の作業中状態 (`WORKING`, `EMPTY` 等) | Hアプリ | B列 (2) | PinStatus | 随時上書き更新 |
+| `rowId` | 地域行識別子 | Number | 必須 | 対象町丁目の通し番号 | Hアプリ | A列 (1) | PinStatus<Key> | address_master と連動 |
+| `status` | 作業状態 | String | 必須 | 現在の作業中状態 (`WORKING`, `EMPTY` 等) | Hアプリ | B列 (2) | PinStatus<Key> | 随時上書き更新 |
 
 ### (8) 掲示板投稿 (`BulletinPost`) — `掲示板`
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | `createdAt` | 投稿日時 | String | 必須 | 掲示板メッセージが投稿された日時 (JST) | Backend | A列 (1) | 掲示板 | `yyyy/MM/dd HH:mm:ss` |
-| `staffId` | 投稿者スタッフID | String | 必須 | 投稿した党員のStaff ID | Backend | B列 (2) | 名簿の原本 | 例: `STF-24205-001` |
-| `staffName` | 投稿者名 | String | 必須 | 投稿した党員の表示名 | Backend | C列 (3) | 名簿の原本 | 表示用 |
+| `staffId` | 投稿者スタッフID | String | 必須 | 投稿した党員のStaff ID | Backend | B列 (2) | 名簿<Key> | 例: `STF-00001-001` |
+| `staffName` | 投稿者名 | String | 必須 | 投稿した党員の表示名 | Backend | C列 (3) | 名簿<Key> | 表示用 |
 | `message` | メッセージ本文 | String | 必須 | 投稿内容テキスト | Hアプリ入力 | D列 (4) | 掲示板 | |
 | `lineUserId` | 投稿者LINE ID | String | 必須 | 投稿者の検証済みLINE User ID | Backend | E列 (5) | LINE Platform | **機密項目** (isMe判定専用) |
 
@@ -216,9 +216,9 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | `createdAt` | 連絡日時 | String | 必須 | 掲示板から連絡が送信された日時 (JST) | Backend | A列 (1) | 掲示板連絡履歴 | `yyyy/MM/dd HH:mm:ss` |
-| `senderStaffId` | 送信者スタッフID | String | 必須 | 連絡を送信した党員のStaff ID | Backend | B列 (2) | 名簿の原本 | 例: `STF-24205-001` |
-| `senderStaffName`| 送信者名 | String | 必須 | 連絡を送信した党員の表示名 | Backend | C列 (3) | 名簿の原本 | 表示用 |
-| `targetStaffId` | 相手スタッフID | String | 必須 | 連絡先となる対象党員のStaff ID | Backend | D列 (4) | 名簿の原本 | 例: `STF-24205-002` |
+| `senderStaffId` | 送信者スタッフID | String | 必須 | 連絡を送信した党員のStaff ID | Backend | B列 (2) | 名簿<Key> | 例: `STF-00001-001` |
+| `senderStaffName`| 送信者名 | String | 必須 | 連絡を送信した党員の表示名 | Backend | C列 (3) | 名簿<Key> | 表示用 |
+| `targetStaffId` | 相手スタッフID | String | 必須 | 連絡先となる対象党員のStaff ID | Backend | D列 (4) | 名簿<Key> | 例: `STF-00001-002` |
 | `contactMethod` | 連絡方法 | String | 必須 | 連絡手段 (LINE, 電話等) | Hアプリ選択 | E列 (5) | 掲示板連絡履歴 | |
 | `contactValue` | 連絡先 | String | 必須 | 連絡先の詳細 | Hアプリ入力 | F列 (6) | 掲示板連絡履歴 | |
 | `requestId` | 冪等性キー | String | 必須 | 重複防止キー | Hアプリ (端末生成) | G列 (7) | 掲示板連絡履歴 | UUID v4 |
@@ -233,10 +233,10 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 | `key` | 設定項目名 | String | 必須 | システム設定キー | システム定義 | A列 (1) | SYSTEM_INFO | A1ヘッダー: `項目` |
 | `value` | 設定内容 | String | 任意 | 設定値 | システム設定 | B列 (2) | SYSTEM_INFO | B1ヘッダー: `内容` |
 
-**標準11キー構成**:
-1. `地区コード`: 地区の一意識別コード (例: `KUWANA`)
-2. `地区名`: 地区の表示名 (例: `桑名市`)
-3. `HアプリURL`: 現場用HアプリのルートURL
+**標準14キー構成（＋B16拡張行 `A1:B16`）**:
+1. `地区コード`: 地区の一意識別コード (例: `<DISTRICT_ID>`)
+2. `地区名`: 地区の表示名 (例: `対象選挙区`)
+3. `HアプリURL`: 現場用HアプリのルートURL (`B4`: MASTER直接入力)
 4. `Dashboard URL`: 支部統括ダッシュボードのルートURL
 5. `LIFFアプリ名`: LINE LIFF アプリケーション名
 6. `LIFF ID`: LINE Developers にて発行された LIFF ID
@@ -245,10 +245,14 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 9. `Manager認証パスワード`: 支部ダッシュボード用認証PIN
 10. `状態`: 地区の稼働ステータス (`ACTIVE` 等)
 11. `契約終了日`: 地区契約有効期限日 (`yyyy-MM-dd`)
+12. `運用モード`: `ELECTION`（期間固定）または `SUBSCRIPTION`（月次更新）
+13. `Active Dataset Key`: 現在アクティブなデータセットキー（例: `2026-10`）
+14. `契約開始日時`: 契約または選挙モード開始日時
+- 16行目拡張 (`A16:B16`): `GOOGLE_MAPS_API_KEY`（`B16`: MASTER直接入力・生値非露出・保護対象）
 
 ### (11) 保管場所候補マスター (`data/storage_locations.json`)
 - **役割**: Hアプリ「保有チラシ」における保管場所候補ドロップダウンの選択肢マスター。
-- **生成規則**: 対象自治体を入力条件とし、公式な衆議院小選挙区画定資料から機械的に導出（構成自治体一覧を文字列配列形式 `["桑名市", "いなべ市", ...]` で配置）。
+- **生成規則**: 対象自治体を入力条件とし、公式な衆議院小選挙区画定資料から機械的に導出（構成自治体一覧を文字列配列形式 `["〇〇市", "△△市", ...]` で配置）。
 - **制約**: 他地区からの流用・推測・静的コピーは永久禁止。`active/` 内への自治体名ハードコードは禁止。
 
 ### (12) エリア実績マッピングメタデータ (`data/area_mapping.json`)

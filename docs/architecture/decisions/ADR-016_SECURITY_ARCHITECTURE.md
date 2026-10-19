@@ -51,7 +51,7 @@ POSTING MAP は配布員・管理者・支部が日常的に利用するフィ�
 #### ⑨ API Abuse & Idempotency (二重送信防止・排他ロック)
 - クライアント側で `requestId`（UUID v4）を発番し、通信リトライ時も同一 ID を維持することで冪等性を保証する。
 - クライアント側で提出中の多重タップを防止する `submitting` ガードを設ける。
-- サーバー側では `LockServiceProvider` による 10 秒排他スクリプトロック（`LockService.getScriptLock`）を実行し、同一リソースへの同時書き込み・競合破壊を防止する。
+- サーバー側では `LockServiceProvider`（`lock_adapter.js` 標準 10 秒）および `GPSService`（`gps_service.js` `waitLock(15000)` 15 秒）による排他スクリプトロック（`LockService.getScriptLock`）を実行し、同一リソースへの同時書き込み・競合破壊を防止する。
 
 #### ⑩ Audit Logging (操作追跡性と監査ログ)
 - 配布実績、名簿登録、システム設定変更等の重要操作は、タイムスタンプ（JST）および解決済み `staffId` を台帳に不可逆記録する。

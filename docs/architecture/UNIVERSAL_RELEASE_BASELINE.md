@@ -1,6 +1,6 @@
 # Universal Engine Release Baseline Specification
 
-- **Version**: 1.0.0
+- **Version**: 1.0.1
 - **Status**: RELEASED / FROZEN
 - **Baseline Commit**: `7a6fda8846dee9cccf81c60c8ee8119d00285504`
 - **Release Date**: 2026-09-27
@@ -32,7 +32,7 @@ Universal Engine v1.0 における各コンポーネントのベースライン�
 |:---|:---|:---|:---|
 | **Universal Engine Core** | `v1.0.1` | 共通フロントエンド（H App / Dashboard）およびバックエンド（当該Spreadsheetに付属する1地区専用GAS Runtime） | `active/` 全域<br>`index.html` |
 | **API Contract** | `v2.0.0` | Web App Gateway / RPC 通信規約（公開・管理アクション、認証ゲート、レスポンス構造） | `docs/api/API_CONTRACT.md`<br>`active/api/v2_api.js` |
-| **Data Schema (District DB)** | `v1.0.0` | スプレッドシート 13シート標準スキーマ（初期11 Core複製+現場2オンデマンド生成、DATA_DICTIONARY.md準拠）、カラム定義、数式注入防御 | `docs/data/DATA_DICTIONARY.md`<br>`active/business/` |
+| **Data Schema (District DB)** | `v1.0.0` | スプレッドシート ADR-024 Dual Lifecycle 標準スキーマ（SYSTEM_INFO + 実運用5シート<Key> + 現場2オンデマンド生成、DATA_DICTIONARY.md準拠）、カラム定義、数式注入防御 | `docs/data/DATA_DICTIONARY.md`<br>`active/business/` |
 | **Provisioning Spec** | `v1.0.0` | 新地区プロビジョニング仕様、マスターデータ構造（住所・境界・自治体）、地区DB・付属1地区専用GASバインド規約 | `docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md` |
 | **Security Baseline** | `v1.0.0` | SEC-001〜SEC-007 セキュリティ境界（セッション、サニタイズ、テナント分離、PIN秘匿等） | `docs/security/SECURITY_BASELINE.md` |
 | **Deployment Baseline** | `v1.0.0` | 当該Spreadsheetに付属する1地区専用GAS、地区専用Web App公開、単一地区Spreadsheet直接解決 | `docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md` |
@@ -54,7 +54,7 @@ Universal Engine v1.0 における各コンポーネントのベースライン�
 2. **API Contract (`docs/api/API_CONTRACT.md`)**:
    - アクション名、リクエスト/レスポンスパラメータ定義、エラーコード
 3. **Data Schema & Sheet Structure (`docs/data/DATA_DICTIONARY.md`)**:
-   - 13シート標準構造（初期11 Core複製+現場2オンデマンド生成、DATA_DICTIONARY.md準拠）のカラム配列
+   - ADR-024 Dual Lifecycle 標準構造（SYSTEM_INFO + 実運用5シート<Key> + 現場2オンデマンド生成、DATA_DICTIONARY.md準拠）のカラム配列
 4. **Identity & Tenant Boundary**:
    - `LINE User ID → Staff Identity → Branch → Target Area` 導出チェーン
    - `TARGET_SPREADSHEET_ID` → `SPREADSHEET_ID` → `SpreadsheetApp.getActiveSpreadsheet()` 単一地区解決および `SYSTEM_INFO` Integrity Guard

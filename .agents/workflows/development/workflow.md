@@ -51,26 +51,23 @@ AI社員の作業は、必ず以下の「9-Stage Execution Protocol」と「Veri
 - V1 Static Verification: `git diff`, `git diff --check`, Scope確認, Dead Code確認。
 - V2 Runtime Verification: 実機起動、DOM/Console/Network、Google Maps 実描画確認（`.gm-style`）。
 - V3 Regression Verification: 全テストスイート実行（`npm test`、並列統合テスト）。
-- Mechanical Governance Gate: `node scripts/check-scope.mjs`（Scope Guard & Architecture Guard 通過必須）。
-- 統合差分固定（Freeze）: 検証完了状態のWorking Treeを静止させ、Stage 5 への進行準備を行う。
+- Mechanical Governance Gate: `node scripts/check-scope.mjs`, `npm run check:knowledge`, `node scripts/check-architecture-gate.mjs`, `node scripts/check-secrets.mjs`, `node scripts/check-universal-invariants.mjs`（Scope Guard & Architecture/Knowledge/Universal Guards 通過必須）。
+- 統合差分固定（Freeze）: 検証完了状態のWorking Treeを静止させ、Stage 5 & 6 への進行準備を行う。
 
-### Stage 5: Internal Independent Audit & Mechanical Gate (内部ディスパッチ独立監査) — [主担当: Execution AI / Independent Auditor AI]
-- Execution AI が `invoke_subagent` により Independent Auditor をディスパッチ（Prompt に BASE, TARGET, MISSION_SCOPE を完全バインド）。
-- **Auditor の独立性要件**: Fresh isolated child context、Policy-Level Zero Write、必須コマンド独立再実行（`git diff`, `npm test`, `check-scope.mjs`）。
+### Stage 5 & 6: Implementation Commit (<TARGET>), Internal Independent Audit & Mechanical Gate — [主担当: Execution AI / Independent Auditor AI]
+- Self Verify 完了後、Authorization Envelope において `COMMIT: YES` が付与されている場合、親Executionは実装コミット（`<TARGET>`, `<BASE> !== <TARGET>`）を作成して監査対象差分 `<BASE>..<TARGET>` を確定する。
+- Execution AI が `invoke_subagent` により Independent Auditor をディスパッチ（Prompt に `BASE (<BASE>)`, `TARGET (<TARGET>)`, `MISSION_SCOPE` を完全バインド）。
+- **Auditor の独立性要件**: Fresh isolated child context、Policy-Level Zero Write、必須コマンド独立再実行（`git diff <BASE>..<TARGET>`, `npm test`, `check-scope.mjs`）。
 - Auditor は `[AUDITOR VERDICT]`（PASS / REJECT）を親Executionへ返却。
 - 親Executionは Mechanical Auditor Gate を執行する：
   ```bash
-  npm run gate:auditor -- --base <BASE_COMMIT> --target <HEAD_COMMIT>
+  npm run gate:auditor -- --base <BASE_COMMIT> --target <TARGET_COMMIT>
   ```
-  - Gate は `.agents/current-scope.json` の `mission` を正本とした **Stage 0 Entrance Gate 二重防御**、Event A ➔ Event B ➔ Event C 相関チェーン、および **Post-Audit Zero Mutation**（監査PASS後の改変遮断）を機械検証。
+  - Gate は `.agents/current-scope.json` の `mission` を正本とした **Stage 0 Entrance Gate 二重防御**、Event A ➔ Event B ➔ Event C 相関チェーン（`<BASE> !== <TARGET>`）、および **Post-Audit Zero Mutation**（監査PASS後の改変遮断）を機械検証。
   - Stage 0 PASS 証跡欠落または監査PASS後にファイル変更が1件でも検出された場合、PASS即時VOID / Exit 1 で HARD STOP。
 
-### Stage 6: Commit Gate (認可エンベロープ執行関門) — [主担当: Execution AI]
-- `gate:auditor` Exit 0 確認後、Authorization Envelope において `COMMIT: YES` が付与されている場合、親Executionは手動Resumeを挟まず `git commit` を自律執行する。
-- 未認可または異常検知時は HARD STOP とする。
-
 ### Stage 7: Push Gate (認可エンベロープ執行関門) — [主担当: Execution AI]
-- Authorization Envelope において `PUSH: YES` が付与されている場合、親Executionは `git push` を執行する（Stage 2 の Scope Commit を含めて一括プッシュ）。
+- `gate:auditor` Exit 0 確認後、Authorization Envelope において `PUSH: YES` が付与されている場合、親Executionは手動Resumeを挟まず `git push` を執行する（Stage 2 の Scope Commit を含めて一括プッシュ）。
 
 ### Stage 8: Deployment Gate & Remote Sync Verification — [主担当: Execution AI]
 - Push完了後、実稼働環境への反映が必要な変更（Deployment対象変更）であり、かつ Authorization Envelope において `DEPLOY: YES` が認可されている場合のみデプロイを実施。

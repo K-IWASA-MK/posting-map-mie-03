@@ -38,7 +38,7 @@ Execution AI（Chief Orchestrator）により `invoke_subagent` を通じて **F
 3. **`run_command` Policy READ ONLY allowlist 方式**:
    実行可能なコマンドは以下の allowlist に限定されます：
    - 差分・ログ確認: `git status`, `git diff`, `git log`, `git rev-parse`
-   - 検証・テスト実行: `npm test`, `node tests/...`, `npm run audit:gate`, `node scripts/check-scope.mjs`
+   - 検証・テスト実行: `npm test`, `node tests/...`, `npm run audit:gate`, `npm run check:knowledge`, `node scripts/check-architecture-gate.mjs`, `node scripts/check-scope.mjs`, `node scripts/check-secrets.mjs`, `node scripts/check-universal-invariants.mjs`
    - ファイル直接抽出: `head`, `tail`, `wc -l`, `grep`
    - **Policy禁止**: ファイル書込/削除（`rm`, `mv`, `>`, `>>` 等）、Git変更（`git add`, `git commit`, `git push`, `git reset` 等）、Deployコマンド（`clasp push` 等）、リポジトリ内へのファイル作成。
 4. **忖度・推測の完全排除 (No Evidence No PASS)**:

@@ -44,7 +44,7 @@
 | **業務データ (1地区DB)** | 当該地区 Google スプレッドシート | Google Drive 版履歴 + 自動スナップショット複製 | 日次 (定期バッチ) | **TBD / Decision Required**<br>(組織規程・業務合意に基づき決定) | バックアップ専用 Drive フォルダ (隔離) |
 | **構成メタデータ** | 1地区専用GAS Script Properties キー定義（`TARGET_SPREADSHEET_ID` 等） | 設定エクスポートスクリプト (Secret値はマスク) | 変更時随時 | **TBD / Decision Required**<br>(監査要件に基づき決定) | Git (暗号化) または保護リポジトリ |
 | **マスターデータ** | `data/` (住所・境界GeoJSON・自治体) | Git コミット履歴 | 変更時随時 | 永続 (Git) | GitHub リポジトリ |
-| **監査証跡 (Audit)** | 配布完了タイムスタンプ、操作ログ | スプレッドシート内 `DISTRIBUTION_RECORDS` | リアルタイム | **TBD / Decision Required**<br>(法的要件・規約に基づき決定) | スプレッドシート DB |
+| **監査証跡 (Audit)** | 配布完了タイムスタンプ、操作ログ | スプレッドシート内 `配布実績<Key>`（`配布実績YYYY-MM` 等） | リアルタイム | **TBD / Decision Required**<br>(法的要件・規約に基づき決定) | スプレッドシート DB |
 
 > [!CAUTION]
 > **Secret の除外原則**:
@@ -62,9 +62,10 @@
 5. コピー完了後、正式合意された保持期間ポリシー（TBD / Decision Required）に基づき古いバックアップファイルをパージ。
 
 ### 手動バックアップ（計画メンテナンス・大規模更新前）
-```bash
-# 計画変更前のスナップショット取得（管理コンソールまたは専用CLI）
-# ※ 実行例: node scripts/backup-district-spreadsheet.js --district KUWANA
+```text
+# 計画変更前のスナップショット取得（Google Drive makeCopy またはシートエクスポート）
+# 1. バックアップ専用 Drive フォルダへ BACKUP_<districtId>_YYYYMMDD_HHmmss として複製を作成
+# 2. 必要に応じて npm run provision:sheets -- --dry-run 等でシート構造・件数を事前確認
 ```
 - **確認事項**: 複製されたスプレッドシートが正常に開き、レコード数が元ファイルと一致していること。
 

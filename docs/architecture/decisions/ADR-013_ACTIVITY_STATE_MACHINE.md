@@ -48,7 +48,7 @@ UI・キュー・API・DB間で以下の状態遷移モデル（State Transition
        ▼
 [2. IN_PROGRESS] (操作受付 / 自端末選択中)
        │ ピン色: 青 (#00B7FF)
-       │ PinStatus-YYYY-MM: setPinInProgress("add")
+       │ PinStatus<Key>: setPinStatus (PinStatusModule.reportInProgress / PinStatusService.updatePinStatus)
        │
        │ 「配布開始」タップ ➔ 詳細モーダル ➔ テンキー枚数入力 ➔ 写真撮影・GPS取得
        ▼
@@ -128,7 +128,7 @@ POSTING MAP のフィールドワークにおける以下の業務ルールを�
 
 #### ルール1: 完了確定した地区は「当月再操作不可」
 - 当月シート（`配布実績YYYY-MM`）に `completedAt` が記録された `rowId` は、月内において完了確定状態（`COMPLETED`）を維持する。
-- `fetchGlobalPinStatus` により `window.globalPinStatus.completed` に登録され、ピンアイコンは橙色（`#EA5F08`）にロックされる。
+- `PinStatusModule`（`syncFromSnapshot` / `applyPinStatus`）により `window.globalPinStatus.completed` に登録され、ピンアイコンは橙色（`#EA5F08`）にロックされる。
 - ピンをタップした際、カスタム情報ウィンドウ（バブル）には「配布済み 🔒」のみが表示され、「詳細地図」や「配布開始」等の操作ボタンは一切表示されず、再操作は物理的に遮断される。
 - 月が更新された場合（翌月1日 0:00 JST）、`MonthlySheetResolver` により翌月シートが新設・参照されるため、完了ロックは自動的に解除され新月の配布が可能となる。
 

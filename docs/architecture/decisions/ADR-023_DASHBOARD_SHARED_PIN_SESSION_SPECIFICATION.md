@@ -51,7 +51,7 @@
 |---|---|---|
 | **Public (公開)** | `getMapsApiKey`, `verifyManagerPassword`, `getTier1` | 認証不要 (地図描画・PIN照合入口) |
 | **Dashboard 専用** | `getDashboardSnapshot`, `getRoster`, `getTransferRequests`, `getSystemInfo`, `logoutManager` | **有効な `dashboardSessionToken` が必須** (未認証は 401 拒絶) |
-| **Dual-Audience (業務読取)** | `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getGlobalPinStatus`, `getBulletinPosts` | **`dashboardSessionToken` または 有効な `liffToken` のいずれかが必須** |
+| **Dual-Audience (業務読取)** | `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getBulletinPosts` | **`dashboardSessionToken` または 有効な `liffToken` のいずれかが必須** |
 | **Staff 専用書き込み** | `updateRecordWithGPSPhoto`, `updateFlyerStock`, `createBulletinPost`, `sendBulletinContact`, `requestFlyerTransfer`, `resolveTransferRequest`, `submitDistribution` | **有効な `liffToken` ＋ 名簿登録済みIdentity が必須** |
 
 ### (5) GET 直接アクセスの完全遮断

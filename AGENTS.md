@@ -152,7 +152,7 @@ AI社員は以下の条件に抵触する変更を新規にコミットしては
    - `app.js` への新規 `callApiPost()` 呼び出し追加（Boot/Bootstrap上不可避な場合のみ承認対象とする）
 3. **【WARN】（警告・説明責任）**
    - `app.js` の行数が直前の Approved HEAD より増加すること
-   - ※2,688行は Historical Starting Baseline として記録するものであり、永久閾値ではない。Baseline は分割縮小後に随時ラチェットダウン（ratchet down）する。
+   - ※2,688行は Historical Starting Baseline として記録するものであり、永久閾値ではない（Current Runtime Baseline: 1,426行）。Baseline は分割縮小後に随時ラチェットダウン（ratchet down）する。
 
 ## 12. Detailed Rules & Workflows
 AI社員は作業フェーズに応じて、必ず以下の詳細規程・ワークフローを参照・遵守すること。

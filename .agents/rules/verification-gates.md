@@ -24,25 +24,27 @@ AI社員の作業は、必ず以下の「Verification Gate」と「客観的証�
   ```text
   Execution V1〜V3自己検証
          ↓
+  Implementation Commit (<TARGET>) 確定 (BASE_COMMIT !== TARGET_COMMIT)
+         ↓
   Execution AI が invoke_subagent により Independent Auditor をディスパッチ (Fresh isolated child context)
          ↓ (BASE_COMMIT, TARGET_COMMIT, MISSION_SCOPE 完全バインド)
   Auditor による独立再検証 (親の報告を信用せず自ら独立コマンド実行)
          ↓
   [AUDITOR VERDICT] 返却 (PASS / REJECT)
          ↓
-  Execution AI が Mechanical Gate 執行: npm run gate:auditor -- --base <BASE> --target <HEAD>
+  Execution AI が Mechanical Gate 執行: npm run gate:auditor -- --base <BASE> --target <TARGET>
          ├─ Stage 0 Entrance Gate 二重防御 (.agents/current-scope.json の mission を正本として再検証)
-         ├─ Event A ➔ Event B ➔ Event C 相関チェーン検証
+         ├─ Event A ➔ Event B ➔ Event C 相関チェーン検証 (<BASE> !== <TARGET>)
          └─ Post-Audit Zero Mutation 検証 (監査PASS後のファイル改変を検出した場合は即時 VOID / Exit 1)
          ↓ PASS (Exit 0)
-  Authorization Envelope [COMMIT: YES, PUSH: YES] に基づき Commit & Push 執行
+  Authorization Envelope [COMMIT: YES, PUSH: YES] に基づき Push 執行
   ```
 - **Auditor必須独立再確認コマンド**:
   Auditor は Execution AI の Handover / 報告記述を証拠として鵜呑みにせず、自ら以下のコマンドを実行して独立検証しなければならない：
   - `git diff`
   - `npm test`
   - `node scripts/check-scope.mjs`
-  ※タスク特性に応じて `npm run audit:gate` や個別テストを追加実行。
+  ※タスク特性に応じて `npm run audit:gate`, `npm run check:knowledge`, `node scripts/check-architecture-gate.mjs`, `node scripts/check-secrets.mjs`, `node scripts/check-universal-invariants.mjs` や個別テストを追加実行。
 - **5大固定観点**:
   1. **観点①: 最上位絶対原則**（Universal Engine非侵襲・コピー原則の遵守）
   2. **観点②: Scope厳守・余計な差分の排除**（Staged/Working Diff と current-scope.json の完全一致）
@@ -53,11 +55,11 @@ AI社員の作業は、必ず以下の「Verification Gate」と「客観的証�
 ### Mechanical Governance Gate
 - `npm run gate:entrance -- --mission "<MISSION>"` を Scope Lock（`.agents/current-scope.json` 書込）およびファイル変更前に実行し、`transcript.jsonl` 内の ① `architect` 起動証跡、② `[GATEKEEPER VERDICT]` 存在、③ `Final Verdict = PASS`、④ 現在Mission一致（過去MissionのPASS流用禁止）の4条件を通過する（通過後、`.agents/current-scope.json` に `{ "mission": "<MISSION>", "files": ["..."] }` を記録・固定 ※本 `check-entrance-gate.mjs` 導入 Bootstrap Mission のみ既存 Stage 0 手続き PASS で着手し、実装 Commit / Push 完了後の次 Mission から Scope Lock 前強制適用を開始）。
 - `npm run audit:gate` を実行し、Scope Guard（`scripts/check-scope.mjs`）による機械監査を通過する（既存ゲートとして完全維持・必須）。
-- `npm run gate:auditor -- --base <BASE> --target <HEAD>` を実行し、Stage 0 Entrance Gate 二重防御、独立監査相関チェーンおよび Post-Audit Zero Mutation の機械検証を通過する（必須関門）。
+- `npm run gate:auditor -- --base <BASE> --target <TARGET>` を実行し、Stage 0 Entrance Gate 二重防御、独立監査相関チェーンおよび Post-Audit Zero Mutation の機械検証を通過する（必須関門）。
 
 ### Commit Gate & Push Gate (Authorization Envelope 執行関門)
-- **Commit Gate**: V1〜V3自己検証のPASS、Independent Auditor による `[AUDITOR VERDICT]` PASS、および `npm run gate:auditor` Exit 0 が揃い、かつ MASTER の Authorization Envelope（`COMMIT: YES`）が有効な場合に限り、Execution AI は Commit を執行する。
-- **Push Gate**: Commit存在確認、Scope確認、および Authorization Envelope（`PUSH: YES`）が有効な場合、Execution AI は Push を執行する（特別Governance Transactionである Scope Commit を含めて最終Pushとする）。
+- **Commit Gate**: V1〜V3自己検証のPASSおよび MASTER の Authorization Envelope（`COMMIT: YES`）に基づき、Execution AI は Implementation Commit（`<TARGET>`）を作成し、続けて Independent Auditor による `[AUDITOR VERDICT]` PASS および `npm run gate:auditor -- --base <BASE> --target <TARGET>` Exit 0 によって当該コミットを確定させる。
+- **Push Gate**: Commit存在確認、Scope確認、`gate:auditor` Exit 0、および Authorization Envelope（`PUSH: YES`）が有効な場合、Execution AI は Push を執行する（特別Governance Transactionである Scope Commit を含めて最終Pushとする）。
 
 ### Crisp Deployment Gate & V4 Deployment Verification
 - **Crisp Deployment Gate**: Push完了後、実稼働環境への反映が必要な変更（Deployment対象変更）であり、かつ Authorization Envelope において `DEPLOY: YES` が明示認可されている場合のみ、独立工程として実際の稼働環境へのデプロイを実施する。実環境への反映を必要としない変更は「Deployment対象外 (N/A)」と明示的に判定・記録すること。

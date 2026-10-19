@@ -10,15 +10,17 @@ description: 認証セキュリティ規範。Public / Dual Auth / 認可必須 
 
 ## 2. 正本仕様依存 (Canonical Sources)
 - [API_CONTRACT.md](../../../docs/api/API_CONTRACT.md): API仕様書（§6, §10 認証契約）
-- [SECURITY_BASELINE.md](../../../docs/security/SECURITY_BASELINE.md): セキュリティベースライン（SEC-001〜SEC-005）
+- [SECURITY_BASELINE.md](../../../docs/security/SECURITY_BASELINE.md): セキュリティベースライン（SEC-001〜SEC-007）
 
 ## 3. 遵守すべき絶対規範
-1. **厳格な 3 層認証境界**:
-   - **Public Bootstrap API**: 初期起動・ハンドシェイク用（`getMapsApiKey`, `getTier1`, `verifyManagerPassword`, `registerOrValidateDevice`, `getDeviceStatus` のみ）。無認証アクセス許容。
-   - **Dual Auth API**: `getSystemSummary` のみ。LIFF Token または Dashboard Session Token の有無に応じて返却スコープを動的制御（未認証時は公開集約値のみ）。
-   - **認可必須 API**: 上記以外の全業務 API（`submitDistribution`, `updateFlyerStock`, `getRoster` 等）。検証済み認証情報の提示が必須。
-2. **LINE LIFF ID Token のサーバー検証**:
-   - クライアントから送信された `liffToken` は、当該Spreadsheetに付属する1地区専用GASバックエンド側で必ず LINE 公式エンドポイント（`https://api.line.me/oauth2/v2.1/verify`）を呼び出して真正性を検証する。
+1. **厳格な 5 層認証・認可境界 (`active/api/v2_api.js`)**:
+   - **Public Bootstrap / Health API**: 初期起動・ハンドシェイク用（POST: `getMapsApiKey`, `verifyManagerPassword`, `getTier1` / GET: `registerOrValidateDevice`, `getDeviceStatus`）。
+   - **Dashboard Manager Auth API**: 管理者セッション（`sessionToken`）必須（`getDashboardSnapshot`, `getRoster`, `getTransferRequests`, `getSystemInfo`, `logoutManager`）。
+   - **Dual-Audience Read API**: 登録済みアクティブスタッフ（LIFF Access Token）または管理者セッションのいずれかを要求（`getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getBulletinPosts`）。
+   - **Unregistered Staff Bootstrap API**: 検証済み LINE LIFF Access Token（未登録スタッフ可）を要求（`getStaffIdentity`, `registerStaff`）。
+   - **Active Staff Mutation API**: 検証済み LINE LIFF Access Token かつ名簿登録済みアクティブスタッフを要求（`submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `requestFlyerTransfer`, `resolveTransferRequest`, `createBulletinPost`, `sendBulletinContact`, `setPinStatus`）。
+2. **LINE LIFF Access Token のサーバー検証 (`active/api/auth/auth.js`)**:
+   - クライアントから送信された `liffToken`（Access Token）は、当該Spreadsheetに付属する1地区専用GASバックエンド側で必ず LINE 公式エンドポイント（`GET https://api.line.me/v2/profile`）を呼び出して真正性を検証し、サーバー側で `userId` を解決する。
    - クライアント側から渡される `lineUserId` や `staffId` を信用してはならない。
 3. **機密情報のフロントエンド配置禁止**:
    - フロントエンド（HTML/JS）に管理者パスワード、APIシークレット、秘密鍵を埋め込んではならない（No Secrets in Frontend）。

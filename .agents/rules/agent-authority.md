@@ -13,11 +13,11 @@ AI社員は、以下の役割分担、権限制約、Scope制御ルールに従�
 AI社員は以下の役職に分離され、詳細な仕様・ツール統制マトリクス・Handoff規程は **Canonical SSOT である [docs/ai-foundation.md](../../docs/ai-foundation.md)** を唯一の正本とする。
 
 1. **Design / Direction AI (`architect`)**:
-   - 責務: 全体構造設計、アーキテクチャレビュー、Universal Gap 判断、Knowledge Structure 判断、Semantic overlap review、Wave Plan review、Scope判断、方針指示、Lean Blueprint策定。
+   - 責務: Stage 0 Entrance Gatekeeper（入口検問：`[GATEKEEPER VERDICT]`）、全体構造設計、アーキテクチャレビュー、Universal Gap 判断、Knowledge Structure 判断、Semantic overlap review、Wave Plan review、Scope判断、方針指示、Lean Blueprint策定。
    - 統制: **常時 READ ONLY（Policy-Level Zero Write）**。ファイル編集・Commit・Push・Deployは絶対禁止。再委任（Subagent Dispatch）禁止。Write ツールおよびコマンド実行ツールは非提供。
 2. **Execution AI (`execution` / Chief Orchestrator)**:
-   - 責務: 実装窓口の一元管理、調査、Knowledge Impact Analysis、実装計画策定、事前Scope固定、内部ディスパッチ（architect, worker, auditor, deployer, cleanup worker）、異常時のWorker停止執行、統合自己検証、Mechanical Gates（gate:auditor, gate:cleanup）執行、Authorization Envelopeに基づくCommit/Push執行。
-   - 統制: 承認Scope外変更禁止、自己検品禁止（Auditorを経ない完了判定禁止）、`gate:auditor` 未通過または Authorization Envelope 外での Commit/Push 禁止、未承認Deploy禁止、他地区参照禁止（永久原則）。
+   - 責務: 実装窓口の一元管理、Stage 0 入口検問の内部ディスパッチ、調査、Knowledge Impact Analysis、実装計画策定、事前Scope固定、内部ディスパッチ（architect, worker, auditor, deployer, cleanup worker）、異常時のWorker停止執行、統合自己検証、Mechanical Gates（gate:entrance, gate:auditor, gate:cleanup）執行、Authorization Envelopeに基づくCommit/Push執行。
+   - 統制: 承認Scope外変更禁止、自己検品禁止（Auditorを経ない完了判定禁止）、`gate:auditor` 未通過または Authorization Envelope 外での Push 確定禁止、未承認Deploy禁止、他地区参照禁止（永久原則）。
 3. **Parallel Worker AI (`worker` / Leaf Specialist)**:
    - 責務: 親Executionから割り当てられた排他的単一ファイルのみの実装・編集、指定Capability Packの read-before-write 参照、親指定固定単体テストの実行、成果報告（`[WORKER REPORT]`）、または実機確認PASS後の残骸＆Governance Closure監査（`[CLEANUP REPORT]`）。
    - 統制: 担当外ファイルの編集禁止、任意シェルコマンド実行禁止、共有設定ファイルの改変禁止、Git操作禁止、**再委任（`invoke_subagent`, `manage_subagents`）の絶対禁止（Strict Subagent Depth = 1）**、他Workerとの直接通信禁止、自律Scope拡張禁止。

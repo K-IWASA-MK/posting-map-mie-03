@@ -23,10 +23,10 @@ The copied application MUST operate as an independent district instance without 
 - **Application code MUST NOT hard-code address counts.**
 - **Application code MUST NOT hard-code district-specific address masters.**
 - **Application code MUST NOT require a district-specific Backend Sheet.**
-- `MIE-03`, `MIE03_ADDRESS_MASTER`, `858`, or any other district-specific value MUST NOT become an application-level dependency.
+- `<DISTRICT_ID>`, `<DISTRICT>_ADDRESS_MASTER`, `858`, or any other district-specific value MUST NOT become an application-level dependency.
 - District-specific information MUST come from external configuration and/or the Static Master CSV.
 - The Static Master CSV is the SSOT for district geography, municipalities, towns, coordinates, and map pin population.
-- Runtime Backend MUST expose only the standardized POSTING MAP operational contract (the 5 standard sheets: `名簿`, `配布実績`, `保有チラシ枚数`, `受渡要請履歴`, `PinStatus`).
+- Runtime Backend MUST expose only the standardized POSTING MAP operational contract (ADR-024 Dual Lifecycle active dataset sheets `<Key>`: `名簿<Key>`, `配布実績<Key>`, `保有チラシ枚数<Key>`, `受渡要請履歴<Key>`, `PinStatus<Key>`, plus `SYSTEM_INFO` and optional `掲示板` / `掲示板連絡履歴`).
 - Dashboard and application logic MUST consume district data dynamically.
 - Adding `if/else` branches for multiple districts into application logic is strictly prohibited.
 
@@ -52,12 +52,12 @@ The copied application MUST operate as an independent district instance without 
                                │ (Standardized GAS API)
                                ▼
 ┌─────────────────────────────────────────────────────────────┐
-│           Runtime Backend (Standard 5 Sheets)               │
-│  - 名簿 (Roster)                                            │
-│  - 配布実績 (Distribution History & Completed Pins)          │
-│  - 保有チラシ枚数 (Stock)                                   │
-│  - 受渡要請履歴 (Transfer Requests)                         │
-│  - PinStatus (In-Progress Pins)                             │
+│      Runtime Backend (ADR-024 Active Sheets <Key>)          │
+│  - 名簿<Key> (Roster)                                       │
+│  - 配布実績<Key> (Distribution History & Completed Pins)     │
+│  - 保有チラシ枚数<Key> (Stock)                              │
+│  - 受渡要請履歴<Key> (Transfer Requests)                    │
+│  - PinStatus<Key> (In-Progress Pins)                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -103,5 +103,5 @@ Any implementation that introduces a dependency on a specific district, municipa
 
 This principle has higher priority than individual Phase-level implementation convenience.
 
-The objective is not merely to make MIE-03 work.
+The objective is not merely to make a single district work.
 **The objective is to complete a reusable POSTING MAP product that can be replicated nationwide.**

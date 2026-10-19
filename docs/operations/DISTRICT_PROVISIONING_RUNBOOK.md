@@ -97,7 +97,7 @@
      - `data/storage_locations.json`（チラシ保管場所選択肢）は、前地区からの流用や静的コピーを永久禁止する。
      - 対象自治体を入力条件とし、公式な衆議院小選挙区画定公定資料から機械的に導出（構成自治体一覧を取得してJSON配備）する。`active/` 内への自治体名ハードコードは禁止。
   7. **一次原本持ち込み禁止 (Raw Data Exclusion)**:
-     - `data/raw/` および `data/raw_estat_r2/` などのコピー元地区の原本バイナリを新地区Gitリポジトリへ持ち込んではならない。原本は新地区専用 Google Drive（`SOURCE_ARCHIVE/`）へ保管する。
+     - `data/raw/` および `data/raw_reference/`（旧 `data/raw_estat_r2/` 等）などのコピー元地区の原本バイナリを新地区Gitリポジトリへ持ち込んではならない。原本は新地区専用 Google Drive（`SOURCE_ARCHIVE/`）へ保管する。
 - **Validation (Master Triad Integrity Gate)**:
   - **Rule-01 (総件数 N の完全一致)**: $\text{address\_master 行数} = \text{boundaries Features} = \text{municipality total\_towns 合計} = N$
   - **Rule-02 (rowId 1..N 1:1 対応)**: `address_master.csv` の `rowId` と `boundaries.geojson` の `properties.rowId` が欠損・重複なく 1:1 一致。

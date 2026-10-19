@@ -72,11 +72,11 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "a4a7602d54cc665c8935c6e649474cf87bd246858520aca2c775dd091b50c44b"
+          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
         },
         {
           "path": "docs/architecture/03_CURRENT_H_APP_INVENTORY.md",
-          "sha256": "3cb84e8d0a5ced55e3ba56441557f8f440b2c762e3bb702ae767f505906165cf"
+          "sha256": "d732c5a00beeb30f33f29fa5ac7ecb32b61e29c4d2e99c98119323b74112e117"
         }
       ],
       "evidenceSources": [
@@ -89,7 +89,7 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "a4a7602d54cc665c8935c6e649474cf87bd246858520aca2c775dd091b50c44b"
+          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
         }
       ],
       "evidenceSources": [
@@ -102,7 +102,7 @@
       "canonicalSources": [
         {
           "path": "docs/api/API_CONTRACT.md",
-          "sha256": "e3c134ff02696336f7fde681196dedc87c1971f8085a76954c4781b5eac4ebcc"
+          "sha256": "1b8cf5a899da300499534a82d40197978549a281ca0745d6828713affca5a35b"
         },
         {
           "path": "active/api/v2_api.js",
@@ -136,7 +136,7 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "a4a7602d54cc665c8935c6e649474cf87bd246858520aca2c775dd091b50c44b"
+          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
         }
       ],
       "evidenceSources": [
@@ -149,11 +149,11 @@
       "canonicalSources": [
         {
           "path": "docs/api/API_CONTRACT.md",
-          "sha256": "e3c134ff02696336f7fde681196dedc87c1971f8085a76954c4781b5eac4ebcc"
+          "sha256": "1b8cf5a899da300499534a82d40197978549a281ca0745d6828713affca5a35b"
         },
         {
           "path": "docs/security/SECURITY_BASELINE.md",
-          "sha256": "d654fc2968a9a8de6a627e4bb3ac8272bbd75ddb58d4dd19d6c0a11bfc1d1624"
+          "sha256": "025a5ca1553bf7a9f3c7534b942d746083795366b670fc71c4246297e6dcb69a"
         }
       ],
       "evidenceSources": [
@@ -179,11 +179,11 @@
       "canonicalSources": [
         {
           "path": ".agents/rules/verification-gates.md",
-          "sha256": "02f722a241d03f9f3f4270fd7fb435b79d0ffded6af601756e0bf46bb4a84aad"
+          "sha256": "08666291fece6761f9e5b3b1e2fb2db9f17c47642efa88ce04707ad160329f74"
         },
         {
           "path": ".agents/workflows/development/workflow.md",
-          "sha256": "610ea863acb9cf28e116a9f1e33d156390f3ef18e78348a2281c0cd21a9ea827"
+          "sha256": "ef8262248a7461db2bbba69aa087f0c61ae65f196eee0da400405921f4a1ac3c"
         }
       ],
       "evidenceSources": [
@@ -196,11 +196,11 @@
       "canonicalSources": [
         {
           "path": "docs/ai-foundation.md",
-          "sha256": "c22bbd17627e0575fa5a75583ac1dd41a5985f25c501b1781258aed01e7dba33"
+          "sha256": "b61d0190e60daf1d84aea39ab14af114f6a36d9c992c3dfcda0aa37a1e552740"
         },
         {
           "path": "AGENTS.md",
-          "sha256": "1244956684bc1bd2bf9fc2cca87f30bca418808bafe5e0e0459af3776d2a10b1"
+          "sha256": "0ed3c778bf35cfd78623f9535d0faf22779010171c6ea16cc72b6a1135505057"
         }
       ],
       "evidenceSources": [
@@ -226,7 +226,7 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md",
-          "sha256": "f7bd027593965d6de35780d98502a91709540f99c8ae8f7f4b8bc77480dd09d3"
+          "sha256": "8b7fcecb4fd2c10b801c2e18ff9f4d661ce59ead3ced0d9937658799de589e08"
         }
       ],
       "evidenceSources": [
@@ -239,7 +239,7 @@
       "canonicalSources": [
         {
           "path": "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
-          "sha256": "1630f42befe1b3099eee9807ac2daad128df644d976917a3bbc6f0a0c211f804"
+          "sha256": "12ebb237d43526158e6e55628695fed03ffffe45a5805dc54d42361918e2ae1e"
         },
         {
           "path": "active/api/v2_api.js",

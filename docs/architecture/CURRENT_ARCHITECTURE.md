@@ -59,7 +59,7 @@
                                ▼ 地区専用クラウド資産
               ┌──────────────────────────────────┐
               │     Google Spreadsheet (地区専用DB) │
-              │     ※ 13シート標準構造（初期11 Core複製+現場2生成） │
+              │     ※ ADR-024 標準構造（SYSTEM_INFO + 実運用5シート<Key> + 現場2シート） │
               │     ※ 当該Spreadsheet付属1地区専用GASと1対1結合     │
               └──────────────────────────────────┘
 ```
@@ -68,10 +68,9 @@
 - LINE LIFF または スマートフォンWebブラウザ上で動作するポスティング配布員専用のUI。
 
 #### 【Current Runtime (現在の実稼働状態)】
-- `app.js` が Domain State（キャッシュ等）、一部APIのWorkflow、およびHTML文字列（`innerHTML`）の直接生成を抱え込んでいる状態。
-- `render.js` が Presentation だけでなく、一部のドメイン処理を担っている。
+- Wave 1〜Wave 17 の段階移行が完了し、下記の **Target Architecture B'** に完全準拠して稼働している（`app.js` は 1,426行の Composition Root へ純化され、12個の Feature/Lifecycle Modules `active/h-app/modules/*.js` および 4個の Pure/UI Components `active/h-app/components/*.js` へ責務分離済み）。
 
-#### 【Approved Target Architecture B' (承認済・段階移行先)】
+#### 【Approved Target Architecture B' (承認済・段階移行完了)】
 - `active/h-app/app.js`
   - **Composition Root / Boot Orchestrator**
   - 起動順序の統制、Global Lifecycle Wiring、および Feature Module の初期化のみを担当。
@@ -111,15 +110,14 @@
 ### 4. Spreadsheet = 1地区専用データベース (District Database)
 - スプレッドシートは地区ごとに1対1で独立したデータベースとして存在する。
 - シート数式（`=QUERY`, `=IMPORTRANGE` 等）による動的集計や旧式マクロには依存せず、業務ロジックはすべて付属の1地区専用GAS（`active/api/v2_api.js`）に一元化する。
-- **13シート標準構造**:
-  - システム管理 (1): `SYSTEM_INFO`
-  - 原本 (5): 配布実績、名簿、保有チラシ枚数、受渡要請履歴、PinStatus の各原本
-  - 当月 (5): 配布実績、名簿、保有チラシ枚数、受渡要請履歴、PinStatus の各当月（YYYY-MM）
-  - 現場 (2): `掲示板`, `掲示板連絡履歴`
+- **ADR-024 Dual Lifecycle 標準構造**:
+  - システム管理 (1): `SYSTEM_INFO`（`A1:B16`）
+  - 実運用データセット (5): `配布実績<Key>`, `名簿<Key>`, `保有チラシ枚数<Key>`, `受渡要請履歴<Key>`, `PinStatus<Key>`（`ELECTION` モードは固定期間ラベル、`SUBSCRIPTION` モードは `YYYY-MM` 月次ロールオーバー。旧「原本」5シートは廃止）
+  - 現場 (2): `掲示板`, `掲示板連絡履歴`（オンデマンド自動生成）
   - ※詳細な正式名称・列定義は唯一の正本である `docs/data/DATA_DICTIONARY.md` に準拠する。
 - **生成ライフサイクル**:
-  - 公式原本テンプレートからのプロビジョニング初期複製時は **11 Core Sheets** が展開される。
-  - 現場系2シート（`掲示板`, `掲示板連絡履歴`）は現場での初回利用時にオンデマンド自動生成され、定常運用時の 13シート標準構造へ収束する。
+  - `MonthlySheetResolver` が `SYSTEM_INFO` の運用モード（`B15`）および活動期間キー（`B16`）に従い、アクティブ期間シート `<Key>` を自動解決・初期化する。
+  - 現場系2シート（`掲示板`, `掲示板連絡履歴`）は現場での初回利用時にオンデマンド自動生成される。
 
 ### 5. GAS = 当該Spreadsheetに付属する1地区専用GAS
 - Google Apps Script は各地区の Spreadsheet に1対1で付属する **「当該Spreadsheetに付属する1地区専用GAS」** として配備し、`TARGET_SPREADSHEET_ID` → `SPREADSHEET_ID` → `SpreadsheetApp.getActiveSpreadsheet()` の優先順で解決する。
@@ -129,7 +127,7 @@
 - Git管理外のアドホックな旧式スクリプトや、他地区DBを混在ルーティングする共有親GASは現行アーキテクチャ外であり、採用しない。
 
 ### 7. 認証 / LINE LIFF (`active/api/auth/`)
-- Hアプリは LINE LIFF ID Token による本人確認・セッション管理。
+- Hアプリは LINE LIFF Access Token による本人確認（`GET https://api.line.me/v2/profile`）・セッション管理。
 - 管理者画面はセッション認証（パスワード / トークン）。
 
 ---
@@ -172,7 +170,7 @@ Hアプリの「保有チラシ」機能において、チラシ保管場所（�
 2. **Hアプリによるオンデマンド遅延取得（Zero Startup Lag）**:
    - 起動処理、`loadData()`、地図描画、LIFF初期化には一切接続せず、ユーザーが「保有チラシ登録画面」を開いた瞬間のみ非同期オンデマンドフェッチされる。初期起動性能への影響は 0ms を維持する。
 3. **Spreadsheet が保有チラシデータの唯一の正本**:
-   - Hアプリから登録されたデータは、GAS API（`registerFlyerStock`）を経由してスプレッドシート（「保有チラシ枚数の原本」シート等）の `location` 列に直接保存される。
+   - Hアプリから登録されたデータは、GAS API（`updateFlyerStock`）を経由してスプレッドシート（`保有チラシ枚数<Key>` シート）の `location` 列に直接保存される。
 4. **他端末Hアプリおよび Manager Dashboard での正本表示**:
    - **他端末Hアプリ**: `render.js` がスプレッドシートの最新データを取得し、`location` ごとに動的グループを自動生成して在庫状況を表示。
    - **Manager Dashboard**: `manager.js` がスプレッドシートの `location` をそのまま動的エスケープ表示。
@@ -184,7 +182,7 @@ Hアプリの「保有チラシ」機能において、チラシ保管場所（�
 
 ### 1. 外部独立リソース (External Resources)
 Universal POSTING MAP は各地区ごとに独立した以下の外部クラウドインフラと連携する：
-1. **Googleスプレッドシート**: 1地区専用DB（13シート標準台帳）。
+1. **Googleスプレッドシート**: 1地区専用DB（ADR-024 標準台帳）。
 2. **Google Driveフォルダ**: 写真・添付データ等の地区専用保管フォルダ。
 3. **LINE Developers**: 地区専用 LIFF アプリおよび本人性確認。
 4. **当該Spreadsheetに付属する1地区専用GAS**: 地区専用APIサーバーとして配備。

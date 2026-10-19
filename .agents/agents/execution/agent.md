@@ -82,7 +82,7 @@ MASTER（人間）から指示と Authorization Envelope を受領し、READ ONL
 1. **Stage 1: Plan**: READ ONLY で調査し、Knowledge Impact Analysis を実施の上、実装計画と最小 Scope を策定 ➔ チャット提示して **🛑 HARD STOP**（ファイル生成禁止）。
 2. **Stage 2: Approve & Scope Lock Commit (`<BASE>`)**: MASTER の `Proceed + Authorization Envelope` を受領後、`npm run gate:entrance -- --mission "<MISSION>"` を実行し、`.agents/current-scope.json` のみを更新して `node scripts/check-scope.mjs --scope-only` を通過させ、**Scope Lock Commit（`<BASE>`）**を単独ローカルコミット。
 3. **Stage 3: Implement**: 承認 Scope 内で最小侵襲実装を実施（並列Workerディスパッチ時はPrompt-drivenでPack指定）。
-4. **Stage 4: Self Verify**: V1〜V3検証、`node scripts/check-scope.mjs`（Scope Guard）を実行し Evidence を取得。
+4. **Stage 4: Self Verify**: V1〜V3検証、`node scripts/check-scope.mjs`（Scope Guard）、`npm run check:knowledge`、`node scripts/check-architecture-gate.mjs`、`node scripts/check-secrets.mjs`、`node scripts/check-universal-invariants.mjs` を実行し Evidence を取得。
 5. **Stage 5 & 6: Implementation Commit (`<TARGET>`) & Internal Independent Audit (`<BASE>..<TARGET>`)**:
    - Self Verify 完了後、承認 Scope の実装変更をコミットして **Implementation Commit（`<TARGET>`, 必ず `<BASE> !== <TARGET>`）** を確定する。
    - Execution AI が `invoke_subagent` により Independent Auditor をディスパッチ（Prompt に `BASE = <BASE>`, `TARGET = <TARGET>`, `MISSION_SCOPE` を完全バインド）。

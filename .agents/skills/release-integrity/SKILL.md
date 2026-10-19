@@ -10,7 +10,7 @@ description: リリース完全性検証規範。V1〜V4検証ゲート執行、
 
 ## 2. 正本仕様依存 (Canonical Sources)
 - [verification-gates.md](../../../.agents/rules/verification-gates.md): 検証・検品規程 & HARD STOP条件 (V1〜V4)
-- [workflow.md](../../../.agents/workflows/development/workflow.md): 開発・完了報告手順 (8-Stage Protocol)
+- [workflow.md](../../../.agents/workflows/development/workflow.md): 開発・完了報告手順 (9-Stage Protocol)
 
 ## 3. 遵守すべき絶対規範
 1. **多段階検証ゲートの厳格執行**:
@@ -19,7 +19,7 @@ description: リリース完全性検証規範。V1〜V4検証ゲート執行、
    - **V3 (差分照合)**: `git diff` による事前宣言内容と実差分の完全一致。
    - **V4 (独立監査・意味的全文検品)**: Fresh isolated context で内部起動された Independent Auditor による独立検品。
      - **テスト追認禁止 (Anti-Rubber-Stamping)**: `npm test` PASS や `check-scope.mjs` PASS は必要条件に過ぎず、監査合格の代替とならない。
-     - **7段階監査プロトコル (7-Step Semantic Audit Protocol)**:
+     - **7ステップ意味的監査プロトコル (7-Step Semantic Audit Protocol)**:
        1. 変更ファイル一覧の取得 (`git diff --name-only <BASE>..<TARGET>`)
        2. 変更対象全ファイルの全文閲覧 (`view_file` による Full-File Review)
        3. 正本規程（`SUPREME_PRODUCT_PRINCIPLES.md`, `AGENTS.md`）との照合

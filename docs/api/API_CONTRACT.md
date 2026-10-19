@@ -28,7 +28,7 @@
 6. [Authorization (認可モデル)](#6-authorization-認可モデル)
    - [6.1 District Integrity Verification & Authorization Boundary (地区整合性検証と認可境界)](#61-district-integrity-verification--authorization-boundary-地区整合性検証と認可境界)
 7. [Data Model (データモデル整合性)](#7-data-model-データモデル整合性)
-8. [DistributionRecord API (配布実績登録契約)](#8-distributionrecord-api-配布実績登録契約)
+8. [DistributionRecord API (配布実績登録契約 — 実装モデル: `DistributionEvent`)](#8-distributionrecord-api-配布実績登録契約)
 9. [Ranking API (個人ランキング契約)](#9-ranking-api-個人ランキング契約)
 10. [Dashboard Read API (全体観測契約)](#10-dashboard-read-api-全体観測契約)
 11. [Validation / Boundary Conditions (入力検証・境界条件)](#11-validation--boundary-conditions-入力検証境界条件)
@@ -90,9 +90,9 @@ Universal POSTING MAP において、現場で活動する配布員が利用す�
 ┌──────────────────────────────────────┐  ┌───────────────────────────────────┐
 │ 【永続化境界 (地区専用DB)】          │  │ 【統括観測境界】                  │
 │  Google Spreadsheet / Drive          │  │  Dashboard (Manager UI)           │
-│   ├─ 配布実績YYYY-MM (事実の原本)     │  │   ├─ 進捗観測 (完了率・総枚数)   │
-│   ├─ 名簿の原本 (配布員Identity)     │  │   ├─ 時系列実績観測 (誰がいつどこで)│
-│   ├─ 保有チラシ原本 (在庫記録)       │  │   ├─ GPS/写真監査プレビュー       │
+│   ├─ 配布実績<Key> (事実の正本)      │  │   ├─ 進捗観測 (完了率・総枚数)   │
+│   ├─ 名簿<Key> (配布員Identity)      │  │   ├─ 時系列実績観測 (誰がいつどこで)│
+│   ├─ 保有チラシ枚数<Key> (在庫記録)  │  │   ├─ GPS/写真監査プレビュー       │
 │   ├─ Google Drive (証跡写真保管)     │  │   └─ スタッフ別実績一覧 (観測用)  │
 │   └─ 当該Spreadsheet付属GASと1対1結合│  │   ※ Hアプリへ指示を出さない     │
 └──────────────────────────────────────┘  └───────────────────────────────────┘
@@ -100,7 +100,7 @@ Universal POSTING MAP において、現場で活動する配布員が利用す�
                     │ 監査・検査・制御 (MCP 経由 / 最小権限)
 ┌───────────────────┴─────────────────────────────────────────────────────────┐
 │ 【AI Agent / MCP 実行統制境界】                                             │
-│  AI Agents (security-auditor / builder / release-deployer)                  │
+│  AI Agents (architect / execution / worker / auditor / deployer)            │
 │   ├─ MCP Architecture (Tool Registry, Read/Write Separation)                │
 │   ├─ Workspace Boundary (他地区リポジトリ参照の完全遮断【永久原則】)        │
 │   ├─ PreToolUse Hard Block (危険コマンド・未承認操作の事前強制停止)         │
@@ -133,7 +133,7 @@ Universal POSTING MAP において、現場で活動する配布員が利用す�
 ## 4. Authentication (認証アーキテクチャ)
 
 ### (1) 認証方式
-- **認証基盤**: LINE Front-end Framework (LIFF) ID Token / Access Token
+- **認証基盤**: LINE Front-end Framework (LIFF) Access Token（`GET https://api.line.me/v2/profile` 検証）
 - **トークン送信方式**: POST JSON ペイロード内の `liffToken` フィールドに格納して送信。
 - **検証プロトコル**:
   ```text
@@ -180,7 +180,7 @@ Backend: authenticateRequest(postData)
   ├─ 検証済み LINE User ID を抽出 ("U1234567890abcdef...")
   ▼
 Backend: StaffService.resolveStaffIdentity(lineUserId)
-  ├─ 名簿の原本 (SSOT) を照合
+  ├─ 名簿<Key> (SSOT) を照合
   ▼
 Backend: ペイロード強制上書き (クライアント送信値を破棄)
   postData.staffId = identity.staffId;         // 例: "STF-00000-001"
@@ -192,15 +192,15 @@ Backend: ペイロード強制上書き (クライアント送信値を破棄)
 
 ## 6. Authorization (認可モデル)
 
-システム内の API アクションは、以下の4つの認可レベルに厳格に分類される。
+システム内の API アクションは、以下の5つの認可レベルに厳格に分類される。
 
 | 認可レベル | 対象アクション例 | 必要な資格情報 | 拒絶時のレスポンス |
 |---|---|---|---|
-| **Public (公開)** | `getMapsApiKey`, `verifyManagerPassword`, `getTier1` | なし (認証不要) | なし |
+| **Public (公開)** | `getMapsApiKey`, `verifyManagerPassword`, `getTier1` (および GET `registerOrValidateDevice`, `getDeviceStatus`) | なし (認証不要) | なし |
 | **Dashboard Manager (管理者専用)** | `getDashboardSnapshot`, `getRoster`, `getTransferRequests`, `getSystemInfo`, `logoutManager` | 有効な `dashboardSessionToken` (6桁PIN認証済・地区バインド) | `UNAUTHORIZED` (未認証/期限切れ) / `DISTRICT_MISMATCH` |
-| **Dual-Audience (業務データ読取)** | `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getGlobalPinStatus`, `getBulletinPosts` | 有効な `dashboardSessionToken` または 有効な `liffToken` | `UNAUTHORIZED` (未認証アクセス) |
-| **Unregistered Staff** | `registerStaff` (名簿初回登録) | 有効な `liffToken` (LINE検証成功) | `UNAUTHORIZED` (無効/期限切れトークン) |
-| **Active Staff (配布員書き込み)** | `submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `requestFlyerTransfer`, `createBulletinPost`, `sendBulletinContact`, `resolveTransferRequest` | 有効な `liffToken` ＋ 名簿登録済み (`found === true`) | `NOT_REGISTERED` (名簿未登録) / `UNAUTHORIZED` |
+| **Dual-Audience (業務データ読取)** | `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getBulletinPosts` | 有効な `dashboardSessionToken` または 有効な `liffToken` | `UNAUTHORIZED` (未認証アクセス) |
+| **Unregistered Staff** | `getStaffIdentity`, `registerStaff` (名簿照合・初回登録) | 有効な `liffToken` (LINE検証成功) | `UNAUTHORIZED` (無効/期限切れトークン) |
+| **Active Staff (配布員書き込み)** | `submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `requestFlyerTransfer`, `createBulletinPost`, `sendBulletinContact`, `resolveTransferRequest`, `setPinStatus` | 有効な `liffToken` ＋ 名簿登録済み (`found === true`) | `NOT_REGISTERED` (名簿未登録) / `UNAUTHORIZED` |
 
 ### 6.0.1 getMapsApiKey Contract (SEC-007 地区別 Maps API Key 解決契約)
 
@@ -302,7 +302,7 @@ Person (党員個人)
    │
    │ 1. performs (完全に自由なポスティング活動: 活動場所制限・担当エリアなし)
    ▼
-DistributionRecord (配布実績事実)
+DistributionRecord (配布実績事実 — 実装モデルクラス: DistributionEvent [distribution_model.js])
    ├── rowId (町丁目行番号)
    ├── cityName / townName (どこで)
    ├── completedAt (いつ)
@@ -321,7 +321,7 @@ DistributionRecord (配布実績事実)
 
 ## 8. DistributionRecord API (配布実績登録契約)
 
-配布実績の確定記録を行う中核 API。
+配布実績の確定記録を行う中核 API（実装モデルクラス: `DistributionEvent` / `active/business/distribution/distribution_model.js`）。
 
 ### (1) エンドポイントアクション: `updateRecordWithGPSPhoto`
 - **HTTP Method**: POST
@@ -415,9 +415,9 @@ DistributionRecord (配布実績事実)
 | アクション名 | 目的・返却データ | 認証 | 備考 |
 |---|---|---|---|
 | `getSystemSummary` | 全体進捗率、完了町丁目数、総町丁目数、累計配布枚数 | Dual Auth (LIFF / Dashboard Session) | ダッシュボード上部サマリ表示用 |
-| `getLatestDistribution` | 直近の配布実績リスト（最大件数指定、最新20件等） | 不要 / Optional | 時系列での活動事実観測、写真プレビュー |
+| `getLatestDistribution` | 直近の配布実績リスト（最大件数指定、最新20件等） | Dual Auth (LIFF / Dashboard Session) | 時系列での活動事実観測、写真プレビュー |
 | `getRoster` | 全配布員の名簿、当月累計配布枚数、チラシ在庫合計 | 管理者権限 | 人員・在庫の全体状況把握 |
-| `getGlobalPinStatus` | 当日中のリアルタイム作業中ピン（町丁目）一覧 | 不要 (Public) | 重複作業の自然防止のための地図表示 |
+| `getDashboardSnapshot` / `getAreaDetails` | 全体スナップショットおよびリアルタイム作業中・完了ピン状態（`pinStatus`） | 管理者権限 / Dual Auth | 重複作業の自然防止のための地図表示（※ピン状態更新は `setPinStatus`） |
 
 ### (1) Dashboard PIN サーバーサイドセッション契約 (ADR-023)
 - **PIN検証 (`verifyManagerPassword`)**: 管理者が入力した6桁の管理者PINをサーバー側で検証。成功時に暗号学的に安全な `dashboardSessionToken`（UUID v4ベース）を発行。
@@ -681,10 +681,10 @@ Step 7: 完了確定 (COMPLETED) ────► サーバー success: true か�
 
 | データ種別 | SSOT の所在 | キャッシュ / 一時情報の所在 | 採用ルール |
 |---|---|---|---|
-| **配布実績 (DistributionRecord)** | **Spreadsheet (`配布実績YYYY-MM`)** | Hアプリ `in-memory state / IndexedDB` | **Database が絶対SSOT**。「LocalStorageにあるから正しい」という設計を完全排除。 |
-| **配布員名簿 (StaffIdentity)** | **Spreadsheet (`名簿の原本`)** | Hアプリ `localStorage.user_info` | **Database が絶対SSOT**。端末キャッシュは先行表示用の一時情報に過ぎない。 |
+| **配布実績 (DistributionRecord / `DistributionEvent`)** | **Spreadsheet (`配布実績<Key>`)** | Hアプリ `in-memory state / IndexedDB` | **Database が絶対SSOT**。「LocalStorageにあるから正しい」という設計を完全排除。 |
+| **配布員名簿 (StaffIdentity)** | **Spreadsheet (`名簿<Key>`)** | Hアプリ `localStorage.user_info` | **Database が絶対SSOT**。端末キャッシュは先行表示用の一時情報に過ぎない。 |
 | **活動対象地域 (TargetRegion)** | **CSV (`data/address_master.csv`)** | Hアプリ `pinsCache` | **リポジトリ内マスターデータが絶対SSOT**。 |
-| **個人ランキング (RankingSummary)**| **Backend 動的集計エンジン** | Hアプリ `window._myRankingSummary` | **Backend が絶対SSOT**。配布実績の最新合計から随時計算。 |
+| **個人ランキング (RankingSummary)**| **Backend 動的集計エンジン** | Hアプリ `RankingModule` | **Backend が絶対SSOT**。配布実績の最新合計から随時計算。 |
 
 ### (2) 不整合調停 (Reconciliation) ポリシー
 - **クライアント vs サーバーの競合**: 常に **サーバー（Spreadsheet）の確定値を優先（Server Wins）** する。
@@ -773,7 +773,7 @@ Step 7: 完了確定 (COMPLETED) ────► サーバー success: true か�
 ### (2) スプレッドシート データ破損時のリカバリ
 1. Google Spreadsheet の「ファイル」→「変更履歴」→「版の履歴を表示」を開く。
 2. 誤操作またはデータ破損が発生する直前の版を選択し、「この版を復元」を実行。
-3. 必要に応じて、バックアップ原本（`名簿の原本`, `保有チラシ枚数の原本`）から当月シートを再生成。
+3. 必要に応じて、前月データまたは Google Drive バックアップからアクティブデータセット（`名簿<Key>`, `保有チラシ枚数<Key>` 等）を復元する。
 
 ---
 
@@ -792,21 +792,23 @@ Step 7: 完了確定 (COMPLETED) ────► サーバー success: true か�
 
 Universal POSTING MAP の開発・保守・監査・運用において稼働する AI Agent および Model Context Protocol (MCP) ツールの実行統制モデルを規定する。
 
-> **注記**: 本章はガバナンス設計契約を規定するものであり、Gate 3 において MCP 設定ファイル（`mcp_config.json` 等）や MCP サーバーの新規実装を行うものではない。
+> **注記**: 本章はガバナンス設計契約を規定するものであり、現行の 5役職 AI Employee OS の正本仕様は `docs/ai-foundation.md` に統合されている。
 
 ### (1) MCP Architecture & System Topology
 - **クライアント**: Antigravity IDE / CLI / Subagent Engine
 - **プロトコル**: Model Context Protocol (MCP) JSON-RPC 2.0
 - **アーキテクチャ分離**: Tool Client ↔ MCP Gateway / Proxy ↔ Workspace Tools / External API
 
-### (2) Agent Roles & 役割分離 (Role Separation)
-AI エージェントは単一の全能権限を持たず、責務に応じた以下の厳格なロールに分離される。
+### (2) Agent Roles & 役割分離 (Role Separation — 正本: `docs/ai-foundation.md`)
+AI エージェントは単一の全能権限を持たず、責務に応じた以下の厳格な5役職ロールに分離される。
 
 | エージェントロール | 主な責務 | 許可ツール権限 | 禁止操作 |
 |---|---|---|---|
-| **`security-auditor`** | 権限境界、認証境界、Gate -1、秘密情報漏洩の検査・監査 | **READ ONLY** (`view_file`, `grep_search`, `list_dir`) | すべてのファイル編集・コマンド実行・Git操作 |
-| **`builder` / `developer`** | 設計書およびコードの実装、ローカルビルド、単体テスト | **Workspace WRITE** (`replace_file_content`, `run_command` [sandboxed]) | 本番デプロイ、他地区探索、Git Push |
-| **`release-deployer`** | デプロイ前検証、Git Push、本番リリース管理 | **DEPLOY & PUSH** (MASTER 承認必須) | 計画なき独断デプロイ、コード改変 |
+| **`architect`** | Stage 0 Entrance Gatekeeper（`[GATEKEEPER VERDICT]`）、全体構造設計、アーキテクチャレビュー | **常時 READ ONLY** (`view_file`, `grep_search`) | すべてのファイル編集・コマンド実行・Git操作・再委任 |
+| **`execution`** | Chief Orchestrator。調査、計画、Scope Lock、内部ディスパッチ、自己検証、Mechanical Gates、Commit/Push執行 | **Workspace WRITE & Orchestration** (`invoke_subagent`, `run_command`) | Stage 0 未通過着手、承認Scope外変更、自己検品、他地区探索 |
+| **`worker`** | 排他単一ファイル実装（Implementation Profile）または Stage 9 確定差分・規程残滓監査（Cleanup Profile） | **Assigned File WRITE / Cleanup READ ONLY** | 割当外編集、Git操作、再委任（Strict Depth = 1） |
+| **`auditor`** | Fresh isolated child context による独立再検証、全文査読・反証分析、`[AUDITOR VERDICT]` 返却 | **Policy-Level ZERO WRITE** (READ ONLY allowlist) | すべてのファイル編集・生成・Git操作・再委任 |
+| **`deployer`** | 新地区プロビジョニング、マスターデータ生成、地区DB/GAS設定バインド、`[DEPLOYER REPORT]` 返却 | **Data & Config WRITE** (`data/**` 等) | `active/**` / `tests/**` 改変、Code Deploy、Git操作、再委任 |
 
 ### (3) Tool Registry & Versioning
 - 全 MCP ツールは一元的な Tool Registry に登録され、ツール名、引数スキーマ、権限レベル、セマンティックバージョンが固定される。
@@ -854,8 +856,8 @@ AI エージェントは単一の全能権限を持たず、責務に応じた�
 ### (13) Agent Session Isolation
 - エージェントのセッション状態はメモリ上に隔離され、別セッションや過去タスクの不要な状態（ゾンビ変数）を引き継がない。
 
-### (14) Commit / Push / Deploy Governance (8-Stage Protocol 連動)
-- Commit, Push, Deploy は必ず「8-Stage Protocol（実装→テスト→差分照合→コミット→プッシュ→デプロイ→本番検証）」に従い、事前宣言・差分確認・Gate -1 8/8 PASS を経て、MASTER 承認を得た場合のみ実行を許可する。
+### (14) Commit / Push / Deploy Governance (9-Stage Protocol 連動)
+- Commit, Push, Deploy は必ず「9-Stage Protocol（Stage 0 入口検問 → 計画 → `gate:entrance` & Scope Lock → 実装 → 自己検証 → 実装コミット & Independent Auditor & `gate:auditor` → Push → Deploy/実機確認 → Stage 9 Cleanup Gate）」に従い、MASTER の Proceed（Authorization Envelope）を得た場合のみ実行を許可する。
 
 ---
 
@@ -883,7 +885,7 @@ Gate 3 で策定した設計契約と、現行コードベース（`active/`）�
 | **EXISTING** | GAS 排他ロック制御 | `GPSService.js` にて `LockService.getScriptLock().waitLock(15000)` 実装済。 | 15秒悲観ロックの維持。 | **完全整合 (GAPなし)** |
 | **EXISTING** | LINE Token 認証 | `auth.js` にて LINE Profile API 照合および 30分キャッシュ実装済。 | トークン検証とキャッシュの維持。 | **完全整合 (GAPなし)** |
 | **EXISTING** | オフライン同期キュー | `db.js` にて IndexedDB (`PostingMapDB`) と指数バックオフ (10s〜60s) 実装済。 | 端末内ローカル退避と自動同期の維持。 | **完全整合 (GAPなし)** |
-| **EXISTING** | 原本＋月次シート運用 | `MonthlySheetResolver` により `配布実績YYYY-MM` を動的解決して更新。 | 月次シート分割の継承。 | **完全整合 (GAPなし)** |
+| **EXISTING** | ADR-024 Dual Lifecycle シート運用 | `MonthlySheetResolver` により `配布実績<Key>`（ELECTION固定 / SUBSCRIPTION月次）を動的解決して更新。 | アクティブデータセット分割の継承。 | **完全整合 (GAPなし)** |
 | **EXISTING** | 操作単位の `requestId` 冪等性保証 | `gps_service.js` および `gps_repository.js` にて Q列 `requestId` 重複排除と当月 `completedAt` 照合 (`alreadyCompleted`) 実装済。 | `requestId` による同一操作の重複排除と当月進捗保護。 | **完全整合 (GAPなし・Phase ②-B 実装済)** |
 | **REQUIRED** | 構造化ログ出力 | 現在は `console.log` によるテキストログ出力が中心。 | JSON 形式による構造化ログ（`traceId`, `latencyMs` 等）。 | **【GAPあり】**: 将来のロギング強化フェーズにて JSON 出力ラッパーの導入が必要。 |
 | **REQUIRED** | 厳格な境界値チェック | 現在は `rowIdNum < 1` 判定のみ。極端な枚数（> 10,000）のバリデーションは未実装。 | `INVALID_COUNT` 等の厳格な業務バリデーション。 | **【GAPあり】**: 将来のバリデーション層強化フェーズにて実装を検討。 |

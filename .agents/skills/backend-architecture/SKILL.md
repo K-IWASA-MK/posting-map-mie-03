@@ -19,7 +19,7 @@ description: 1地区専用GASバックエンド規範。地区専用スプレッ
 2. **Universal Engine 純粋性の維持**:
    - バックエンドコード（`active/api/v2_api.js` 等）は全地区共通の Universal Engine であり、地区固有のIDや名称をコード内にハードコードしてはならない。
 3. **並行性・競合排他制御 (LockService)**:
-   - スプレッドシートへの書き込みを伴うミューテーション API（`submitDistribution`, `updateFlyerStock`, `postBulletinMessage` 等）は、必ず `LockService.getScriptLock()` による排他ロックを取得して実行する。
+   - スプレッドシートへの書き込みを伴うミューテーション API（`submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `createBulletinPost`, `sendBulletinContact` 等）は、必ず `LockService.getScriptLock()` による排他ロックを取得して実行する。
 4. **地区境界整合性検証と認可の分離**:
    - クライアントからの `districtId` は対象スプレッドシート内の `SYSTEM_INFO`（`地区コード`）との整合性検証（`DISTRICT_MISMATCH` 遮断）に使用し、アクセス権限の根拠として信頼してはならない。
    - 認可は必ず検証済み `lineUserId`（または管理者セッション）と当該地区DBの名簿照合によって判定する。

@@ -118,9 +118,9 @@ POSTING MAP の開発・保守・展開は、**Execution AI（Chief Orchestrator
 > すべての専従AI社員（architect, worker, auditor, deployer）は **Leaf Nodes** であり、孫エージェントの起動（再委任・Recursion）は絶対禁止とする。
 
 > [!CAUTION]
-> **Repository Boundary 専用極小例外 (Stage 5 Auditor & Stage 9 Cleanup Mechanical Gates)**
-> 原則としてリポジトリ Git root 外の探索・参照は絶対禁止であるが、Stage 5 機械的監査ゲート（`scripts/check-auditor-gate.mjs`）および Stage 9 機械検証可能証跡ゲート（`scripts/check-cleanup-gate.mjs`）の執行に限り、以下の極小例外を認める：
-> 1. **目的限定**: Stage 5 Auditor Gate および Stage 9 Cleanup Gate の証跡検証のみ。
+> **Repository Boundary 専用極小例外 (Stage 0 Entrance / Stage 5 Auditor / Stage 9 Cleanup Mechanical Gates)**
+> 原則としてリポジトリ Git root 外の探索・参照は絶対禁止であるが、Stage 0 入口検問ゲート（`scripts/check-entrance-gate.mjs`）、Stage 5 機械的監査ゲート（`scripts/check-auditor-gate.mjs`）および Stage 9 機械検証可能証跡ゲート（`scripts/check-cleanup-gate.mjs`）の執行に限り、以下の極小例外を認める：
+> 1. **目的限定**: Stage 0 Entrance Gate、Stage 5 Auditor Gate および Stage 9 Cleanup Gate の証跡検証のみ。
 > 2. **対象限定**: `ANTIGRAVITY_CONVERSATION_ID` で特定される「現在Conversation自身」の `.system_generated/logs/transcript.jsonl` 1ファイルのみ（READ ONLY）。
 > 3. **探索禁止**: 親ディレクトリの探索・列挙（`list_dir` 等）の禁止。
 > 4. **他Conversation禁止**: 他Conversationのbrain/log参照の禁止。
@@ -141,7 +141,11 @@ git log ...
 git rev-parse ...
 npm test
 node tests/...
+npm run check:knowledge
+node scripts/check-architecture-gate.mjs
 node scripts/check-scope.mjs
+node scripts/check-secrets.mjs
+node scripts/check-universal-invariants.mjs
 npm run audit:gate
 head -n ... / tail -n ... / wc -l ...
 ```
@@ -179,7 +183,7 @@ head -n ... / tail -n ... / wc -l ...
        │      ├─ 2. [GATEKEEPER VERDICT] が存在する
        │      ├─ 3. Final Verdict = PASS
        │      └─ 4. PASS が現在Missionと一致 (過去MissionのPASS流用禁止 / 欠落時は Exit 1 HARD STOP)
-       └─ 通過後、.agents/current-scope.json に { "mission": "<MISSION>", "files": [...] } を記録・単独コミット
+       └─ 通過後、.agents/current-scope.json に { "mission": "<MISSION>", "files": [...] } を記録・単独コミット (<BASE>)
        │
        ▼
 [Stage 3: Implement] (Execution AI: 承認 Scope 内最小侵襲実装・Leaf Worker並列ディスパッチ)
@@ -188,20 +192,18 @@ head -n ... / tail -n ... / wc -l ...
 [Stage 4: Self Verify] (Execution AI: V1〜V3自己検証, Scope Guard, Evidence採取)
        │
        ▼
-[Stage 5: Internal Independent Audit & Mechanical Gate]
+[Stage 5 & 6: Implementation Commit (<TARGET>), Internal Independent Audit & Mechanical Gate]
+       ├─ Execution AI が Authorization Envelope [COMMIT: YES] に基づき Implementation Commit (<TARGET>) を作成
        ├─ Execution AI が invoke_subagent により Independent Auditor をディスパッチ (Fresh isolated child context)
-       ├─ Prompt に BASE, TARGET, MISSION_SCOPE を完全バインド
-       ├─ Auditor は Policy-Level Zero Write で独立コマンド (git diff, npm test, check-scope) を独立再実行
+       ├─ Prompt に BASE (<BASE>), TARGET (<TARGET>), MISSION_SCOPE を完全バインド
+       ├─ Auditor は Policy-Level Zero Write で独立コマンド (git diff <BASE>..<TARGET>, npm test, check-scope) を独立再実行
        ├─ Auditor が [AUDITOR VERDICT] (PASS / REJECT) を返却
-       └─ Execution AI が Mechanical Gate 執行: npm run gate:auditor -- --base <BASE> --target <HEAD>
+       └─ Execution AI が Mechanical Gate 執行: npm run gate:auditor -- --base <BASE> --target <TARGET>
               ├─ Stage 0 Entrance Gate 二重防御 (.agents/current-scope.json の mission に基づき再検証)
-              ├─ Event A ➔ Event B ➔ Event C 相関チェーン検証
+              ├─ Event A ➔ Event B ➔ Event C 相関チェーン検証 (<BASE> !== <TARGET>)
               └─ Post-Audit Zero Mutation 検証 (監査PASS後の無断変更を検出した場合は即時 VOID / Exit 1)
        │
        ▼ PASS (gate:auditor Exit 0)
-[Stage 6: Commit Gate] (Execution AI: Authorization Envelope [COMMIT: YES] に基づき git commit 執行)
-       │
-       ▼
 [Stage 7: Push Gate] (Execution AI: Authorization Envelope [PUSH: YES] に基づき git push 執行)
        │
        ▼

@@ -12,8 +12,8 @@ description: クライアント耐久性・永続化規範。IndexedDB オフラ
 - [UNIVERSAL_QUALITY_DOCTRINE.md](../../../docs/architecture/UNIVERSAL_QUALITY_DOCTRINE.md): Universal 品質ドクトリン（第1条, 第5条）
 
 ## 3. 遵守すべき絶対規範
-1. **IndexedDB 先行永続化 (Offline-First)**:
-   - 配布完了登録や在庫報告等のユーザー操作は、ネットワーク通信に先立ってまずローカルの IndexedDB（`PostingMapDB` -> `syncQueue`）に永続保存する。
+1. **IndexedDB 先行永続化 (Offline-First — `active/h-app/db.js`)**:
+   - 現場配布完了登録（`updateRecordWithGPSPhoto`）は、ネットワーク通信に先立ってまずローカルの IndexedDB（`PostingMapDB` -> `syncQueue`）に永続保存する（※保管場所の在庫報告 `updateFlyerStock` は `StorageModule.saveHold` による直接オンラインAPI送信）。
    - 通信環境が復旧した時点で、バックグラウンド同期ワーカーが自動的にキューを消費してサーバーへ送信する。
 2. **指数バックオフ自動再送**:
    - 一時的な通信障害に対しては、指数バックオフ（10s → 30s → 60s → 60s）を用いた自動リトライを実行し、サーバーに過剰な負荷をかけずに確実に同期を完了させる。

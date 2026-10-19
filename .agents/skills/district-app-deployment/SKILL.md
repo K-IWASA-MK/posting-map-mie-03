@@ -49,7 +49,7 @@ version: 1.0.0
    - `SYSTEM_INFO!B4` と `SYSTEM_INFO!B16` は MASTER が直接入力し、Execution AI は両セルを **読むだけ（READ ONLY）** とする。
 4. **`SYSTEM_INFO!B16` 生値非露出 & `A1:B16` 完全保護**:
    - `SYSTEM_INFO!B16` に格納された `GOOGLE_MAPS_API_KEY` の生値をチャット・ログ・Git・テスト・ドキュメントへ出力することは絶対禁止とする（確認ログは `EXISTS / SECURED` のみ出力可）。
-   - `active/system_info_service.js` の `syncSystemInfo()` は `A1:B15` の 15 行でシートを再構築し 16 行目（`A16:B16`）を消去してしまうため、**`syncSystemInfo()` の実行は絶対禁止** とする。
+   - `active/business/system/system_info_service.js`（旧表記 `active/system_info_service.js`）の `syncSystemInfo()` は `A1:B15` の 15 行でシートを再構築し 16 行目（`A16:B16`）を消去してしまうため、**`syncSystemInfo()` の実行は絶対禁止** とする。
 
 ---
 

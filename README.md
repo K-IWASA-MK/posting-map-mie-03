@@ -1,7 +1,7 @@
 # POSTING MAP Product Repository
 
 ## Current Release
-v1.0.0
+v1.0.1
 
 This repository is the official standalone product repository.
 
