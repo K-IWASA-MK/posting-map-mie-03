@@ -1466,12 +1466,13 @@ runTest("Scenario 24: District Context Propagation & Drive Isolation / Fail-Clos
   assert.equal(kuwanaDist.rows[2][8], "OK", "photoStatus is OK");
   assert.equal(kuwanaDist.rows[2][15], "U_KUWANA_001", "lineUserId is U_KUWANA_001");
 
-  // 2-2. STORAGE_PARENT_ID 欠損時の写真アップロード (Drive Fail-Closed & 業務継続実証)
+  // 2-2. STORAGE_PARENT_ID 欠損時の写真アップロード (Drive Fail-Closed & Atomic Completion Prevention)
   const noFolderFilesBefore = {
     kuwana: mockDriveFolders["folder_kuwana_id"].files.length,
     okayama: mockDriveFolders["folder_okayama_id"].files.length,
     global: mockDriveFolders["legacy_global_folder_id"].files.length
   };
+  const noFolderRowBefore = JSON.parse(JSON.stringify(noFolderDist.rows[1]));
 
   bindActiveDistrict("ss-no-folder-id", "");
   try {
@@ -1487,6 +1488,7 @@ runTest("Scenario 24: District Context Propagation & Drive Isolation / Fail-Clos
           gpsStatus: "OK",
           count: 80,
           isDone: true,
+          requestId: "req_nofolder_atomic_1",
           photoData: "data:image/jpeg;base64," + Buffer.from("fake_no_folder_photo").toString("base64")
         })
       }
@@ -1495,15 +1497,20 @@ runTest("Scenario 24: District Context Propagation & Drive Isolation / Fail-Clos
     const noFolderRes = doPost(noFolderReq);
     const noFolderData = JSON.parse(noFolderRes.text);
 
-    assert.equal(noFolderData.success, true, "Spreadsheet update must succeed despite Drive fail-closed (business continuity)");
-    assert.equal(noFolderData.photoStatus, "NO", "photoStatus must be NO when storageFolderId missing (fail-closed)");
+    assert.equal(noFolderData.success, false, "Spreadsheet completion MUST NOT succeed when Drive save fails (Atomic Fail-Closed)");
+    assert.equal(noFolderData.code, "INTERNAL_ERROR", "Drive failure must return code INTERNAL_ERROR");
+    assert.equal(noFolderData.errorType, "TRANSIENT", "Drive failure must return errorType TRANSIENT");
+    assert.equal(noFolderData.retryable, true, "Drive failure must return retryable: true");
 
     assert.equal(mockDriveFolders["folder_kuwana_id"].files.length, noFolderFilesBefore.kuwana, "KUWANA folder must have ZERO mutation on missing folder");
     assert.equal(mockDriveFolders["folder_okayama_id"].files.length, noFolderFilesBefore.okayama, "OKAYAMA folder must have ZERO mutation on missing folder");
     assert.equal(mockDriveFolders["legacy_global_folder_id"].files.length, noFolderFilesBefore.global, "Global folder must have ZERO mutation on missing folder");
 
-    assert.equal(noFolderDist.rows[1][4], 80, "count updated to 80");
-    assert.equal(noFolderDist.rows[1][8], "NO", "photoStatus in sheet must be NO");
+    assert.deepEqual(noFolderDist.rows[1], noFolderRowBefore, "Spreadsheet distribution row MUST remain unchanged on Drive failure");
+    assert.equal(noFolderDist.rows[1][3], "", "completedAt MUST remain unchanged");
+    assert.equal(noFolderDist.rows[1][4], 0, "count MUST remain previous value (0)");
+    assert.equal(noFolderDist.rows[1][8], "", "photoStatus MUST NOT be newly committed as completion");
+    assert.ok(!noFolderDist.rows[1][16], "requestId MUST NOT be persisted on Drive failure");
   } finally {
     bindActiveDistrict("ss-kuwana-id", "folder_kuwana_id");
   }

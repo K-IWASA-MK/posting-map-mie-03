@@ -126,19 +126,36 @@ if (typeof GPSService === 'undefined') {
         }
 
         let photoFileId = "";
+        const hasValidPhotoData = typeof data.photoData === "string" && data.photoData.startsWith("data:image");
 
         // photoData check
-        if (isComplete && data.photoData && photoStatus !== "OK") {
+        if (isComplete && hasValidPhotoData && photoStatus !== "OK") {
           console.log("[GPSService] Uploading photo to Google Drive...");
+          let photoRes = null;
           try {
-            const photoRes = this.repository.savePhotoToDrive(data, rowIdNum, districtId);
-            if (photoRes && photoRes.success) {
-               photoStatus = "OK";
-               photoFileId = photoRes.fileId || "";
-            }
-          } catch(photoErr) {
+            photoRes = this.repository.savePhotoToDrive(data, rowIdNum, districtId);
+          } catch (photoErr) {
             console.error("[GPSService] Photo upload failed:", photoErr);
+            return {
+              success: false,
+              code: "INTERNAL_ERROR",
+              errorType: "TRANSIENT",
+              retryable: true,
+              message: "写真の保存に失敗しました。時間をおいて再送します。"
+            };
           }
+          if (!photoRes || photoRes.success !== true) {
+            console.error("[GPSService] Photo upload failed: savePhotoToDrive returned non-success");
+            return {
+              success: false,
+              code: "INTERNAL_ERROR",
+              errorType: "TRANSIENT",
+              retryable: true,
+              message: "写真の保存に失敗しました。時間をおいて再送します。"
+            };
+          }
+          photoStatus = "OK";
+          photoFileId = photoRes.fileId || "";
         }
 
         console.log("[GPSService] Updating Spreadsheet record...");

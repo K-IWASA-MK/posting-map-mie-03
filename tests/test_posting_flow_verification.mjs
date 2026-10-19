@@ -13,6 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import vm from 'node:vm';
 
 const rootDir = process.cwd();
 
@@ -194,4 +195,370 @@ test('8. 境界保護: Phase 8 Core無変更、Phase 10 Queue再設計なし、U
   }
 });
 
-console.log('✅ ALL 8 PHASE 9 POSTING FLOW STRICT VERIFICATION CHECKS DEFINED SUCCESSFULLY.\n');
+// ----------------------------------------------------------------------------
+// 9. HAPP-WEEKLY-001: Photo Durability & Atomic Distribution Completion (Cases A - F)
+// ----------------------------------------------------------------------------
+function createGpsSandbox(overrides = {}) {
+  const recordedRangeWrites = [];
+  const mockSheet = {
+    getRange: (a1OrRow, col, numRows, numCols) => {
+      if (typeof a1OrRow === 'string') {
+        return {
+          createTextFinder: () => ({
+            matchEntireCell: () => ({
+              findNext: () => ({ getRow: () => 5 })
+            })
+          })
+        };
+      }
+      return {
+        getValues: () => [[
+          '', 0, '', '', 'NO', 'NO', '', '', '', '', '', '', '', ''
+        ]],
+        setValues: (vals) => {
+          recordedRangeWrites.push({ row: a1OrRow, col, numRows, numCols, vals });
+        }
+      };
+    }
+  };
+
+  const sandbox = {
+    console: { log: () => {}, error: () => {}, warn: () => {} },
+    Date,
+    Number,
+    String,
+    Boolean,
+    Math,
+    parseFloat,
+    LockService: {
+      getScriptLock: () => ({
+        waitLock: () => {},
+        releaseLock: () => {}
+      })
+    },
+    Utilities: {
+      formatDate: () => '2026/10/19 15:00:00',
+      base64Decode: () => [1, 2, 3],
+      newBlob: () => ({})
+    },
+    SystemInfoService: {
+      getInstance: () => ({
+        getOperationMode: () => 'ELECTION'
+      })
+    },
+    MonthlySheetResolver: {
+      getInstance: () => ({
+        getCurrentMonth: () => '2026-10',
+        getCurrentSheet: () => mockSheet
+      })
+    },
+    ...overrides
+  };
+
+  vm.createContext(sandbox);
+  vm.runInContext(gpsRepositoryJs, sandbox);
+  vm.runInContext(gpsServiceJs, sandbox);
+  return { sandbox, recordedRangeWrites };
+}
+
+test('9. HAPP-WEEKLY-001: Drive写真保存と配布完了記録の原子性検証 (Cases A〜F)', () => {
+  // Case A: valid data:image photo & savePhotoToDrive => { success: false }
+  {
+    const { sandbox } = createGpsSandbox();
+    const service = new sandbox.GPSService();
+    let saveCalls = 0;
+    let sheetUpdateCalls = 0;
+
+    service.repository = {
+      checkExistingStatus: () => ({
+        found: true,
+        rowNum: 5,
+        existingCompletedAt: '',
+        existingCount: 0,
+        gpsStatus: 'NO',
+        photoStatus: 'NO',
+        existingRequestId: ''
+      }),
+      savePhotoToDrive: () => {
+        saveCalls++;
+        return { success: false };
+      },
+      updateSheetRecordAndLog: () => {
+        sheetUpdateCalls++;
+        return { success: true };
+      }
+    };
+
+    const res = service.updateRecordWithGPSPhoto({
+      rowId: 10,
+      isDone: true,
+      count: 120,
+      photoData: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+      requestId: 'req-case-a'
+    });
+
+    assert.equal(saveCalls, 1, 'Case A: savePhotoToDrive must be invoked once');
+    assert.equal(sheetUpdateCalls, 0, 'Case A: updateSheetRecordAndLog MUST NOT be invoked when Drive save returns { success: false }');
+    assert.equal(res.success, false, 'Case A: result.success must be false');
+    assert.equal(res.code, 'INTERNAL_ERROR', 'Case A: result.code must be INTERNAL_ERROR');
+    assert.equal(res.errorType, 'TRANSIENT', 'Case A: result.errorType must be TRANSIENT');
+    assert.equal(res.retryable, true, 'Case A: result.retryable must be true');
+    assert.ok(typeof res.message === 'string' && res.message.length > 0, 'Case A: result.message must be present');
+  }
+
+  // Case B: valid data:image photo & savePhotoToDrive throws
+  {
+    const { sandbox } = createGpsSandbox();
+    const service = new sandbox.GPSService();
+    let saveCalls = 0;
+    let sheetUpdateCalls = 0;
+
+    service.repository = {
+      checkExistingStatus: () => ({
+        found: true,
+        rowNum: 5,
+        existingCompletedAt: '',
+        existingCount: 0,
+        gpsStatus: 'NO',
+        photoStatus: 'NO',
+        existingRequestId: ''
+      }),
+      savePhotoToDrive: () => {
+        saveCalls++;
+        throw new Error('Drive API quota exceeded');
+      },
+      updateSheetRecordAndLog: () => {
+        sheetUpdateCalls++;
+        return { success: true };
+      }
+    };
+
+    const res = service.updateRecordWithGPSPhoto({
+      rowId: 11,
+      isDone: true,
+      count: 150,
+      photoData: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+      requestId: 'req-case-b'
+    });
+
+    assert.equal(saveCalls, 1, 'Case B: savePhotoToDrive must be invoked once');
+    assert.equal(sheetUpdateCalls, 0, 'Case B: updateSheetRecordAndLog MUST NOT be invoked when Drive save throws');
+    assert.equal(res.success, false, 'Case B: result.success must be false');
+    assert.equal(res.code, 'INTERNAL_ERROR', 'Case B: result.code must be INTERNAL_ERROR');
+    assert.equal(res.errorType, 'TRANSIENT', 'Case B: result.errorType must be TRANSIENT');
+    assert.equal(res.retryable, true, 'Case B: result.retryable must be true');
+  }
+
+  // Case C: valid photo & Drive save succeeds
+  {
+    const { sandbox } = createGpsSandbox();
+    const service = new sandbox.GPSService();
+    let saveCalls = 0;
+    const sheetUpdateArgs = [];
+
+    service.repository = {
+      checkExistingStatus: () => ({
+        found: true,
+        rowNum: 5,
+        existingCompletedAt: '',
+        existingCount: 0,
+        gpsStatus: 'NO',
+        photoStatus: 'NO',
+        existingRequestId: ''
+      }),
+      savePhotoToDrive: () => {
+        saveCalls++;
+        return { success: true, fileId: 'DRIVE_FILE_ABC123' };
+      },
+      updateSheetRecordAndLog: (data, rowIdNum, gpsStatus, photoStatus, existing, photoFileId, districtId) => {
+        sheetUpdateArgs.push({ data, rowIdNum, gpsStatus, photoStatus, existing, photoFileId, districtId });
+        return {
+          success: true,
+          rowId: rowIdNum,
+          count: data.count,
+          gpsStatus: 'OK',
+          photoStatus,
+          photoUrl: `https://drive.google.com/file/d/${photoFileId}/view`,
+          timestamp: '2026/10/19 15:00:00'
+        };
+      }
+    };
+
+    const res = service.updateRecordWithGPSPhoto({
+      rowId: 12,
+      isDone: true,
+      count: 200,
+      latitude: 35.0,
+      longitude: 136.6,
+      photoData: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+      requestId: 'req-case-c'
+    }, 'MIE_03');
+
+    assert.equal(saveCalls, 1, 'Case C: savePhotoToDrive must be invoked once');
+    assert.equal(sheetUpdateArgs.length, 1, 'Case C: updateSheetRecordAndLog must be invoked exactly once');
+    assert.equal(sheetUpdateArgs[0].photoStatus, 'OK', 'Case C: photoStatus passed to updateSheetRecordAndLog must be OK');
+    assert.equal(sheetUpdateArgs[0].photoFileId, 'DRIVE_FILE_ABC123', 'Case C: photoFileId must be passed to updateSheetRecordAndLog');
+    assert.equal(res.success, true, 'Case C: result.success must be true');
+  }
+
+  // Case D: repository successful persistence returns photoUrl alongside existing fields
+  {
+    const { sandbox, recordedRangeWrites } = createGpsSandbox();
+    const repo = new sandbox.GPSRepository();
+
+    const res = repo.updateSheetRecordAndLog(
+      {
+        rowId: 13,
+        isDone: true,
+        count: 250,
+        staffId: 'STAFF_001',
+        staffName: 'Taro',
+        latitude: 35.01,
+        longitude: 136.65,
+        resolvedLineUserId: 'U_TEST_LINE',
+        requestId: 'req-case-d'
+      },
+      13,
+      'NO',
+      'OK',
+      { found: true, rowNum: 5, existingLat: '', existingLng: '', existingGpsTime: '', existingFileId: '', existingPhotoUrl: '', existingPhotoTime: '' },
+      'DRIVE_FILE_XYZ789',
+      'MIE_03'
+    );
+
+    assert.equal(recordedRangeWrites.length, 1, 'Case D: sheet range write must execute once');
+    assert.deepEqual(
+      Object.keys(res).sort(),
+      ['count', 'gpsStatus', 'photoStatus', 'photoUrl', 'rowId', 'success', 'timestamp'],
+      'Case D: response must contain additive photoUrl and preserve all existing keys'
+    );
+    assert.equal(res.success, true);
+    assert.equal(res.rowId, 13);
+    assert.equal(res.count, 250);
+    assert.equal(res.gpsStatus, 'OK');
+    assert.equal(res.photoStatus, 'OK');
+    assert.equal(res.photoUrl, 'https://drive.google.com/file/d/DRIVE_FILE_XYZ789/view');
+    assert.equal(res.timestamp, '2026/10/19 15:00:00');
+  }
+
+  // Case E: no photoData / invalid photoData preserves existing fallback behavior
+  {
+    const { sandbox } = createGpsSandbox();
+    const service = new sandbox.GPSService();
+    let saveCalls = 0;
+    const sheetUpdatePhotoStatuses = [];
+
+    service.repository = {
+      checkExistingStatus: () => ({
+        found: true,
+        rowNum: 5,
+        existingCompletedAt: '',
+        existingCount: 0,
+        gpsStatus: 'NO',
+        photoStatus: 'NO',
+        existingRequestId: ''
+      }),
+      savePhotoToDrive: () => {
+        saveCalls++;
+        return { success: false };
+      },
+      updateSheetRecordAndLog: (data, rowIdNum, gpsStatus, photoStatus) => {
+        sheetUpdatePhotoStatuses.push(photoStatus);
+        return { success: true, rowId: rowIdNum, count: data.count, gpsStatus, photoStatus, photoUrl: '', timestamp: '2026/10/19 15:00:00' };
+      }
+    };
+
+    const resNoPhoto = service.updateRecordWithGPSPhoto({
+      rowId: 14,
+      isDone: true,
+      count: 100,
+      requestId: 'req-case-e1'
+    });
+    const resInvalidPhoto = service.updateRecordWithGPSPhoto({
+      rowId: 15,
+      isDone: true,
+      count: 100,
+      photoData: 'not-a-data-image-uri',
+      requestId: 'req-case-e2'
+    });
+
+    assert.equal(saveCalls, 0, 'Case E: savePhotoToDrive must not be called when photoData is missing or not data:image');
+    assert.equal(resNoPhoto.success, true, 'Case E: missing photoData fallback preserves sheet update');
+    assert.equal(resInvalidPhoto.success, true, 'Case E: invalid photoData fallback preserves sheet update');
+    assert.deepEqual(sheetUpdatePhotoStatuses, ['NO', 'NO'], 'Case E: photoStatus remains NO on fallback');
+  }
+
+  // Case F: duplicate requestId & alreadyCompleted short-circuit before Drive upload
+  {
+    const { sandbox } = createGpsSandbox();
+    const service = new sandbox.GPSService();
+    let saveCalls = 0;
+    let sheetUpdateCalls = 0;
+
+    service.repository = {
+      checkExistingStatus: (rowIdNum) => {
+        if (rowIdNum === 16) {
+          return {
+            found: true,
+            rowNum: 16,
+            existingCompletedAt: '2026/10/19 14:00:00',
+            existingCount: 180,
+            gpsStatus: 'OK',
+            photoStatus: 'OK',
+            existingRequestId: 'req-dup-16'
+          };
+        }
+        return {
+          found: true,
+          rowNum: 17,
+          existingCompletedAt: '2026/10/19 14:05:00',
+          existingCount: 190,
+          gpsStatus: 'OK',
+          photoStatus: 'OK',
+          existingRequestId: 'req-other-17'
+        };
+      },
+      savePhotoToDrive: () => {
+        saveCalls++;
+        return { success: true, fileId: 'SHOULD_NOT_UPLOAD' };
+      },
+      updateSheetRecordAndLog: () => {
+        sheetUpdateCalls++;
+        return { success: true };
+      }
+    };
+
+    const dupRes = service.updateRecordWithGPSPhoto({
+      rowId: 16,
+      isDone: true,
+      count: 180,
+      photoData: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+      requestId: 'req-dup-16'
+    });
+    assert.equal(dupRes.success, true);
+    assert.equal(dupRes.duplicate, true, 'Case F: duplicate requestId must short-circuit with duplicate: true');
+    assert.equal(dupRes.photoUrl, undefined, 'Case F: duplicate response shape must not be modified');
+
+    const alreadyRes = service.updateRecordWithGPSPhoto({
+      rowId: 17,
+      isDone: true,
+      count: 190,
+      photoData: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+      requestId: 'req-new-17'
+    });
+    assert.equal(alreadyRes.success, true);
+    assert.equal(alreadyRes.alreadyCompleted, true, 'Case F: alreadyCompleted must short-circuit with alreadyCompleted: true');
+    assert.equal(alreadyRes.photoUrl, undefined, 'Case F: alreadyCompleted response shape must not be modified');
+
+    assert.equal(saveCalls, 0, 'Case F: savePhotoToDrive call count must be 0 on duplicate/alreadyCompleted');
+    assert.equal(sheetUpdateCalls, 0, 'Case F: updateSheetRecordAndLog call count must be 0 on duplicate/alreadyCompleted');
+  }
+
+  // Client db.js transient classification confirmation for INTERNAL_ERROR
+  assert.ok(
+    dbJs.includes("'INTERNAL_ERROR'") && dbJs.includes('TRANSIENT_CODES'),
+    'Client db.js must classify INTERNAL_ERROR in TRANSIENT_CODES for automatic retry'
+  );
+});
+
+console.log('✅ ALL 9 PHASE 9 POSTING FLOW STRICT VERIFICATION CHECKS DEFINED SUCCESSFULLY.\n');

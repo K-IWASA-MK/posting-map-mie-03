@@ -193,7 +193,7 @@ if (typeof GPSRepository === 'undefined') {
       }
 
       if (!updateSuccess) return { success: false, message: "Spreadsheet record update failed or row not found" };
-      return { success: true, rowId: rowIdNum, count: countVal, gpsStatus: finalGpsStatus, photoStatus: photoStatus, timestamp: completedAt };
+      return { success: true, rowId: rowIdNum, count: countVal, gpsStatus: finalGpsStatus, photoStatus: photoStatus, photoUrl: pUrl, timestamp: completedAt };
     }
   };
   GPSRepository.instance = null;
