@@ -1,10 +1,13 @@
 {
-  "mission": "HAPP-WEEKLY-001 — Photo Durability / Atomic Distribution Completion",
+  "mission": "HAPP-WEEKLY-003 + HAPP-WEEKLY-005 — Permanent Failure Lifecycle & Manual Retry UI Reachability",
   "files": [
     ".agents/current-scope.json",
-    "active/business/gps/gps_service.js",
-    "active/business/gps/gps_repository.js",
-    "tests/test_posting_flow_verification.mjs",
-    "tests/test_multi_district_routing_auth.mjs"
+    "active/h-app/modules/activity.js",
+    "active/h-app/render.js",
+    "active/h-app/app.js",
+    "tests/test_activity_module_lifecycle.mjs",
+    "tests/test_durable_queue_verification.mjs",
+    "active/h-app/index.html",
+    "scripts/test_browser_h_app_activity.mjs"
   ]
 }
