@@ -261,59 +261,404 @@ test('6. 強制終了復旧: SYNCING 状態で中断されたレコードが次�
 });
 
 // ----------------------------------------------------------------------------
-// 7. getSyncQueueRowIds() と getRowStatus() による当月Queue分離実動検証
+// 7. HAPP-WEEKLY-004: Month Boundary / Durable Queue 実関数VM実行検証 (Case A〜G)
 // ----------------------------------------------------------------------------
-test('7. 当月Queue分離: getSyncQueueRowIds() と getRowStatus() が現在JST月のみを対象とし、旧月Queueによる誤判定を遮断すること', () => {
-  // db.js に getSyncQueueRowIds と getRowStatus が定義され、当月判定が含まれていること
-  assert.ok(dbJs.includes('async function getSyncQueueRowIds()'), 'getSyncQueueRowIds 関数が定義されていること');
-  assert.ok(dbJs.includes('window.getSyncQueueRowIds = getSyncQueueRowIds;'), 'window.getSyncQueueRowIds が公開されていること');
-  assert.ok(dbJs.includes('async function getRowStatus(rowId)'), 'getRowStatus 関数が定義されていること');
-  assert.ok(dbJs.includes('window.getRowStatus = getRowStatus;'), 'window.getRowStatus が公開されていること');
+test('7. HAPP-WEEKLY-004: Clientが月境界で未終端Queueを隠さず、Backend Lifecycle Authorityと完全整合すること (Case A〜G 実関数VM検証)', async () => {
+  const vm = await import('node:vm');
 
-  // getSyncQueueRowIds と getRowStatus のコード内で当月フィルタリングが行われていること
-  const getSyncQueueIndex = dbJs.indexOf('async function getSyncQueueRowIds()');
-  const getSyncQueueBody = dbJs.substring(getSyncQueueIndex, getSyncQueueIndex + 600);
-  assert.ok(getSyncQueueBody.includes('getJstMonth(item.timestamp) === currentMonth'), 'getSyncQueueRowIds で当月フィルタが行われていること');
+  // 構文確認: getRowStatus / getSyncQueueRowIds / manualRetrySync / triggerUISyncRefresh から暦月フィルタが除去され、enqueueSync の getJstMonth 重複抑止は維持されていること
+  assert.ok(dbJs.includes('function getJstMonth(ts)'), 'getJstMonth 関数自体は維持されていること');
+  const getRowStatusBody = dbJs.substring(dbJs.indexOf('async function getRowStatus(rowId)'), dbJs.indexOf('window.getRowStatus = getRowStatus;'));
+  assert.ok(!getRowStatusBody.includes('getJstMonth'), 'getRowStatus から getJstMonth フィルタが除去されていること');
 
-  const getRowStatusIndex = dbJs.indexOf('async function getRowStatus(rowId)');
-  const getRowStatusBody = dbJs.substring(getRowStatusIndex, getRowStatusIndex + 600);
-  assert.ok(getRowStatusBody.includes('getJstMonth(q.timestamp) === currentMonth'), 'getRowStatus で当月フィルタが行われていること');
+  const getSyncQueueBody = dbJs.substring(dbJs.indexOf('async function getSyncQueueRowIds()'), dbJs.indexOf('window.getSyncQueueRowIds = getSyncQueueRowIds;'));
+  assert.ok(!getSyncQueueBody.includes('getJstMonth'), 'getSyncQueueRowIds から getJstMonth フィルタが除去されていること');
 
-  // app.js の loadData 内で getSyncQueueRowIds を呼び出していること
-  assert.ok(appJs.includes('const queueRowIds = await window.getSyncQueueRowIds();'), 'loadData で getSyncQueueRowIds() が呼ばれていること');
+  const manualRetryBody = dbJs.substring(dbJs.indexOf('async function manualRetrySync(rowId)'), dbJs.indexOf('window.manualRetrySync = manualRetrySync;'));
+  assert.ok(!manualRetryBody.includes('getJstMonth'), 'manualRetrySync から getJstMonth フィルタが除去されていること');
 
-  // 実動シミュレーション: 旧月Queueと当月Queueの分離
-  function getJstMonth(ts) {
-    const num = Number(ts);
-    const d = (Number.isFinite(num) && num > 0) ? new Date(num) : new Date();
-    const jst = new Date(d.getTime() + (9 * 60 * 60 * 1000));
-    return `${jst.getUTCFullYear()}-${String(jst.getUTCMonth() + 1).padStart(2, '0')}`;
+  const triggerUIBody = appJs.substring(appJs.indexOf('window.triggerUISyncRefresh = async function()'), appJs.indexOf('setQueueLifecycleGates({'));
+  assert.ok(!triggerUIBody.includes('currentJstMonth'), 'triggerUISyncRefresh から currentJstMonth フィルタが除去されていること');
+  assert.ok(!triggerUIBody.includes('currentMonthQueue'), 'triggerUISyncRefresh から currentMonthQueue が除去されていること');
+
+  // Mock IndexedDB + VM Harness による db.js + activity.js + triggerUISyncRefresh 実関数実行環境
+  function createDurableQueueVM(initialNowMs) {
+    let currentNow = initialNowMs;
+    const storeRecords = new Map();
+    let autoIncId = 1;
+    const apiCalls = [];
+    let apiResponder = async () => ({ success: true, accepted: true });
+
+    const mockIndexedDB = {
+      open: () => {
+        const req = {};
+        queueMicrotask(() => {
+          const db = {
+            objectStoreNames: { contains: () => true },
+            createObjectStore: () => ({}),
+            transaction: () => {
+              const tx = {
+                objectStore: () => ({
+                  getAll: () => {
+                    const r = {};
+                    const snap = Array.from(storeRecords.values()).map(v => ({ ...v }));
+                    queueMicrotask(() => {
+                      r.result = snap;
+                      if (r.onsuccess) r.onsuccess({ target: r });
+                    });
+                    return r;
+                  },
+                  add: (record) => {
+                    const r = {};
+                    const id = autoIncId++;
+                    storeRecords.set(id, { ...record, id });
+                    queueMicrotask(() => {
+                      r.result = id;
+                      if (r.onsuccess) r.onsuccess({ target: r });
+                    });
+                    return r;
+                  },
+                  delete: (id) => {
+                    const r = {};
+                    storeRecords.delete(id);
+                    queueMicrotask(() => {
+                      if (r.onsuccess) r.onsuccess({ target: r });
+                    });
+                    return r;
+                  },
+                  get: (id) => {
+                    const r = {};
+                    const found = storeRecords.get(id);
+                    const snap = found ? { ...found } : undefined;
+                    queueMicrotask(() => {
+                      r.result = snap;
+                      if (r.onsuccess) r.onsuccess({ target: r });
+                    });
+                    return r;
+                  },
+                  put: (data) => {
+                    storeRecords.set(data.id, { ...data });
+                  }
+                })
+              };
+              return tx;
+            }
+          };
+          if (req.onsuccess) req.onsuccess({ target: { result: db } });
+        });
+        return req;
+      }
+    };
+
+    const FakeDate = class extends Date {
+      constructor(...args) {
+        if (args.length === 0) super(currentNow);
+        else super(...args);
+      }
+      static now() { return currentNow; }
+    };
+
+    const windowObj = {
+      addEventListener: () => {},
+      navigator: { onLine: true }
+    };
+
+    const sandbox = {
+      window: windowObj,
+      self: windowObj,
+      indexedDB: mockIndexedDB,
+      navigator: windowObj.navigator,
+      Date: FakeDate,
+      console: { log: () => {}, warn: () => {}, error: () => {} },
+      setInterval: () => 1,
+      clearInterval: () => {},
+      setTimeout,
+      clearTimeout,
+      Number,
+      String,
+      Boolean,
+      Array,
+      Object,
+      Math,
+      JSON,
+      Promise,
+      Error,
+      Map,
+      Set,
+      callApiPost: async (action, payload) => {
+        apiCalls.push({ action, payload: { ...payload } });
+        await new Promise(r => setImmediate(r));
+        return await apiResponder(action, payload);
+      },
+      PinStatusModule: {
+        reflectCompleted: () => {},
+        isCompleted: () => false
+      },
+      $: () => null,
+      allPoints: []
+    };
+
+    vm.createContext(sandbox);
+    sandbox.ActivityModule = vm.runInContext(`${activityJs}\nActivityModule;`, sandbox);
+    vm.runInContext(dbJs, sandbox);
+
+    // app.js の triggerUISyncRefresh 実関数を抽出して同一VMにロード (allPoints は sandbox.allPoints を参照)
+    vm.runInContext(triggerUIBody, sandbox);
+
+    // startApp 相当の ActivityQueueHooks と LifecycleGates を配線
+    sandbox.configureActivityQueueHooks({
+      onRejectedBeforeDequeue(item, res) {
+        const pt = sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'REJECTED', item, res });
+      },
+      onAcceptedAfterDequeue(item, res) {
+        const pt = sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'ACCEPTED', item, res });
+      },
+      onFailedAfterQueueUpdate(item, finalStatus, err) {
+        const pt = sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'FAILED', finalStatus, item, error: err });
+      },
+      onManualRetryReset(item) {
+        const pt = sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'RETRY_RESET', item });
+      }
+    });
+
+    sandbox.setQueueLifecycleGates({
+      isIdentityVerifiedReady: () => true,
+      triggerUISyncRefresh: () => windowObj.triggerUISyncRefresh(),
+      loadData: () => {}
+    });
+
+    const flush = async () => {
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setImmediate(r));
+      }
+    };
+
+    return {
+      sandbox,
+      windowObj,
+      storeRecords,
+      apiCalls,
+      setNow: (ms) => { currentNow = ms; },
+      setApiResponder: (fn) => { apiResponder = fn; },
+      flush
+    };
   }
 
-  const currentJstMonth = '2026-09';
-  const simulatedQueue = [
-    { rowId: 701, timestamp: Date.UTC(2026, 7, 20), syncStatus: 'PENDING' }, // 2026-08 (旧月)
-    { rowId: 702, timestamp: Date.UTC(2026, 8, 10), syncStatus: 'PENDING' }  // 2026-09 (当月)
-  ];
+  // Oct 31, 2026 23:00 JST = 2026-10-31T14:00:00Z
+  const oct31Jst = Date.parse('2026-10-31T14:00:00Z');
+  // Nov 1, 2026 09:00 JST = 2026-11-01T00:00:00Z
+  const nov01Jst = Date.parse('2026-11-01T00:00:00Z');
 
-  // getSyncQueueRowIds() シミュレーション: 当月Queueのみ抽出
-  const currentMonthRowIds = simulatedQueue
-    .filter(q => getJstMonth(q.timestamp) === currentJstMonth)
-    .map(q => q.rowId);
+  // ── Case A & Case B: Cross-month getRowStatus & getSyncQueueRowIds ──
+  {
+    const env = createDurableQueueVM(nov01Jst);
+    env.storeRecords.set(1, {
+      id: 1, rowId: 101, timestamp: oct31Jst, requestId: 'req_oct_101',
+      syncStatus: 'FAILED_PERMANENT', count: 50, retryCount: 5, nextRetryAt: 0
+    });
+    env.storeRecords.set(2, {
+      id: 2, rowId: 102, timestamp: oct31Jst, requestId: 'req_oct_102',
+      syncStatus: 'PENDING', count: 30, retryCount: 0, nextRetryAt: 0
+    });
+    env.storeRecords.set(3, {
+      id: 3, rowId: 103, timestamp: oct31Jst, requestId: 'req_oct_103',
+      syncStatus: 'RETRY', count: 40, retryCount: 2, nextRetryAt: nov01Jst + 60000
+    });
 
-  assert.deepEqual(currentMonthRowIds, [702], '当月Queueの rowId (702) のみが返され、旧月 (701) は除外されること');
+    // Case A: cross-month getRowStatus
+    const status101 = await env.windowObj.getRowStatus(101);
+    assert.equal(status101, 'FAILED_PERMANENT', 'Case A: 前月JSTの FAILED_PERMANENT アイテムが翌月でも getRowStatus で取得できること');
+    const statusMissing = await env.windowObj.getRowStatus(999);
+    assert.equal(statusMissing, null, 'Case A: Queueに存在しない rowId は null を返すこと');
 
-  // getRowStatus() シミュレーション: 旧月は null、当月はステータス返却
-  function simulateGetRowStatus(targetRowId) {
-    const item = simulatedQueue.find(q =>
-      Number(q.rowId) === Number(targetRowId) &&
-      getJstMonth(q.timestamp) === currentJstMonth
-    );
-    return item ? (item.syncStatus || 'PENDING') : null;
+    // Case B: cross-month getSyncQueueRowIds
+    const rowIds = await env.windowObj.getSyncQueueRowIds();
+    assert.deepEqual(rowIds, [101, 102, 103], 'Case B: 前月JSTの PENDING / RETRY / FAILED_PERMANENT がすべて getSyncQueueRowIds で検出されること');
+
+    // Dequeue 済みのアイテムは復元されないこと
+    await env.sandbox.dequeueSync(2);
+    const rowIdsAfterDequeue = await env.windowObj.getSyncQueueRowIds();
+    assert.deepEqual(rowIdsAfterDequeue, [101, 103], 'Case B: dequeue済みアイテムは getSyncQueueRowIds に含まれないこと');
   }
 
-  assert.equal(simulateGetRowStatus(701), null, '旧月Queueの rowId 701 に対する getRowStatus は null となること');
-  assert.equal(simulateGetRowStatus(702), 'PENDING', '当月Queueの rowId 702 に対する getRowStatus はステータスを返すこと');
+  // ── Case C & Case E: Cross-month manualRetrySync & ELECTION continuation ──
+  {
+    const env = createDurableQueueVM(nov01Jst);
+    env.sandbox.allPoints.splice(0, env.sandbox.allPoints.length, {
+      rowId: 201, isDone: false, syncStatus: 'FAILED_PERMANENT', count: 80, staffName: 'Staff A'
+    });
+    const originalRecord = {
+      id: 77,
+      rowId: 201,
+      requestId: 'R1_oct_election',
+      timestamp: oct31Jst,
+      areaName: 'ELECTION_AREA_201',
+      isDone: true,
+      count: 80,
+      photoBase64: 'data:image/jpeg;base64,october_photo_payload',
+      latitude: '34.700001',
+      longitude: '136.500001',
+      accuracy: 8,
+      staffName: 'Staff A',
+      staffId: 'S001',
+      syncStatus: 'FAILED_PERMANENT',
+      retryCount: 5,
+      nextRetryAt: 0
+    };
+    env.storeRecords.set(77, { ...originalRecord });
+
+    // triggerUISyncRefresh を月替わり後に呼んでも前月Queueが消されないこと (Case E)
+    await env.windowObj.triggerUISyncRefresh();
+    assert.equal(env.sandbox.allPoints[0].syncStatus, 'FAILED_PERMANENT', 'Case E: triggerUISyncRefresh が月替わり後も前月 FAILED_PERMANENT を維持すること');
+
+    // processQueue を一時停止して manualRetrySync 直後のDBレコード不変性を検証 (Case C)
+    env.sandbox.navigator.onLine = false;
+    await env.windowObj.manualRetrySync(201);
+    await env.flush();
+
+    assert.equal(env.storeRecords.size, 1, 'Case C: 新規 enqueue は行われずレコード数は1件のままであること');
+    const updated = env.storeRecords.get(77);
+    assert.ok(updated, 'Case C: 同一 item.id (77) が維持されていること');
+    assert.equal(updated.id, 77, 'Case C: same item ID');
+    assert.equal(updated.requestId, 'R1_oct_election', 'Case C: same requestId');
+    assert.equal(updated.timestamp, oct31Jst, 'Case C: same October timestamp');
+    assert.equal(updated.count, 80, 'Case C: same count');
+    assert.equal(updated.photoBase64, 'data:image/jpeg;base64,october_photo_payload', 'Case C: same photoBase64');
+    assert.equal(updated.latitude, '34.700001', 'Case C: same latitude');
+    assert.equal(updated.longitude, '136.500001', 'Case C: same longitude');
+    assert.equal(updated.accuracy, 8, 'Case C: same accuracy');
+    assert.equal(updated.syncStatus, 'PENDING', 'Case C: syncStatus=PENDING にリセットされること');
+    assert.equal(updated.retryCount, 0, 'Case C: retryCount=0 にリセットされること');
+    assert.equal(updated.nextRetryAt, 0, 'Case C: nextRetryAt=0 にリセットされること');
+
+    // Case E: オンライン復帰 → processQueue が October timestamp & R1 のまま送信し、ELECTION Backend が STALE_MONTH bypass で受理
+    env.sandbox.navigator.onLine = true;
+    env.setApiResponder(async (action, payload) => {
+      // ELECTION Backend contract: old timestamp accepted across calendar month
+      return { success: true, accepted: true, duplicate: false, alreadyCompleted: false };
+    });
+    await env.sandbox.processQueue();
+    await env.flush();
+
+    assert.equal(env.apiCalls.length, 1, 'Case E: processQueue が Backend へ送信すること');
+    assert.equal(env.apiCalls[0].payload.requestId, 'R1_oct_election', 'Case E: 元の requestId が送信されること');
+    assert.equal(env.apiCalls[0].payload.timestamp, oct31Jst, 'Case E: 元の October timestamp が送信されること');
+    assert.equal(env.storeRecords.size, 0, 'Case E: Backend 受理後に dequeue されること');
+    assert.equal(env.sandbox.allPoints[0].isDone, true, 'Case E: Backend 受理により isDone=true となること');
+  }
+
+  // ── Case D: SUBSCRIPTION terminal stale (previous-month item -> STALE_MONTH -> dequeue & REJECTED & isDone=false) ──
+  {
+    const env = createDurableQueueVM(nov01Jst);
+    let statusAtDequeueMoment = null;
+    env.sandbox.configureActivityQueueHooks({
+      onRejectedBeforeDequeue(item, res) {
+        const pt = env.sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) {
+          env.sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'REJECTED', item, res });
+          statusAtDequeueMoment = pt.syncStatus;
+        }
+      },
+      onAcceptedAfterDequeue(item, res) {
+        const pt = env.sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) env.sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'ACCEPTED', item, res });
+      },
+      onFailedAfterQueueUpdate(item, finalStatus, err) {
+        const pt = env.sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) env.sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'FAILED', finalStatus, item, error: err });
+      },
+      onManualRetryReset(item) {
+        const pt = env.sandbox.allPoints.find(p => Number(p.rowId) === Number(item.rowId));
+        if (pt) env.sandbox.ActivityModule.applyQueueOutcome(pt, { type: 'RETRY_RESET', item });
+      }
+    });
+
+    env.sandbox.allPoints.splice(0, env.sandbox.allPoints.length, {
+      rowId: 301, isDone: false, syncStatus: 'FAILED_PERMANENT', isReadyToSubmit: true, count: 60
+    });
+    env.storeRecords.set(88, {
+      id: 88,
+      rowId: 301,
+      requestId: 'R2_oct_subscription',
+      timestamp: oct31Jst,
+      areaName: 'SUB_AREA_301',
+      isDone: true,
+      count: 60,
+      photoBase64: 'data:image/jpeg;base64,sub_photo',
+      latitude: '34.700002',
+      longitude: '136.500002',
+      accuracy: 10,
+      syncStatus: 'FAILED_PERMANENT',
+      retryCount: 5,
+      nextRetryAt: 0
+    });
+
+    // Server決定前はClient側で可視であること (オンライン自動送信前に状態を検証)
+    env.sandbox.navigator.onLine = false;
+    assert.equal(await env.windowObj.getRowStatus(301), 'FAILED_PERMANENT', 'Case D: Server応答前は前月アイテムが可視であること');
+    assert.deepEqual(await env.windowObj.getSyncQueueRowIds(), [301], 'Case D: getSyncQueueRowIds でも可視であること');
+
+    // SUBSCRIPTION Backend responds STALE_MONTH
+    env.setApiResponder(async () => ({
+      success: true,
+      accepted: false,
+      code: 'STALE_MONTH'
+    }));
+
+    // 前月 FAILED_PERMANENT を manualRetrySync → processQueue 送信 → STALE_MONTH 終端
+    env.sandbox.navigator.onLine = true;
+    await env.windowObj.manualRetrySync(301);
+    await env.flush();
+
+    assert.equal(env.apiCalls.length, 1, 'Case D: manualRetrySync から processQueue が Backend へ送信すること');
+    assert.equal(env.apiCalls[0].payload.timestamp, oct31Jst, 'Case D: 元の October timestamp が Backend へ送信されること');
+    assert.equal(statusAtDequeueMoment, 'REJECTED', 'Case D: onRejectedBeforeDequeue により dequeue 前に syncStatus=REJECTED がセットされること');
+    assert.equal(env.sandbox.allPoints[0].syncStatus, 'REJECTED', 'Case D: point.syncStatus が REJECTED になること');
+    assert.equal(env.storeRecords.size, 0, 'Case D: STALE_MONTH 受信により Queue から terminal dequeue され孤立が解消されること');
+    assert.equal(env.sandbox.allPoints[0].isDone, false, 'Case D: isDone=false が厳格に維持されること (COMPLETED昇格禁止)');
+    assert.equal(await env.windowObj.getRowStatus(301), null, 'Case D: dequeue 後は getRowStatus が null を返すこと');
+  }
+
+  // ── Case F: Current-month behavior unchanged ──
+  {
+    const env = createDurableQueueVM(nov01Jst);
+    env.storeRecords.set(1, { id: 1, rowId: 401, timestamp: nov01Jst, syncStatus: 'PENDING' });
+    env.storeRecords.set(2, { id: 2, rowId: 402, timestamp: nov01Jst, syncStatus: 'SYNCING' });
+    env.storeRecords.set(3, { id: 3, rowId: 403, timestamp: nov01Jst, syncStatus: 'RETRY' });
+    env.storeRecords.set(4, { id: 4, rowId: 404, timestamp: nov01Jst, syncStatus: 'FAILED_PERMANENT' });
+
+    assert.equal(await env.windowObj.getRowStatus(401), 'PENDING', 'Case F: 当月 PENDING 参照維持');
+    assert.equal(await env.windowObj.getRowStatus(402), 'SYNCING', 'Case F: 当月 SYNCING 参照維持');
+    assert.equal(await env.windowObj.getRowStatus(403), 'RETRY', 'Case F: 当月 RETRY 参照維持');
+    assert.equal(await env.windowObj.getRowStatus(404), 'FAILED_PERMANENT', 'Case F: 当月 FAILED_PERMANENT 参照維持');
+    assert.deepEqual(await env.windowObj.getSyncQueueRowIds(), [401, 402, 403, 404], 'Case F: 当月 rowIds 参照維持');
+  }
+
+  // ── Case G: enqueueSync monthly dedup & different-month coexistence unchanged ──
+  {
+    const env = createDurableQueueVM(oct31Jst);
+    env.sandbox.navigator.onLine = false; // enqueue 時の自動送信を抑止してQueue状態を確認
+
+    const id1 = await env.sandbox.enqueueSync({ rowId: 501, timestamp: oct31Jst, count: 10, requestId: 'req_oct_501_a' });
+    await env.flush();
+    const id2 = await env.sandbox.enqueueSync({ rowId: 501, timestamp: oct31Jst + 60000, count: 20, requestId: 'req_oct_501_b' });
+    await env.flush();
+
+    assert.equal(id1, id2, 'Case G: 同一JST月 + 同一rowId は重複 enqueue が抑止され既存IDが返ること');
+    assert.equal(env.storeRecords.size, 1, 'Case G: 同一JST月ではレコードが増えないこと');
+
+    // 翌月 (Nov 1 JST) で同一 rowId を enqueue → 別月共存契約は維持
+    env.setNow(nov01Jst);
+    const id3 = await env.sandbox.enqueueSync({ rowId: 501, timestamp: nov01Jst, count: 30, requestId: 'req_nov_501' });
+    await env.flush();
+
+    assert.notEqual(id3, id1, 'Case G: 別JST月 + 同一rowId は既存共存契約通り新規追加されること');
+    assert.equal(env.storeRecords.size, 2, 'Case G: 別月同一rowId の coexistence 契約が維持されていること');
+  }
 });
 
 // ----------------------------------------------------------------------------

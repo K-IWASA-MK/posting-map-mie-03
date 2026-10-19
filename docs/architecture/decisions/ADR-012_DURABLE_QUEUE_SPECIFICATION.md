@@ -54,8 +54,8 @@ Phase 10 では、この因果関係を支えるクライアント側の送信�
 - **リトライ間隔**: 10秒 → 30秒 → 60秒 → 60秒 → 60秒 (最大5回)。
 - **強制終了・クラッシュ復旧**:
   ブラウザの強制終了やタブ閉じにより `SYNCING` 状態で中断されたレコードは、次回起動時または `processQueue()` 実行時に自動検出され、即時再送対象として安全に復旧・送信される。
-- **待機ピン復元 (`getSyncQueueRowIds`)**:
-  起動時やデータロード時、`getSyncQueueRowIds()` を用いて当月キュー内の未送信アイテムを検出し、ピンを待機状態（`pending`）として復元する（旧月キューは新月ピンを pending 化しない）。
+- **待機ピン復元 (`getSyncQueueRowIds`) と月跨ぎライフサイクル権限**:
+  起動時やデータロード時、Clientは `syncQueue` に存在する未終端アイテムを月を理由に隠さず、`getSyncQueueRowIds()` / `getRowStatus()` / `manualRetrySync()` / `triggerUISyncRefresh()` の対象として状態を復元・維持する。ELECTION / SUBSCRIPTION の月跨ぎ受理判定は Backend Authority とし、SUBSCRIPTION 旧月アイテムは `STALE_MONTH`（`accepted: false`）で terminal dequeue され（非COMPLETED）、ELECTION 旧月アイテムは同一 Active Dataset 上で継続・受理可能とする。
 
 ### 6. オフラインUI即時解放と待機制御
 - **オフライン提出**:

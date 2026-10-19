@@ -980,7 +980,7 @@ test('Gate 41: 写真付き下書き作成時に GPS 状態が必ず pending に
   assert.strictEqual(testPoint.gpsStatus, 'OK');
 });
 
-test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT in current-month queue (app.js + ActivityModule real execution)', async () => {
+test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT in active queue regardless of calendar month (app.js + ActivityModule real execution)', async () => {
   // 1. app.js 実ソースから実際の triggerUISyncRefresh 関数コードを抽出
   const appJsSource = fs.readFileSync(appJsPath, 'utf8');
   const triggerMatch = appJsSource.match(/window\.triggerUISyncRefresh\s*=\s*(async\s*function\s*\([\s\S]*?^};)/m);
@@ -1005,12 +1005,12 @@ test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT i
   const prevMonthTs = nowTs - (40 * 24 * 60 * 60 * 1000);
 
   // 4. 網羅的テストデータ（6条件）
-  // ① 当月キューあり: isDone: true だが当月キューに存在 ➔ 反映・ロック対象外 (0回)
-  // ② 当月キューなし: isDone: true かつキュー不在 ➔ 反映・ロック対象 (1回, rowId: 102)
+  // ① 当月キューあり: isDone: true だがキューに存在 ➔ 反映・ロック対象外 (0回)
+  // ② キューなし: isDone: true かつキュー不在 ➔ 反映・ロック対象 (1回, rowId: 102)
   // ③ 未完了: isDone: false かつキュー不在 ➔ 反映・ロック対象外 (0回)
   // ④ submitting: isDone: true だが提出中保護 ➔ 反映・ロック対象外 (0回)
   // ⑤ REJECTED: isDone: false かつ非受諾終端 ➔ 反映・ロック対象外 (0回)
-  // ⑥ 前月キューのみ: isDone: true かつ前月キューのみ存在（当月キュー不在） ➔ 反映・ロック対象 (1回, rowId: 106)
+  // ⑥ 前月未終端キューあり: isDone: true だが前月未終端キューが存在（inQueue=true として保護） ➔ 反映・ロック対象外 (0回, rowId: 106)
   const testPoints = [
     { rowId: 101, isDone: true, syncStatus: 'pending' },
     { rowId: 102, isDone: true },
@@ -1022,7 +1022,7 @@ test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT i
 
   const rawQueueItems = [
     { rowId: 101, timestamp: nowTs, syncStatus: 'pending' },       // 当月キュー
-    { rowId: 106, timestamp: prevMonthTs, syncStatus: 'pending' }  // 前月キュー
+    { rowId: 106, timestamp: prevMonthTs, syncStatus: 'pending' }  // 前月未終端キュー
   ];
 
   const mockGetQueue = async () => rawQueueItems;
@@ -1045,8 +1045,8 @@ test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT i
 
   await mockWindow.triggerUISyncRefresh();
 
-  // 7. 検証: 修正前（現行ソース）は rowId: 101 が含まれるため FAIL し、
-  //    修正後（!inQueue ガード追加後）は [102, 106] のみとなって PASS する
+  // 7. 検証: 暦月を問わず未終端キューが存在する rowId 101 および 106 は inQueue=true として保護され、
+  //    キュー不在かつ完了済みの [102] のみが reflectCompleted / lockActivePinAndBubble されること
   assert.strictEqual(
     reflectCompletedCalls.includes(101),
     false,
@@ -1057,20 +1057,30 @@ test('Gate 45: triggerUISyncRefresh reflects completed pin ONLY when point NOT i
     false,
     '当月キューが存在する rowId 101 は lockActivePinAndBubble されてはならない'
   );
+  assert.strictEqual(
+    reflectCompletedCalls.includes(106),
+    false,
+    '前月未終端キューが存在する rowId 106 は reflectCompleted されてはならない'
+  );
+  assert.strictEqual(
+    lockActivePinCalls.includes(106),
+    false,
+    '前月未終端キューが存在する rowId 106 は lockActivePinAndBubble されてはならない'
+  );
 
   assert.deepStrictEqual(
     reflectCompletedCalls,
-    [102, 106],
-    'reflectCompleted は当月キュー不在かつ完了済みの [102, 106] のみ正確に1回ずつ呼ばれること'
+    [102],
+    'reflectCompleted は未終端キュー不在かつ完了済みの [102] のみ正確に1回呼ばれること'
   );
   assert.deepStrictEqual(
     lockActivePinCalls,
-    [102, 106],
-    'lockActivePinAndBubble は当月キュー不在かつ完了済みの [102, 106] のみ正確に1回ずつ呼ばれること'
+    [102],
+    'lockActivePinAndBubble は未終端キュー不在かつ完了済みの [102] のみ正確に1回呼ばれること'
   );
 
-  assert.strictEqual(reflectCompletedCalls.length, 2, 'reflectCompleted 呼出総数が正確に 2 回であること');
-  assert.strictEqual(lockActivePinCalls.length, 2, 'lockActivePinAndBubble 呼出総数が正確に 2 回であること');
+  assert.strictEqual(reflectCompletedCalls.length, 1, 'reflectCompleted 呼出総数が正確に 1 回であること');
+  assert.strictEqual(lockActivePinCalls.length, 1, 'lockActivePinAndBubble 呼出総数が正確に 1 回であること');
 });
 
 test('Gate 46: startDraftWorkflow 正常系 (写真 ➔ Draft生成 ➔ GPS ➔ applyGps ➔ onDraftReady / onGpsReady 順序呼出し)', async () => {

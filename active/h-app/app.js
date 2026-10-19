@@ -426,25 +426,15 @@ window.triggerUISyncRefresh = async function() {
 
   try {
     const queue = await getQueue();
-    const nowTs = Date.now();
-    const dNow = new Date(nowTs + (9 * 60 * 60 * 1000));
-    const currentJstMonth = `${dNow.getUTCFullYear()}-${String(dNow.getUTCMonth() + 1).padStart(2, '0')}`;
-
-    // 当月キューアイテムの抽出
-    const currentMonthQueue = (queue || []).filter(q => {
-      const qTs = Number(q.timestamp) || nowTs;
-      const qD = new Date(qTs + (9 * 60 * 60 * 1000));
-      const qM = `${qD.getUTCFullYear()}-${String(qD.getUTCMonth() + 1).padStart(2, '0')}`;
-      return qM === currentJstMonth;
-    });
+    const activeQueue = queue || [];
 
     // ActivityModule へ状態調停を委譲 (直接呼出)
-    ActivityModule.reconcileQueueState(allPoints, currentMonthQueue);
+    ActivityModule.reconcileQueueState(allPoints, activeQueue);
 
     // UI・PinStatus 副作用の調停 (Composition Root)
     allPoints.forEach(p => {
       if (p.syncStatus === 'submitting') return;
-      const inQueue = currentMonthQueue.some(q => Number(q.rowId) === Number(p.rowId));
+      const inQueue = activeQueue.some(q => Number(q.rowId) === Number(p.rowId));
       if (!inQueue) {
         if (p.isDone === true) {
           PinStatusModule.reflectCompleted(p.rowId);

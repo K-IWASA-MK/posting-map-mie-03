@@ -167,28 +167,25 @@ function generateRequestId(prefix = 'req') {
 window.generateRequestId = generateRequestId;
 
 /**
- * 特定 rowId の送信ステータスを取得（当月キューのみ対象、数値/文字列の型を正規化）
- * @returns {string|null} 'PENDING' | 'SYNCING' | 'RETRY' | null
+ * 特定 rowId の送信ステータスを取得（キュー内に存在する未終端レコードを対象、数値/文字列の型を正規化）
+ * @returns {string|null} 'PENDING' | 'SYNCING' | 'RETRY' | 'FAILED_PERMANENT' | null
  */
 async function getRowStatus(rowId) {
   const targetId = Number(rowId);
-  const currentMonth = getJstMonth(Date.now());
   const queue = await getQueue();
-  const found = queue.find(q => Number(q.rowId) === targetId && getJstMonth(q.timestamp) === currentMonth);
+  const found = queue.find(q => Number(q.rowId) === targetId);
   return found ? (found.syncStatus || found.status || 'PENDING') : null;
 }
 window.getRowStatus = getRowStatus;
 
 /**
- * 現在キュー内に存在する当月レコードの rowId 配列（数値）を取得
+ * 現在キュー内に存在する未終端レコードの rowId 配列（数値）を取得
  * 起動時やデータロード時の待機ピン復元に使用
  * @returns {Promise<number[]>}
  */
 async function getSyncQueueRowIds() {
   const queue = await getQueue();
-  const currentMonth = getJstMonth(Date.now());
   return (queue || [])
-    .filter(item => getJstMonth(item.timestamp) === currentMonth)
     .map(item => Number(item.rowId))
     .filter(id => !isNaN(id));
 }
@@ -444,9 +441,8 @@ function updateUISyncStatus() {
  */
 async function manualRetrySync(rowId) {
   const targetId = Number(rowId);
-  const currentMonth = getJstMonth(Date.now());
   const queue = await getQueue();
-  const item = queue.find(q => Number(q.rowId) === targetId && getJstMonth(q.timestamp) === currentMonth);
+  const item = queue.find(q => Number(q.rowId) === targetId);
   if (!item) {
     console.warn(`[Queue] manualRetrySync: Item not found for rowId=${rowId}`);
     return;
