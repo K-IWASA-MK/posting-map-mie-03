@@ -116,7 +116,7 @@
   - 現場 (2): `掲示板`, `掲示板連絡履歴`（オンデマンド自動生成）
   - ※詳細な正式名称・列定義は唯一の正本である `docs/data/DATA_DICTIONARY.md` に準拠する。
 - **生成ライフサイクル**:
-  - `MonthlySheetResolver` が `SYSTEM_INFO` の運用モード（`B15`）および活動期間キー（`B16`）に従い、アクティブ期間シート `<Key>` を自動解決・初期化する。
+  - `MonthlySheetResolver` が `SYSTEM_INFO` の運用モード（`B13`）、Active Dataset Key（`B14`）、および契約開始日時（`B15`）に従い、アクティブ期間シート `<Key>` を自動解決・初期化する（`B16` は `GOOGLE_MAPS_API_KEY`）。
   - 現場系2シート（`掲示板`, `掲示板連絡履歴`）は現場での初回利用時にオンデマンド自動生成される。
 
 ### 5. GAS = 当該Spreadsheetに付属する1地区専用GAS

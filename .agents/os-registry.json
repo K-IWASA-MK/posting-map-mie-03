@@ -72,11 +72,11 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
+          "sha256": "69aeff518981f754b80acc6d0c2ee1dc8fae1b812a65f8a2a2ef58f792a06e76"
         },
         {
           "path": "docs/architecture/03_CURRENT_H_APP_INVENTORY.md",
-          "sha256": "d732c5a00beeb30f33f29fa5ac7ecb32b61e29c4d2e99c98119323b74112e117"
+          "sha256": "9c49e16c791ff3ac3edba9cee144d07d2cc2cb3f978579a6610b0465064de594"
         }
       ],
       "evidenceSources": [
@@ -89,7 +89,7 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
+          "sha256": "69aeff518981f754b80acc6d0c2ee1dc8fae1b812a65f8a2a2ef58f792a06e76"
         }
       ],
       "evidenceSources": [
@@ -136,7 +136,7 @@
       "canonicalSources": [
         {
           "path": "docs/architecture/01_DESIGN_CONTRACT.md",
-          "sha256": "37cedfab0919df905c45a3b25d4b966725e147bf02729aac4026e63b1e687c14"
+          "sha256": "69aeff518981f754b80acc6d0c2ee1dc8fae1b812a65f8a2a2ef58f792a06e76"
         }
       ],
       "evidenceSources": [
