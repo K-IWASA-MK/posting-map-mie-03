@@ -276,6 +276,15 @@ const ActivityModule = (() => {
           }
         }
 
+        if (status === 'FAILED_PERMANENT') {
+          point.isDone = false;
+          point.syncStatus = 'FAILED_PERMANENT';
+          if (typeof currentHooks.onError === 'function') {
+            currentHooks.onError(new Error('Permanent submission failure'), 'FAILED_PERMANENT');
+          }
+          return { success: false, reason: 'FAILED_PERMANENT' };
+        }
+
         if (status === 'RETRY') {
           throw new Error('GAS Save Failed');
         }
@@ -343,14 +352,17 @@ const ActivityModule = (() => {
   /**
    * 6. 待機中キューからの状態復元 (loadData 起動時)
    * @param {Array<Object>} points
-   * @param {Array<number>} pendingRowIds
+   * @param {Array<number|Object>} pendingRowIds
    */
   function restorePendingState(points, pendingRowIds) {
     if (!Array.isArray(points) || !Array.isArray(pendingRowIds)) return;
-    pendingRowIds.forEach(rowId => {
+    pendingRowIds.forEach(entry => {
+      const isObj = typeof entry === 'object' && entry !== null;
+      const rowId = isObj ? entry.rowId : entry;
+      const status = isObj ? (entry.syncStatus || entry.status || 'pending') : 'pending';
       const pt = points.find(p => Number(p.rowId) === Number(rowId));
       if (pt && !pt.isDone) {
-        pt.syncStatus = 'pending';
+        pt.syncStatus = status;
       }
     });
   }

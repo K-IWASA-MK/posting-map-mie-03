@@ -821,5 +821,98 @@ test('9. Universal 原則遵守 & 厳格な Scope Lock', () => {
   assert.ok(dbJs.includes('getSyncQueueRowIds'), 'db.js に getSyncQueueRowIds が実動実装されていること');
 });
 
-console.log('✅ ALL 11 PHASE 10 DURABLE QUEUE STRICT VERIFICATION CHECKS DEFINED & TESTED SUCCESSFULLY.\n');
+// ----------------------------------------------------------------------------
+// 10. HAPP-WEEKLY-005: renderDetailModalContent 実データ状態（isDone: false）到達性検証
+// ----------------------------------------------------------------------------
+test('10. HAPP-WEEKLY-005: renderDetailModalContent が実際のドメイン状態 (isDone: false) で Retry UI / Queue UI / 新規入力 / 完了表示を正確に分離すること', () => {
+  const fnStart = renderJs.indexOf('function renderDetailModalContent(p)');
+  const fnEnd = renderJs.indexOf('function rerenderDetailModalIfOpen(rowId)');
+  assert.ok(fnStart !== -1 && fnEnd > fnStart, 'renderDetailModalContent が render.js に存在すること');
+  const fnCode = renderJs.substring(fnStart, fnEnd);
 
+  const escapeHtml = (str) => String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+  const renderDetailModalContent = new Function('escapeHtml', `${fnCode}\nreturn renderDetailModalContent;`)(escapeHtml);
+
+  // 1. isDone: false, syncStatus: 'FAILED_PERMANENT' (実データ状態 — テスト用 isDone: true 偽装なし)
+  const htmlFailed = renderDetailModalContent({
+    rowId: 701,
+    townName: '桑名1',
+    address: '桑名市中央町1-1',
+    isDone: false,
+    syncStatus: 'FAILED_PERMANENT',
+    count: 50,
+    staffName: 'テスト配布員'
+  });
+  assert.ok(htmlFailed.includes('送信に失敗しました'), 'FAILED_PERMANENT 時は「送信に失敗しました」が表示されること');
+  assert.ok(htmlFailed.includes('🔄 もう一度送信する'), 'FAILED_PERMANENT 時は「🔄 もう一度送信する」ボタンが表示されること');
+  assert.ok(htmlFailed.includes('onclick="manualRetrySync(701)"'), 'FAILED_PERMANENT 時は manualRetrySync(rowId) がバインドされること');
+  assert.ok(!htmlFailed.includes('配布枚数を入力してください'), 'FAILED_PERMANENT 時に新規枚数入力カードへ戻らないこと');
+  assert.ok(!htmlFailed.includes('MISSION COMPLETED!'), 'FAILED_PERMANENT 時に MISSION COMPLETED! を表示しないこと');
+  assert.ok(!htmlFailed.includes('配布が完了しました'), 'FAILED_PERMANENT 時に「配布が完了しました」を表示しないこと');
+
+  // 2. isDone: false, syncStatus: 'RETRY'
+  const htmlRetry = renderDetailModalContent({
+    rowId: 702,
+    townName: '桑名1',
+    address: '桑名市中央町1-2',
+    isDone: false,
+    syncStatus: 'RETRY',
+    count: 40,
+    staffName: 'テスト配布員'
+  });
+  assert.ok(htmlRetry.includes('送信再試行待ち'), 'RETRY 時は「送信再試行待ち」が表示されること');
+  assert.ok(htmlRetry.includes('🔄 再試行待機中...'), 'RETRY 時は「🔄 再試行待機中...」が表示されること');
+  assert.ok(!htmlRetry.includes('配布枚数を入力してください'), 'RETRY 時に新規枚数入力カードへ戻らないこと');
+  assert.ok(!htmlRetry.includes('MISSION COMPLETED!'), 'RETRY 時に MISSION COMPLETED! を表示しないこと');
+
+  // 3. isDone: false, syncStatus: 'PENDING' / 'SYNCING' / 'pending'
+  for (const qStatus of ['PENDING', 'SYNCING', 'pending', 'submitting']) {
+    const htmlPending = renderDetailModalContent({
+      rowId: 703,
+      townName: '桑名1',
+      address: '桑名市中央町1-3',
+      isDone: false,
+      syncStatus: qStatus,
+      count: 30,
+      staffName: 'テスト配布員'
+    });
+    assert.ok(htmlPending.includes('送信中・キュー待機中'), `${qStatus} 時は「送信中・キュー待機中」が表示されること`);
+    assert.ok(htmlPending.includes('⏳ 送信中...'), `${qStatus} 時は「⏳ 送信中...」ボタンが表示されること`);
+    assert.ok(!htmlPending.includes('配布枚数を入力してください'), `${qStatus} 時に新規枚数入力カードへ戻らないこと`);
+    assert.ok(!htmlPending.includes('MISSION COMPLETED!'), `${qStatus} 時に MISSION COMPLETED! を表示しないこと`);
+  }
+
+  // 4. isDone: false untouched (新規入力)
+  const htmlUntouched = renderDetailModalContent({
+    rowId: 704,
+    townName: '桑名1',
+    address: '桑名市中央町1-4',
+    isDone: false,
+    syncStatus: ''
+  });
+  assert.ok(htmlUntouched.includes('配布枚数を入力してください'), '未着手時は「配布枚数を入力してください」が表示されること');
+  assert.ok(!htmlUntouched.includes('MISSION COMPLETED!'), '未着手時は MISSION COMPLETED! を表示しないこと');
+  assert.ok(!htmlUntouched.includes('manualRetrySync'), '未着手時は manualRetrySync を表示しないこと');
+
+  // 5. isDone: true completed (完了確定済み)
+  const htmlCompleted = renderDetailModalContent({
+    rowId: 705,
+    townName: '桑名1',
+    address: '桑名市中央町1-5',
+    isDone: true,
+    count: 60,
+    staffName: 'テスト配布員',
+    completedAt: '2026/04/19 15:00:00'
+  });
+  assert.ok(htmlCompleted.includes('MISSION COMPLETED!'), '完了確定時は MISSION COMPLETED! が表示されること');
+  assert.ok(htmlCompleted.includes('配布が完了しました'), '完了確定時は「配布が完了しました」が表示されること');
+  assert.ok(htmlCompleted.includes('今月の配布は完了しています'), '完了確定時は当月再操作不可ガードが表示されること');
+  assert.ok(!htmlCompleted.includes('配布枚数を入力してください'), '完了確定時は新規入力案内を表示しないこと');
+});
+
+console.log('✅ ALL 12 PHASE 10 DURABLE QUEUE STRICT VERIFICATION CHECKS DEFINED & TESTED SUCCESSFULLY.\n');

@@ -1312,6 +1312,120 @@ test('Gate 49: startDraftWorkflow 対象ポイント不在時も onFinally を�
   assert.equal(numpadContext.isStarting, false, '世代確認付きロック解除が実行されロックが残らないこと');
 });
 
+test('Gate 50 (HAPP-WEEKLY-003 Case A): submitActivity FAILED_PERMANENT immediate terminal failure return', async () => {
+  const ActivityModule = createActivityModule();
+  const point = { rowId: 501, photoStatus: 'OK', photoBase64: 'data:image/jpeg;base64,xxx', isDone: false, syncStatus: 'pending' };
+  let timeoutCalls = 0;
+  let acceptedCalls = 0;
+  let errorCalls = 0;
+  let errorTypeReceived = null;
+  let finallyCalls = 0;
+
+  const result = await ActivityModule.submitActivity(point, { rowId: 501, areaName: '桑名1' }, {
+    authorize: async () => {},
+    getVerifiedUser: () => ({ staffId: 'STF_501', staffName: 'テスト員' }),
+    generateRequestId: () => 'req_501',
+    enqueue: async () => 1,
+    isOnline: () => true,
+    getRowStatus: async () => 'FAILED_PERMANENT',
+    onTimeout: () => { timeoutCalls++; },
+    onAccepted: () => { acceptedCalls++; },
+    onError: (err, type) => {
+      errorCalls++;
+      errorTypeReceived = type;
+    },
+    onFinally: () => { finallyCalls++; }
+  });
+
+  assert.equal(result.success, false, 'result.success must be false');
+  assert.equal(result.reason, 'FAILED_PERMANENT', 'result.reason must be FAILED_PERMANENT');
+  assert.equal(point.isDone, false, 'point.isDone must remain false');
+  assert.equal(point.syncStatus, 'FAILED_PERMANENT', 'point.syncStatus must remain FAILED_PERMANENT (not overwritten to pending)');
+  assert.equal(timeoutCalls, 0, 'onTimeout must NOT be called');
+  assert.equal(acceptedCalls, 0, 'onAccepted must NOT be called');
+  assert.equal(errorCalls, 1, 'onError must be called once');
+  assert.equal(errorTypeReceived, 'FAILED_PERMANENT', 'onError type must be FAILED_PERMANENT');
+  assert.equal(finallyCalls, 1, 'onFinally must be called once');
+});
+
+test('Gate 51 (HAPP-WEEKLY-003 Case B): submitActivity FAILED_PERMANENT does not wait 15s (zero poll delay)', async () => {
+  let mockTime = 20000;
+  let setTimeoutCalls = 0;
+  let pollCalls = 0;
+  const code = fs.readFileSync(activityJsPath, 'utf8');
+  const sandbox = {
+    setTimeout: (fn, ms) => {
+      setTimeoutCalls++;
+      mockTime += ms;
+      return setTimeout(fn, 1);
+    },
+    clearTimeout,
+    Date: { now: () => mockTime },
+    Math, parseFloat, parseInt, Number, Boolean, Array, Object, Promise, console
+  };
+  vm.createContext(sandbox);
+  const ActivityModule = vm.runInContext(code + '\nActivityModule;', sandbox);
+
+  const point = { rowId: 502, photoStatus: 'OK', photoBase64: 'data:image/jpeg;base64,yyy', isDone: false };
+  const result = await ActivityModule.submitActivity(point, { rowId: 502 }, {
+    authorize: async () => {},
+    getVerifiedUser: () => ({ staffId: 'STF_502', staffName: 'テスト員' }),
+    generateRequestId: () => 'req_502',
+    enqueue: async () => 1,
+    isOnline: () => true,
+    getRowStatus: async () => {
+      pollCalls++;
+      return 'FAILED_PERMANENT';
+    }
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(result.reason, 'FAILED_PERMANENT');
+  assert.equal(pollCalls, 1, '1回目のポーリングで即時終了すること');
+  assert.equal(setTimeoutCalls, 0, '15秒ポーリング待機用の setTimeout が一切呼ばれないこと');
+  assert.equal(mockTime, 20000, '経過時間が0msで終了すること');
+});
+
+test('Gate 52 (HAPP-WEEKLY-003 Case C & D): restorePendingState preserves FAILED_PERMANENT, RETRY, SYNCING, PENDING and legacy rowId array compatibility', () => {
+  const ActivityModule = createActivityModule();
+  const points = [
+    { rowId: 601, isDone: false, syncStatus: '' },
+    { rowId: 602, isDone: false, syncStatus: '' },
+    { rowId: 603, isDone: false, syncStatus: '' },
+    { rowId: 604, isDone: false, syncStatus: '' },
+    { rowId: 605, isDone: true, syncStatus: '' },
+    { rowId: 606, isDone: false, syncStatus: '' }
+  ];
+
+  ActivityModule.restorePendingState(points, [
+    { rowId: 601, syncStatus: 'FAILED_PERMANENT' },
+    { rowId: 602, syncStatus: 'RETRY' },
+    { rowId: 603, syncStatus: 'SYNCING' },
+    { rowId: 604, syncStatus: 'PENDING' },
+    { rowId: 605, syncStatus: 'FAILED_PERMANENT' }, // 完了済みは保護
+    606 // legacy numeric rowId input
+  ]);
+
+  assert.equal(points[0].syncStatus, 'FAILED_PERMANENT', 'FAILED_PERMANENT must be preserved');
+  assert.equal(points[1].syncStatus, 'RETRY', 'RETRY must be preserved');
+  assert.equal(points[2].syncStatus, 'SYNCING', 'SYNCING must be preserved');
+  assert.equal(points[3].syncStatus, 'PENDING', 'PENDING must be preserved');
+  assert.equal(points[4].syncStatus, '', 'isDone === true point must NOT be overwritten');
+  assert.equal(points[5].syncStatus, 'pending', 'legacy numeric rowId must default to pending');
+});
+
+test('Gate 53 (HAPP-WEEKLY-005 Ordering Invariant): submitMissionComplete re-renders detail modal after submitActivity finally and guards onFinally button reset', () => {
+  const appJs = fs.readFileSync(appJsPath, 'utf8');
+  const submitMissionMatch = appJs.match(/async function submitMissionComplete[\s\S]*?^}/m);
+  assert.ok(submitMissionMatch, 'submitMissionComplete exists');
+  const body = submitMissionMatch[0];
+
+  assert.ok(body.includes("if (p.syncStatus === 'FAILED_PERMANENT') return;"), 'onFinally does not overwrite button to 🚀 この内容で提出する when FAILED_PERMANENT');
+  const submitCallPos = body.indexOf('await ActivityModule.submitActivity(');
+  const rerenderPos = body.indexOf('rerenderDetailModalIfOpen(rowId)', submitCallPos);
+  assert.ok(submitCallPos > 0 && rerenderPos > submitCallPos, 'rerenderDetailModalIfOpen(rowId) is called AFTER await ActivityModule.submitActivity completes');
+});
+
 test('Architecture Gate: Public API exactly 8 methods & no globals', () => {
   const ActivityModule = createActivityModule();
   const keys = Object.keys(ActivityModule).sort();
@@ -1328,5 +1442,4 @@ test('Architecture Gate: Public API exactly 8 methods & no globals', () => {
   assert.deepEqual(keys, expected, 'Public API は厳密に承認された8メソッドのみであること');
 });
 
-console.log('✅ ALL 49 ACTIVITY LIFECYCLE GATES DEFINED SUCCESSFULLY.\n');
-
+console.log('✅ ALL 53 ACTIVITY LIFECYCLE GATES DEFINED SUCCESSFULLY.\n');

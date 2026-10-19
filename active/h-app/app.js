@@ -366,7 +366,15 @@ async function loadData(skipSync = false) {
     try {
       const queueRowIds = await window.getSyncQueueRowIds();
       if (queueRowIds && queueRowIds.length > 0 && Array.isArray(allPoints)) {
-        ActivityModule.restorePendingState(allPoints, queueRowIds);
+        const restoredEntries = await Promise.all(
+          queueRowIds.map(async (rid) => {
+            const syncStatus = (typeof window.getRowStatus === 'function')
+              ? (await window.getRowStatus(Number(rid))) || 'pending'
+              : 'pending';
+            return { rowId: rid, syncStatus };
+          })
+        );
+        ActivityModule.restorePendingState(allPoints, restoredEntries);
       }
     } catch (qErr) {
       console.warn("[loadData] Failed to restore pending queue pins:", qErr);
@@ -627,11 +635,14 @@ async function submitMissionComplete(areaName, rowId) {
     onError: (err, type) => {
       if (type === 'AUTH_FAILED') {
         alert("スタッフ認証が完了していないため、配布完了を送信できません。再起動してください。");
+      } else if (type === 'FAILED_PERMANENT') {
+        alert("送信に失敗しました。内容を確認して「もう一度送信する」から再送してください。");
       } else {
         alert("提出に失敗しました: " + (err.message || "エラー"));
       }
     },
     onFinally: () => {
+      if (p.syncStatus === 'FAILED_PERMANENT') return;
       const submitBtn = $('submit-mission-btn');
       const cancelBtn = $('cancel-mission-btn');
       if (submitBtn) {
@@ -644,10 +655,14 @@ async function submitMissionComplete(areaName, rowId) {
     }
   };
 
-  await ActivityModule.submitActivity(p, {
+  const submitResult = await ActivityModule.submitActivity(p, {
     areaName,
     rowId
   }, hooks);
+
+  if (submitResult && submitResult.reason === 'FAILED_PERMANENT' && typeof rerenderDetailModalIfOpen === 'function') {
+    rerenderDetailModalIfOpen(rowId);
+  }
 }
 
 window.addEventListener('online', () => {

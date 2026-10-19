@@ -760,6 +760,9 @@ window.cancelMissionComplete = function(rowId) {
 // Render single point detail modal contents
 function renderDetailModalContent(p) {
   const areaName = p.townName || '';
+  const queuedStatuses = ['submitting', 'pending', 'PENDING', 'SYNCING', 'RETRY', 'FAILED_PERMANENT'];
+  const isQueuedState = !p.isDone && queuedStatuses.includes(p.syncStatus);
+  const isQueuedPending = p.syncStatus === 'submitting' || p.syncStatus === 'PENDING' || p.syncStatus === 'SYNCING' || (!p.isDone && !p.isReadyToSubmit && p.syncStatus === 'pending');
 
   // 「大字」除去 + 余分な空白整理
   const cleanAddr = (p.address || '').replace(/大字/g, '').replace(/\s+/g, ' ').trim();
@@ -773,7 +776,7 @@ function renderDetailModalContent(p) {
         ${p.memo ? `<div class="text-xs text-white/50 bg-white/5 rounded-xl p-3 border border-white/5 select-text w-full text-center mt-1">${escapeHtml(p.memo)}</div>` : ''}
       </div>
 
-      ${!p.isDone ? `
+      ${(!p.isDone && !isQueuedState) ? `
         <!-- 【未完了】配布枚数入力案内カード -->
         <div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08);" class="w-full rounded-3xl py-6 px-5 flex flex-col items-center justify-center gap-6">
           <div style="color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 700; line-height: 1.6; text-align: center; margin-bottom: 12px;">
@@ -794,6 +797,7 @@ function renderDetailModalContent(p) {
           </div>
         </div>
       ` : `
+        ${p.isDone ? `
         <!-- 【完了確認】MISSION COMPLETED 大見出しカード (コンパクト化) -->
         <div style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.25); box-shadow: 0 0 20px rgba(16, 185, 129, 0.08); border-radius: 20px; padding: 14px 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 4px; box-sizing: border-box; width: 100%;">
           <div style="width: 28px; height: 28px; border-radius: 9999px; background: rgba(16, 185, 129, 0.2); border: 1px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; color: #10b981; font-weight: 900; font-size: 14px;">
@@ -809,6 +813,7 @@ function renderDetailModalContent(p) {
             🕒 ${p.completedAt || ''}${p.staffName ? ` · ${escapeHtml(p.staffName)}` : ''}
           </div>
         </div>
+        ` : ''}
 
         <!-- 【中央2カラムエリア】左: 提出写真 / 右: GPS・枚数・配布員 -->
         <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; width: 100%; box-sizing: border-box;">
@@ -893,7 +898,7 @@ function renderDetailModalContent(p) {
             <div style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; border-radius: 10px; padding: 6px 10px; font-size: 11px; font-weight: 700; width: 100%; box-sizing: border-box; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
               <span>🔄</span><span>送信再試行待ち（バックグラウンドで自動再送されます）</span>
             </div>
-          ` : (p.syncStatus === 'submitting' || p.syncStatus === 'PENDING' || p.syncStatus === 'SYNCING') ? `
+          ` : isQueuedPending ? `
             <div style="background: rgba(59, 130, 246, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); color: #60a5fa; border-radius: 10px; padding: 6px 10px; font-size: 11px; font-weight: 700; width: 100%; box-sizing: border-box; text-align: center; display: flex; align-items: center; justify-content: center; gap: 6px;">
               <span>⏳</span><span>送信中・キュー待機中（画面を閉じても送信されます）</span>
             </div>
@@ -912,12 +917,12 @@ function renderDetailModalContent(p) {
               </button>
             ` : `
               <button type="button" id="submit-mission-btn" onclick="submitMissionComplete('${escapeHtml(areaName)}', ${p.rowId})" class="btn-neu"
-                ${(p.syncStatus === 'submitting' || p.syncStatus === 'PENDING' || p.syncStatus === 'SYNCING' || p.syncStatus === 'RETRY') ? 'disabled style="width: 100%; background: #475569; border: none; color: rgba(255,255,255,0.6); border-radius: 14px; padding: 14px 8px; font-size: 13px; font-weight: 900; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;"' : 'style="width: 100%; background: #2563eb; border: none; color: white; border-radius: 14px; padding: 14px 8px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;"'}>
-                ${p.syncStatus === 'RETRY' ? '🔄 再試行待機中...' : (p.syncStatus === 'submitting' || p.syncStatus === 'PENDING' || p.syncStatus === 'SYNCING') ? '⏳ 送信中...' : '🚀 この内容で提出する'}
+                ${(isQueuedPending || p.syncStatus === 'RETRY') ? 'disabled style="width: 100%; background: #475569; border: none; color: rgba(255,255,255,0.6); border-radius: 14px; padding: 14px 8px; font-size: 13px; font-weight: 900; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;"' : 'style="width: 100%; background: #2563eb; border: none; color: white; border-radius: 14px; padding: 14px 8px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; box-sizing: border-box;"'}>
+                ${p.syncStatus === 'RETRY' ? '🔄 再試行待機中...' : isQueuedPending ? '⏳ 送信中...' : '🚀 この内容で提出する'}
               </button>
             `}
             <button type="button" id="cancel-mission-btn" onclick="cancelMissionComplete(${p.rowId})"
-              ${(p.syncStatus === 'submitting' || p.syncStatus === 'PENDING' || p.syncStatus === 'SYNCING' || p.syncStatus === 'RETRY' || p.syncStatus === 'FAILED_PERMANENT') ? 'disabled style="width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.2); border-radius: 14px; padding: 12px 8px; font-size: 13px; font-weight: 900; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box;"' : 'style="width: 100%; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); border-radius: 14px; padding: 12px 8px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box;"'}>
+              ${(isQueuedPending || p.syncStatus === 'RETRY' || p.syncStatus === 'FAILED_PERMANENT') ? 'disabled style="width: 100%; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.05); color: rgba(255, 255, 255, 0.2); border-radius: 14px; padding: 12px 8px; font-size: 13px; font-weight: 900; cursor: not-allowed; display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box;"' : 'style="width: 100%; background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); border-radius: 14px; padding: 12px 8px; font-size: 13px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box;"'}>
               ✕ キャンセル
             </button>
           </div>

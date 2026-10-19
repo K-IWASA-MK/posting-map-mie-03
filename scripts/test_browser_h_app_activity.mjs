@@ -257,7 +257,7 @@ async function runActivityBrowserTests() {
     await page.waitForTimeout(500);
 
     // =========================================================================
-    // Case 1: 初期ロード & ActivityModule 存在確認 (Public API exactly 7)
+    // Case 1: 初期ロード & ActivityModule 存在確認 (Public API exactly 8)
     // =========================================================================
     const case1Res = await page.evaluate(() => {
       if (typeof ActivityModule === 'undefined') return { success: false, reason: 'ActivityModule missing' };
@@ -269,12 +269,13 @@ async function runActivityBrowserTests() {
         'reconcileQueueState',
         'resetDraft',
         'restorePendingState',
+        'startDraftWorkflow',
         'submitActivity'
       ].sort();
       const match = JSON.stringify(keys) === JSON.stringify(expected);
       return { success: match, keys, expected };
     });
-    report(1, '初期表示 & ActivityModule Public API exactly 7', case1Res.success, JSON.stringify(case1Res));
+    report(1, '初期表示 & ActivityModule Public API exactly 8', case1Res.success, JSON.stringify(case1Res));
 
     // =========================================================================
     // Case 2: Numpad OK クリック時の同期コール順序検証 (User Gesture 保護)
@@ -514,6 +515,75 @@ async function runActivityBrowserTests() {
       return { passed, elapsed, status: res.status, isDone: p.isDone, timeoutTriggered };
     });
     report(10, 'オンライン待機 15秒タイムアウト契約遵守 (画面解放 & isDone: false)', case10Res.passed, `(elapsed: ${case10Res.elapsed}ms)`);
+
+    // =========================================================================
+    // Case 11: FAILED_PERMANENT 即時終了 & 詳細モーダル手動再送ボタン到達性
+    // =========================================================================
+    const case11Res = await page.evaluate(async () => {
+      const p = {
+        rowId: 910,
+        townName: '桑名町',
+        address: '桑名市中央町9-10',
+        isDone: false,
+        count: 80,
+        staffName: 'テスト スタッフ',
+        photoStatus: 'OK',
+        photoBase64: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        tempPhotoUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7',
+        isReadyToSubmit: true,
+        syncStatus: 'pending'
+      };
+      allPoints = [p];
+      window.allPoints = [p];
+      window.currentPointDetailRowId = 910;
+
+      const mc = document.getElementById('detail-modal-content');
+      if (mc) {
+        mc.innerHTML = window.renderDetailModalContent({ ...p, isDone: true });
+      }
+
+      const origGetRowStatus = window.getRowStatus;
+      const origEnqueueSync = window.enqueueSync;
+      const origWaitAuth = window.waitForIdentityVerified;
+      const origGetVerified = window.getVerifiedUserInfo;
+
+      window.waitForIdentityVerified = async () => {};
+      window.getVerifiedUserInfo = () => ({ staffId: 'STF-001', staffName: 'テスト スタッフ' });
+      window.enqueueSync = async () => 1;
+      window.getRowStatus = async () => 'FAILED_PERMANENT';
+
+      const startTime = Date.now();
+      await window.submitMissionComplete('桑名町', 910);
+      const elapsed = Date.now() - startTime;
+
+      window.getRowStatus = origGetRowStatus;
+      window.enqueueSync = origEnqueueSync;
+      window.waitForIdentityVerified = origWaitAuth;
+      window.getVerifiedUserInfo = origGetVerified;
+
+      const submitBtn = document.getElementById('submit-mission-btn');
+      const btnText = submitBtn ? submitBtn.textContent.trim() : '';
+      const btnOnclick = submitBtn ? submitBtn.getAttribute('onclick') : '';
+      const modalHtml = mc ? mc.innerHTML : '';
+
+      // 再オープン時も isDone: false + FAILED_PERMANENT のまま手動再送UIが表示されること
+      const reopenHtml = window.renderDetailModalContent(p);
+
+      const passed =
+        elapsed < 2000 &&
+        p.isDone === false &&
+        p.syncStatus === 'FAILED_PERMANENT' &&
+        btnText.includes('もう一度送信する') &&
+        btnOnclick === 'manualRetrySync(910)' &&
+        !modalHtml.includes('配布枚数を入力してください') &&
+        !modalHtml.includes('MISSION COMPLETED!') &&
+        reopenHtml.includes('manualRetrySync(910)') &&
+        !reopenHtml.includes('配布枚数を入力してください') &&
+        !reopenHtml.includes('MISSION COMPLETED!');
+
+      return { passed, elapsed, isDone: p.isDone, syncStatus: p.syncStatus, btnText, btnOnclick };
+    });
+    report(11, 'FAILED_PERMANENT 即時終了 & 手動再送ボタン到達性 (HAPP-WEEKLY-003/005)', case11Res.passed, JSON.stringify(case11Res));
 
     console.log("\n====================================================================");
     console.log(`📊 BROWSER INTEGRATION SUMMARY: ${passCount} PASSED, ${failCount} FAILED`);
