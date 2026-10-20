@@ -1,11 +1,6 @@
 {
-  "mission": "GOVERNANCE-GATE-001",
+  "mission": "DASHBOARD-DUAL-001",
   "files": [
-    ".agents/current-scope.json",
-    "scripts/check-entrance-gate.mjs",
-    "scripts/check-auditor-gate.mjs",
-    "scripts/check-cleanup-gate.mjs",
-    "tests/test_auditor_gate.mjs",
-    "tests/test_cleanup_gate.mjs"
+    "tests/test_dashboard_snapshot.mjs"
   ]
 }
