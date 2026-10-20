@@ -775,9 +775,9 @@ function updateDesktopAreaSelectorHeader(mode, cityName, count) {
   if (!titleEl) return;
 
   if (mode === 'TOWNS' && cityName && cityName !== 'ALL') {
-    titleEl.className = 'text-xs font-bold text-white hover:text-brand tracking-wide flex items-center gap-1 cursor-pointer transition-colors';
+    titleEl.className = 'text-sm font-bold text-white tracking-wide flex items-center gap-1.5 min-w-0 cursor-pointer transition-colors';
     titleEl.onclick = (e) => backToDesktopMunicipalityList(e);
-    titleEl.innerHTML = `<span class="text-brand font-bold">‹</span> <span class="truncate">${escapeHtml(cityName)}</span>`;
+    titleEl.innerHTML = `<span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-white/10 border border-white/10 hover:border-brand/40 text-brand text-xl font-bold leading-none flex-shrink-0">‹</span> <span class="truncate text-sm font-bold text-white">${escapeHtml(cityName)}</span>`;
   } else {
     titleEl.className = 'text-xs font-bold text-white tracking-wide flex items-center gap-1';
     titleEl.onclick = null;

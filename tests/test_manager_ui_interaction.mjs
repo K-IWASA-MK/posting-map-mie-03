@@ -659,6 +659,17 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 5b: selectedCity が市町村Bに更新");
   assert.equal(getEl('area-selector-count').textContent, 2, "Gate 5c: 第2層バッジは市町村Bの町丁目数(2)");
   assert.ok(headerTitleEl.innerHTML.includes('‹') && headerTitleEl.innerHTML.includes(cityB), "Gate 5d: 第2層ヘッダーに ‹ 市町村B が表示");
+  assert.ok(headerTitleEl.className.includes('text-sm') && headerTitleEl.className.includes('cursor-pointer'), "Gate 5d-vis1: 第2層ヘッダー全体が text-sm かつクリック可能(cursor-pointer)");
+  assert.ok(
+    headerTitleEl.innerHTML.includes('w-7') &&
+    headerTitleEl.innerHTML.includes('h-7') &&
+    headerTitleEl.innerHTML.includes('text-xl') &&
+    headerTitleEl.innerHTML.includes('bg-white/10') &&
+    headerTitleEl.innerHTML.includes('rounded-md'),
+    "Gate 5d-vis2: 第2層ヘッダーの『‹』が 28x28px (w-7 h-7)・約20px (text-xl)・ボタン表現 (bg-white/10 rounded-md) で描画される"
+  );
+  assert.ok(headerTitleEl.innerHTML.includes(`truncate text-sm font-bold text-white">${cityB}</span>`), "Gate 5d-vis3: 市町村名が text-sm font-bold text-white で描画される");
+  assert.equal(typeof headerTitleEl.onclick, 'function', "Gate 5d-vis4: [‹] + 市町村名 のヘッダー領域全体がクリック可能");
   const layer2TownBtns = pcList.querySelectorAll('button[data-town-id]');
   assert.equal(layer2TownBtns.length, 3, "Gate 5e: 第2層リストは『市町村B 全域 + 2町丁目』の3行");
   assert.ok(layer2TownBtns[0].innerHTML.includes(`${cityB} 全域`), "Gate 5f: 第2層先頭は『市町村B 全域』");
@@ -706,6 +717,9 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
 
   assert.equal(sandbox.window.DashboardState.desktopAreaSelectorView, 'CITIES', "Gate 11a: Backクリックで表示階層だけ CITIES へ戻る");
   assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 11b: Back後も selectedCity は市町村Bのまま維持");
+  assert.equal(sandbox.window.DashboardState.selectedTownId, 'ALL', "Gate 11b-2: Back後も selectedTownId は不変");
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "Gate 11b-3: Back後も selectedPin は不変");
+  assert.ok(headerTitleEl.innerHTML.includes('📍') && headerTitleEl.innerHTML.includes('エリア選択') && headerTitleEl.onclick === null, "Gate 11b-4: 第1層ヘッダー『📍 エリア選択』に復帰");
   assert.equal(fitBoundsCalls.length, 0, "Gate 11c: Back操作でMAP視点は変更されない");
   assert.equal(getEl('fact-total-areas').textContent, '2', "Gate 11d: Back後もKPIは市町村B(2)を維持");
   assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 11e: Back後も右上投票率は市町村B(58.25%)を維持");
