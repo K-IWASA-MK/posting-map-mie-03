@@ -1,8 +1,11 @@
 {
-  "mission": "DASHBOARD-AREA-BACK-VISIBILITY-001",
+  "mission": "DISTRICT-INITIALIZATION-SANITIZATION-001",
   "files": [
     ".agents/current-scope.json",
-    "active/manager/manager.js",
-    "tests/test_manager_ui_interaction.mjs"
+    "active/business/system/district_provisioner.js",
+    ".agents/skills/district-app-deployment/SKILL.md",
+    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
+    ".agents/os-registry.json",
+    "tests/test_district_app_deployment_skill.mjs"
   ]
 }
