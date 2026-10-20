@@ -805,6 +805,151 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   sandbox.closeAreaDetail();
   assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Gate 21: Mobile Pin詳細Closeで selectedCity(ALL: 58.80%)の投票率へ復帰");
   console.log("  ✅ Gates 18-21 PASS: Mobile UI unchanged & Mobile town/pin/close turnout linkage verified");
+
+  // -------------------------------------------------------------
+  // [UI TEST 7] DASHBOARD-REPORT-FULL-RECORDS-AND-RANKING-AREAS-001
+  // PDF/CSV 25件全件出力・ランキング個人完了エリア数 (String正規化 unique rowId)・
+  // 21件目以降のGPS/写真判定維持・A4複数ページ印刷CSS・LIVE 4件制限維持検証
+  // -------------------------------------------------------------
+  console.log("\n▶ [UI TEST 7] PDF/CSV 25-Record Full Output & Staff Unique Completed Areas Contract");
+
+  // 25件の完了実績を構築:
+  // - Staff A (S001): 15件 (rowId 1..15, うち rowId 15 は文字列 " 15 " として型正規化を検証)
+  //   ※ GPS=OK は22件目(index 21)、写真=OK は23件目(index 22)のみに配置
+  // - Staff B (S002): 10件 (rowId 16..25, うち rowId 16 は文字列 "16" として型正規化を検証)
+  //   ※ GPS=OK, 写真=OK は25件目(index 24, 最古レコード)のみに配置
+  const records25 = [];
+  for (let i = 1; i <= 15; i++) {
+    records25.push({
+      recordId: `REC_A_${i}`,
+      rowId: i === 15 ? ' 15 ' : i,
+      cityName: 'テスト市A',
+      townName: `A地区${i}丁目`,
+      time: `10/${String(i).padStart(2, '0')} 10:00`,
+      timestamp: `2026/10/${String(i).padStart(2, '0')} 10:00`,
+      count: 100 + i,
+      staffId: 'S001',
+      staffName: 'スタッフA',
+      gpsStatus: i === 14 ? 'OK' : 'NO',
+      photoStatus: i === 15 ? 'OK' : 'NO'
+    });
+  }
+  for (let i = 16; i <= 25; i++) {
+    records25.push({
+      recordId: `REC_B_${i}`,
+      rowId: i === 16 ? '16' : i,
+      cityName: 'テスト市B',
+      townName: `B地区${i}丁目`,
+      time: `10/${String(i).padStart(2, '0')} 11:00`,
+      timestamp: `2026/10/${String(i).padStart(2, '0')} 11:00`,
+      count: 200 + i,
+      staffId: 'S002',
+      staffName: 'スタッフB',
+      gpsStatus: i === 25 ? 'OK' : 'NO',
+      photoStatus: i === 25 ? 'OK' : 'NO'
+    });
+  }
+  assert.equal(records25.length, 25, "テスト入力の完了実績が25件であること");
+
+  const reportState25 = {
+    summary: {
+      districtName: 'テスト支部',
+      completedPins: 25,
+      totalPins: 40,
+      unassignedPins: 10,
+      inProgressPins: 5,
+      totalPostings: 4000,
+      totalStockCount: 1000,
+      rosterCount: 2
+    },
+    globalPinStatus: {
+      completed: Array.from({ length: 25 }, (_, i) => i + 1),
+      inProgress: [26, 27, 28, 29, 30]
+    },
+    roster: [
+      { id: 'S001', name: 'スタッフA', stockTotal: 600, deliveredTotal: 1620 },
+      { id: 'S002', name: 'スタッフB', stockTotal: 400, deliveredTotal: 2205 }
+    ],
+    // item.completedAreas にダミー値(999)を入れても無視され、staffRecs の unique rowId 数が使われることを検証
+    ranking: [
+      { rank: 1, staffId: 'S002', name: 'スタッフB', count: 2205, completedAreas: 999 },
+      { rank: 2, staffId: 'S001', name: 'スタッフA', count: 1620, completedAreas: 888 }
+    ],
+    stocks: [
+      { staffId: 'S001', staffName: 'スタッフA', count: 600, pendingRequestsCount: 0, updatedAt: '2026/10/20 12:00' },
+      { staffId: 'S002', staffName: 'スタッフB', count: 400, pendingRequestsCount: 1, updatedAt: '2026/10/20 13:00' }
+    ],
+    liveRecords: records25
+  };
+
+  // 1. PDF出力の検証
+  const pdfHtml = sandbox.generateRecordsReportPdfHtml(reportState25);
+  assert.ok(!managerCode.includes('liveRecordsList.slice(0, 15)'), "manager.js から liveRecordsList.slice(0, 15) が完全撤廃されていること");
+  assert.ok(!pdfHtml.includes('Page 1 / 1'), "PDF HTML から固定の 'Page 1 / 1' が削除されていること");
+  assert.ok(pdfHtml.includes('display: table-header-group;'), "PDF CSS に thead 再掲 (display: table-header-group) が設定されていること");
+  assert.ok(pdfHtml.includes('.report-table tr {\n      break-inside: avoid;\n      page-break-inside: avoid;\n    }'), "PDF CSS に tr 行途中分断防止が設定されていること");
+
+  // PDF「2、配布実績」に1〜25件目まで全25件が出力されていること
+  for (let i = 1; i <= 15; i++) {
+    assert.ok(pdfHtml.includes(`テスト市A A地区${i}丁目`), `PDF配布実績に ${i} 件目 (A地区${i}丁目) が出力されていること`);
+  }
+  for (let i = 16; i <= 25; i++) {
+    assert.ok(pdfHtml.includes(`テスト市B B地区${i}丁目`), `PDF配布実績に ${i} 件目 (B地区${i}丁目) が出力されていること`);
+  }
+
+  // PDF「3、ランキング」において、Staff B = 10、Staff A = 15、かつ21〜25件目のGPS/写真が OK と判定されていること
+  const pdfRankingSection = pdfHtml.split('<div class="section-title">3、ランキング</div>')[1].split('<div class="section-title">4、保有チラシ</div>')[0];
+  assert.ok(
+    pdfRankingSection.includes('<td class="font-mono">S002</td>\n          <td>スタッフB</td>\n          <td class="font-mono">2,205 枚</td>\n          <td class="font-mono">10</td>\n          <td class="font-mono">OK</td>\n          <td class="font-mono">OK</td>'),
+    "PDFランキングで Staff B (S002) の完了エリアが 10 (doneAreas=25 や 999 ではない)、GPS=OK、写真=OK であること"
+  );
+  assert.ok(
+    pdfRankingSection.includes('<td class="font-mono">S001</td>\n          <td>スタッフA</td>\n          <td class="font-mono">1,620 枚</td>\n          <td class="font-mono">15</td>\n          <td class="font-mono">OK</td>\n          <td class="font-mono">OK</td>'),
+    "PDFランキングで Staff A (S001) の完了エリアが 15 (doneAreas=25 や 888 ではない)、GPS=OK、写真=OK であること"
+  );
+
+  // 2. CSV出力の検証
+  const csvOut = sandbox.generateRecordsCsv(reportState25);
+  for (let i = 1; i <= 15; i++) {
+    assert.ok(csvOut.includes(`"テスト市A A地区${i}丁目"`), `CSV配布実績に ${i} 件目が出力されていること`);
+  }
+  for (let i = 16; i <= 25; i++) {
+    assert.ok(csvOut.includes(`"テスト市B B地区${i}丁目"`), `CSV配布実績に ${i} 件目が出力されていること`);
+  }
+  assert.ok(
+    csvOut.includes('"1","S002","スタッフB","2,205 枚","10","OK","OK"'),
+    "CSVランキングで Staff B (S002) の完了エリアが 10、GPS=OK、写真=OK であること"
+  );
+  assert.ok(
+    csvOut.includes('"2","S001","スタッフA","1,620 枚","15","OK","OK"'),
+    "CSVランキングで Staff A (S001) の完了エリアが 15、GPS=OK、写真=OK であること"
+  );
+
+  // 3. 同一 rowId が数値 (1) と文字列 ("1", " 1 ") で重複混在した場合の String 正規化・重複排除テスト
+  const mixedTypeState = {
+    ...reportState25,
+    ranking: [{ rank: 1, staffId: 'S001', name: 'スタッフA', count: 300 }],
+    liveRecords: [
+      { rowId: 1, staffId: 'S001', count: 100, gpsStatus: 'NO', photoStatus: 'NO' },
+      { rowId: '1', staffId: 'S001', count: 100, gpsStatus: 'NO', photoStatus: 'NO' },
+      { rowId: ' 1 ', staffId: 'S001', count: 100, gpsStatus: 'NO', photoStatus: 'NO' },
+      { rowId: 2, staffId: 'S001', count: 100, gpsStatus: 'NO', photoStatus: 'NO' }
+    ]
+  };
+  const mixedCsv = sandbox.generateRecordsCsv(mixedTypeState);
+  assert.ok(
+    mixedCsv.includes('"1","S001","スタッフA","300 枚","2","NO","NO"'),
+    "rowId の数値 1 と文字列 '1' / ' 1 ' が String(r.rowId ?? '').trim() で同一エリアとして正規化され unique count = 2 になること"
+  );
+
+  // 4. 下部 LIVE フィードは 25件保持時でも最新4件 (slice(0, 4)) のみを描画すること
+  sandbox.renderLiveFeed(records25);
+  const liveFeedHtml = getEl('live-feed-container').innerHTML;
+  assert.ok(liveFeedHtml.includes('A地区1丁目'), "LIVEフィードに1件目が含まれること");
+  assert.ok(liveFeedHtml.includes('A地区4丁目'), "LIVEフィードに4件目が含まれること");
+  assert.ok(!liveFeedHtml.includes('A地区5丁目'), "LIVEフィードに5件目以降は含まれないこと (slice(0, 4) 維持)");
+
+  console.log("  ✅ UI TEST 7 PASS: PDF/CSV 25/25 records, unique rowId completedAreas (A=15, B=10 + string normalization), full-population GPS/Photo, and LIVE slice(0,4) verified");
 }
 
 console.log("\n====================================================");

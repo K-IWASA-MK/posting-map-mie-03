@@ -3067,7 +3067,7 @@ function generateRecordsReportPdfHtml(state) {
   if (liveRecordsList.length === 0) {
     liveRecordsRowsHtml = `<tr><td colspan="5" class="text-muted" style="padding: 8px;">配布実績データはありません</td></tr>`;
   } else {
-    liveRecordsRowsHtml = liveRecordsList.slice(0, 15).map(rec => {
+    liveRecordsRowsHtml = liveRecordsList.map(rec => {
       let formattedTime = rec.time || '--:--';
       if (rec.timestamp) {
         const match = String(rec.timestamp).trim().match(/(?:^\d{4}[\/-])?(\d{1,2}[\/-]\d{1,2}\s+\d{1,2}:\d{2})/);
@@ -3104,7 +3104,11 @@ function generateRecordsReportPdfHtml(state) {
 
       const gpsDisplay = isUnregistered ? '—' : (hasGpsRec ? 'OK' : 'NO');
       const photoDisplay = isUnregistered ? '—' : (hasPhotoRec ? 'OK' : 'NO');
-      const completedCount = Number(item.completedAreas || (item.count > 0 ? doneAreas : 0));
+      const completedCount = new Set(
+        staffRecs
+          .map(r => String(r.rowId ?? '').trim())
+          .filter(Boolean)
+      ).size;
 
       return `
         <tr class="${isUnregistered ? 'text-muted' : ''}">
@@ -3184,10 +3188,6 @@ function generateRecordsReportPdfHtml(state) {
     .sheet {
       width: 100%;
       box-sizing: border-box;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      min-height: 270mm;
     }
 
     .header-box {
@@ -3303,17 +3303,11 @@ function generateRecordsReportPdfHtml(state) {
     }
 
     .sections-container {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-evenly;
       padding: 8px 0;
     }
 
     .section-wrap {
       margin: 6px 0;
-      break-inside: avoid;
-      page-break-inside: avoid;
     }
 
     .section-title {
@@ -3321,6 +3315,8 @@ function generateRecordsReportPdfHtml(state) {
       font-weight: 800;
       color: #0F172A;
       margin-bottom: 6px;
+      break-after: avoid;
+      page-break-after: avoid;
     }
 
     .report-table {
@@ -3328,6 +3324,15 @@ function generateRecordsReportPdfHtml(state) {
       border-collapse: collapse;
       font-size: 11px;
       text-align: center;
+    }
+
+    .report-table thead {
+      display: table-header-group;
+    }
+
+    .report-table tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
     }
 
     .report-table thead tr {
@@ -3520,7 +3525,6 @@ function generateRecordsReportPdfHtml(state) {
     <!-- 7. フッター -->
     <div class="report-footer">
       <div class="brand">POSTING MAP</div>
-      <div class="font-mono">Page 1 / 1</div>
     </div>
   </div>
 </body>
@@ -3632,7 +3636,6 @@ function generateRecordsCsv(state) {
   if (rankingList.length === 0) {
     lines.push(['(データなし)', '', '', '', '', '', ''].map(formatCsvField).join(','));
   } else {
-    const doneAreas = Number(s.summary?.completedPins ?? (s.globalPinStatus?.completed?.length || 0));
     rankingList.forEach((item, idx) => {
       const rankNum = item.rank || (idx + 1);
       const isUnregistered = !item.name || item.name === '未登録';
@@ -3642,7 +3645,11 @@ function generateRecordsCsv(state) {
 
       const gpsDisplay = isUnregistered ? '—' : (hasGpsRec ? 'OK' : 'NO');
       const photoDisplay = isUnregistered ? '—' : (hasPhotoRec ? 'OK' : 'NO');
-      const completedCount = Number(item.completedAreas || (item.count > 0 ? doneAreas : 0));
+      const completedCount = new Set(
+        staffRecs
+          .map(r => String(r.rowId ?? '').trim())
+          .filter(Boolean)
+      ).size;
 
       lines.push([
         rankNum,
