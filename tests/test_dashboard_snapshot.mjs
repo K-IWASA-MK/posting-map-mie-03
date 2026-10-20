@@ -811,6 +811,20 @@ console.log("▶ [TEST 8] ELECTION Dual Lifecycle 完了実績全件返却検証
   assert.equal(snapElecFull.domains.latestDistribution.records[0].townName, "選挙町25丁目");
   assert.equal(snapElecFull.domains.latestDistribution.records[24].townName, "選挙町1丁目");
 
+  // getDashboardSnapshot にあえて limit: 20 を送っても、Snapshot契約として25件全件が返ることを検証
+  const snapElecWithLimit20 = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "ELECTION_FULL",
+        dashboardSessionToken: elecFullSession.token,
+        limit: 20
+      })
+    }
+  }).text);
+  assert.equal(snapElecWithLimit20.success, true);
+  assert.equal(snapElecWithLimit20.domains.latestDistribution.records.length, 25, "getDashboardSnapshot must ignore caller limit:20 and return all 25 records");
+
   // getLatestDistribution の default 20件契約が壊れていないことも確認
   const resLatestDefault20 = JSON.parse(doPost({
     postData: {
@@ -824,7 +838,7 @@ console.log("▶ [TEST 8] ELECTION Dual Lifecycle 完了実績全件返却検証
   assert.equal(resLatestDefault20.success, true);
   assert.equal(resLatestDefault20.records.length, 20, "getLatestDistribution default limit (20) must be preserved");
 
-  console.log("  ✅ TEST 8 PASS: ELECTION モード (Active Dataset=2026-10, Clock=2026-12) で 25件全件返却および getLatestDistribution default 20 維持を確認");
+  console.log("  ✅ TEST 8 PASS: ELECTION モード (Active Dataset=2026-10, Clock=2026-12) で 25件全件返却 (limit:20指定時も25件返却) および getLatestDistribution default 20 維持を確認");
 }
 
 // -------------------------------------------------------------
@@ -928,8 +942,22 @@ console.log("▶ [TEST 9] SUBSCRIPTION Dual Lifecycle 当月25件全件返却 & 
   assert.ok(snapSubFull.domains.latestDistribution.records.every(r => r.cityName === "十二月市"), "All returned records must belong strictly to 2026-12");
   assert.ok(!snapSubFull.domains.latestDistribution.records.some(r => r.cityName === "十月旧市" || r.cityName === "十一月旧市"), "10月・11月 records must never be mixed in");
 
+  // SUBSCRIPTION でも getDashboardSnapshot にあえて limit: 20 を送って 25件全件返ることを検証
+  const snapSubWithLimit20 = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "SUB_FULL",
+        dashboardSessionToken: subFullSession.token,
+        limit: 20
+      })
+    }
+  }).text);
+  assert.equal(snapSubWithLimit20.success, true);
+  assert.equal(snapSubWithLimit20.domains.latestDistribution.records.length, 25, "SUBSCRIPTION getDashboardSnapshot must ignore caller limit:20 and return all 25 records");
+
   delete mockSpreadsheets["ss-sub-full-25"];
-  console.log("  ✅ TEST 9 PASS: SUBSCRIPTION モード (Clock=2026-12) で 2026-12 の 25件全件のみを返し、10月・11月が混ざらないことを実証");
+  console.log("  ✅ TEST 9 PASS: SUBSCRIPTION モード (Clock=2026-12) で 2026-12 の 25件全件のみを返し (limit:20指定時も25件返却)、10月・11月が混ざらないことを実証");
 }
 
 // テスト終了時の Clock / State 完全復帰

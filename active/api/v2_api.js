@@ -1041,11 +1041,10 @@ function processPostAction(action, postData, e, districtId = "") {
         snapshot.errors.transfer = eTransfer.toString();
       }
 
-      // 7. Latest Distribution ドメイン
+      // 7. Latest Distribution ドメイン (getDashboardSnapshot は常に解決済み対象 Dataset の完了実績全件を返却)
       try {
-        const distLimit = (postData && postData.limit !== undefined && postData.limit !== null) ? Number(postData.limit) : 0;
         const records = typeof DistributionRepository !== 'undefined' && DistributionRepository.getInstance
-          ? DistributionRepository.getInstance().fetchLatestRecords(distLimit, reqLineUserId, districtId)
+          ? DistributionRepository.getInstance().fetchLatestRecords(0, reqLineUserId, districtId)
           : [];
         snapshot.domains.latestDistribution = { success: true, records: records };
       } catch (eLatest) {
