@@ -1,6 +1,8 @@
 {
-  "mission": "DASHBOARD-DUAL-001",
+  "mission": "DASHBOARD-TURNOUT-001 + DASHBOARD-AREA-DESKTOP-001",
   "files": [
-    "tests/test_dashboard_snapshot.mjs"
+    ".agents/current-scope.json",
+    "active/manager/manager.js",
+    "tests/test_manager_ui_interaction.mjs"
   ]
 }
