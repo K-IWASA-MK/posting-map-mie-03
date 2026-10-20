@@ -70,10 +70,10 @@ Dashboard 上の表示は、Phase 11 (ADR-013) で確立された活動状態マ
    - 当月完了確定ピンは、ピンタップ時の情報ウィンドウ（バブル）内に「配布済み 🔒」が表示され、再操作不可状態として観測される。
 3. **未完了エリアの日次再開**:
    - 当日中に完了確定に至らなかった未完了エリアは、当月シートに `completedAt` が記録されないため、翌日0:00以降も未配布（緑色）または作業中（青色）として観測され、翌日以降の再開が可能である。
-4. **月跨ぎ実績判定 (過去月データ保全と新月自動解決)**:
-   - 「月跨ぎ」は完了データを消去・初期化するのではない。
-   - バックエンドの `MonthlySheetResolver` がアクセス時点の対象月シート（`配布実績YYYY-MM`）を自動解決して参照する。
-   - したがって、月が変わった（翌月1日 0:00 JST）瞬間、新月シート（初期状態は空行）が参照されるため、過去月の確定実績を1行も消去することなく、新月の地図ピンが自動的に「未配布（緑）」として観測される。
+4. **Dual Lifecycle（ELECTION / SUBSCRIPTION）と月跨ぎ実績判定**:
+   - バックエンドの `MonthlySheetResolver` を唯一のSSOTとし、以下の2つのライフサイクルに従って対象 Dataset（`配布実績<Key>`）を解決する：
+     - **`ELECTION`（選挙期間累積型）**: `SYSTEM_INFO.Active Dataset Key` が示す選挙期間 Dataset の完了実績全件を取得する。月が変わっても同一 Dataset を継続し、契約終了日まで累積する。
+     - **`SUBSCRIPTION`（月次更新型）**: JST現在年月で解決された月次 Dataset（`配布実績YYYY-MM`）の完了実績全件を取得する。月が変わった（翌月1日 0:00 JST）瞬間、過去月の確定実績を消去することなく新月シートが参照される。
 5. **個人ランキングの観測**:
    - 当月配布実績シート + completedAt + groupKey + count>0 の確定行のみを集計したランキングデータ（金銀銅メダル表示）を観測する。
 
@@ -81,8 +81,9 @@ Dashboard 上の表示は、Phase 11 (ADR-013) で確立された活動状態マ
 
 ### (4) Phase 7 Snapshot 契約の完全維持とマーカー差分更新
 
-1. **7 API ➔ 1 Snapshot 一括取得**:
-   - `active/manager/manager.js` の `syncDashboardData()` において、`callApiPost('getDashboardSnapshot', { districtId, limit: 20 })` を実行し、1回の通信で全観測ドメインを一括取得する。
+1. **7 API ➔ 1 Snapshot 一括取得（対象 Dataset の完了実績全件返却）**:
+   - `active/manager/manager.js` の `syncDashboardData()` において、`callApiPost('getDashboardSnapshot', { districtId })` を実行し、1回の通信で全観測ドメインを一括取得する。
+   - `getDashboardSnapshot` の配布実績ドメイン（`latestDistribution`）は、対象 Dataset の完了実績を**全件返却**して `DashboardState.liveRecords` に保持する。表示件数の制限（下部LIVEフィードバーにおける `slice(0, 4)` 等）は View 側の責務とする。
 2. **Partial Failure 耐性 (No Blanking)**:
    - 取得結果のうち、成功したドメインのみをメモリステート（`DashboardState`）へ反映し、失敗したドメインは既存の画面表示データを保持する。ドメイン障害による画面の点滅・ブランクをゼロとする。
 3. **マーカー差分更新による操作状態維持**:

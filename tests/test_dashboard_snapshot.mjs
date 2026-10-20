@@ -719,6 +719,219 @@ console.log("▶ [TEST 7] SUBSCRIPTION Month Transition (旧月2026-09 vs 当月
   console.log("  ✅ TEST 7 PASS: SUBSCRIPTION モード月替わり時 (Clock=2026-10) に全7ドメインが旧月(2026-09)ではなく当月(2026-10)のDatasetを返すことを実証");
 }
 
+// -------------------------------------------------------------
+// [TEST 8] ELECTION Dual Lifecycle 全件返却検証 (Active Dataset = 2026-10, 現在日付 = 2026-12, 25件)
+// -------------------------------------------------------------
+console.log("▶ [TEST 8] ELECTION Dual Lifecycle 完了実績全件返却検証 (Active Dataset=2026-10, Clock=2026-12, 25件)");
+{
+  const mockDecDate = new baseOriginalDate("2026-12-15T12:00:00+09:00");
+  class MockDate202612 extends baseOriginalDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(mockDecDate.getTime());
+      } else {
+        super(...args);
+      }
+    }
+    static now() {
+      return mockDecDate.getTime();
+    }
+  }
+
+  global.Date = MockDate202612;
+  mockCache.store.clear();
+  delete mockSpreadsheets["ss-sub-transition-id"];
+
+  const elecDistRows = [
+    ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "gpsStatus", "photoStatus", "", "", "", "", "", "", "lineUserId"]
+  ];
+  for (let i = 1; i <= 25; i++) {
+    const dayStr = String((i % 28) + 1).padStart(2, '0');
+    const monthStr = i <= 10 ? "10" : (i <= 18 ? "11" : "12");
+    elecDistRows.push([
+      String(i),
+      "選挙累積市",
+      `選挙町${i}丁目`,
+      `2026-${monthStr}-${dayStr} 10:00:00`,
+      100 + i,
+      "E001",
+      "選挙 一郎",
+      "OK",
+      "OK",
+      "", "", "", "", "", "",
+      "U_ELEC_FULL_001"
+    ]);
+  }
+
+  const electionFullSS = new MockSpreadsheet("ss-election-full-25", "POSTING_MAP_ELECTION_FULL", {
+    "SYSTEM_INFO": new MockSheet("SYSTEM_INFO", [
+      ["項目", "設定値"],
+      ["地区コード", "ELECTION_FULL"],
+      ["運用モード", "ELECTION"],
+      ["Active Dataset Key", "2026-10"],
+      ["契約開始日時", "2026-10-01 09:00:00"],
+      ["契約終了日", "2026-12-31"],
+      ["システム名", "POSTING MAP ELECTION_FULL"]
+    ]),
+    "名簿2026-10": new MockSheet("名簿2026-10", [
+      ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+      ["E001", "選挙 一郎", "U_ELEC_FULL_001", "2026/10/01"]
+    ]),
+    "保有チラシ枚数2026-10": new MockSheet("保有チラシ枚数2026-10", [
+      ["ID", "スタッフID", "スタッフ名", "保管場所", "枚数", "更新日時", "LINE_USER_ID"]
+    ]),
+    "配布実績2026-10": new MockSheet("配布実績2026-10", elecDistRows),
+    "受渡要請履歴2026-10": new MockSheet("受渡要請履歴2026-10", [
+      ["要請日時", "要請者名", "要請者ID", "保有者名", "保有者ID", "連絡方法", "連絡先", "ステータス"]
+    ]),
+    "PinStatus2026-10": new MockSheet("PinStatus2026-10", [
+      ["rowId", "status", "updatedAt"]
+    ])
+  });
+
+  mockSpreadsheets["ss-election-full-25"] = electionFullSS;
+  scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-election-full-25";
+  global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_ELEC_FULL_001" } });
+
+  const elecFullSession = createDashboardSession("ELECTION_FULL");
+  const resElecFullRaw = doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "ELECTION_FULL",
+        dashboardSessionToken: elecFullSession.token
+      })
+    }
+  });
+  const snapElecFull = JSON.parse(resElecFullRaw.text);
+
+  assert.equal(snapElecFull.success, true, "ELECTION 2026-12 getDashboardSnapshot must succeed");
+  assert.equal(snapElecFull.domains.latestDistribution.success, true);
+  assert.equal(snapElecFull.domains.latestDistribution.records.length, 25, "ELECTION Snapshot must return all 25 cumulative completed records from 2026-10 dataset");
+  assert.equal(snapElecFull.domains.latestDistribution.records[0].townName, "選挙町25丁目");
+  assert.equal(snapElecFull.domains.latestDistribution.records[24].townName, "選挙町1丁目");
+
+  // getLatestDistribution の default 20件契約が壊れていないことも確認
+  const resLatestDefault20 = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getLatestDistribution",
+        districtId: "ELECTION_FULL",
+        dashboardSessionToken: elecFullSession.token
+      })
+    }
+  }).text);
+  assert.equal(resLatestDefault20.success, true);
+  assert.equal(resLatestDefault20.records.length, 20, "getLatestDistribution default limit (20) must be preserved");
+
+  console.log("  ✅ TEST 8 PASS: ELECTION モード (Active Dataset=2026-10, Clock=2026-12) で 25件全件返却および getLatestDistribution default 20 維持を確認");
+}
+
+// -------------------------------------------------------------
+// [TEST 9] SUBSCRIPTION Dual Lifecycle 全件返却 & 過月非混在検証 (現在日付 = 2026-12, 2026-12に25件)
+// -------------------------------------------------------------
+console.log("▶ [TEST 9] SUBSCRIPTION Dual Lifecycle 当月25件全件返却 & 10月・11月非混在検証 (Clock=2026-12)");
+{
+  const mockDecDate = new baseOriginalDate("2026-12-15T12:00:00+09:00");
+  class MockDate202612 extends baseOriginalDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(mockDecDate.getTime());
+      } else {
+        super(...args);
+      }
+    }
+    static now() {
+      return mockDecDate.getTime();
+    }
+  }
+
+  global.Date = MockDate202612;
+  mockCache.store.clear();
+  delete mockSpreadsheets["ss-election-full-25"];
+
+  const decDistRows = [
+    ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "gpsStatus", "photoStatus", "", "", "", "", "", "", "lineUserId"]
+  ];
+  for (let i = 1; i <= 25; i++) {
+    const dayStr = String((i % 25) + 1).padStart(2, '0');
+    decDistRows.push([
+      String(200 + i),
+      "十二月市",
+      `師走町${i}丁目`,
+      `2026-12-${dayStr} 11:00:00`,
+      200 + i,
+      "S_DEC_01",
+      "師走 太郎",
+      "OK",
+      "OK",
+      "", "", "", "", "", "",
+      "U_SUB_DEC_001"
+    ]);
+  }
+
+  const subFullSS = new MockSpreadsheet("ss-sub-full-25", "POSTING_MAP_SUB_FULL", {
+    "SYSTEM_INFO": new MockSheet("SYSTEM_INFO", [
+      ["項目", "設定値"],
+      ["地区コード", "SUB_FULL"],
+      ["運用モード", "SUBSCRIPTION"],
+      ["Active Dataset Key", "2026-10"],
+      ["契約開始日時", "2026-10-01 09:00:00"],
+      ["契約終了日", "2026-12-31"],
+      ["システム名", "POSTING MAP SUB_FULL"]
+    ]),
+    // 10月・11月の過月データ（混ざってはならない）
+    "配布実績2026-10": new MockSheet("配布実績2026-10", [
+      ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
+      ["1", "十月旧市", "神無月町1", "2026-10-10 10:00:00", 999, "S_OCT", "十月 太郎", "", "", "", "", "", "", "", "", "U_SUB_DEC_001"]
+    ]),
+    "配布実績2026-11": new MockSheet("配布実績2026-11", [
+      ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
+      ["2", "十一月旧市", "霜月町1", "2026-11-10 10:00:00", 888, "S_NOV", "十一月 太郎", "", "", "", "", "", "", "", "", "U_SUB_DEC_001"]
+    ]),
+    // 12月当月データ（25件）
+    "名簿2026-12": new MockSheet("名簿2026-12", [
+      ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+      ["S_DEC_01", "師走 太郎", "U_SUB_DEC_001", "2026/12/01"]
+    ]),
+    "保有チラシ枚数2026-12": new MockSheet("保有チラシ枚数2026-12", [
+      ["ID", "スタッフID", "スタッフ名", "保管場所", "枚数", "更新日時", "LINE_USER_ID"]
+    ]),
+    "配布実績2026-12": new MockSheet("配布実績2026-12", decDistRows),
+    "受渡要請履歴2026-12": new MockSheet("受渡要請履歴2026-12", [
+      ["要請日時", "要請者名", "要請者ID", "保有者名", "保有者ID", "連絡方法", "連絡先", "ステータス"]
+    ]),
+    "PinStatus2026-12": new MockSheet("PinStatus2026-12", [
+      ["rowId", "status", "updatedAt"]
+    ])
+  });
+
+  mockSpreadsheets["ss-sub-full-25"] = subFullSS;
+  scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-sub-full-25";
+  global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_SUB_DEC_001" } });
+
+  const subFullSession = createDashboardSession("SUB_FULL");
+  const resSubFullRaw = doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "SUB_FULL",
+        dashboardSessionToken: subFullSession.token
+      })
+    }
+  });
+  const snapSubFull = JSON.parse(resSubFullRaw.text);
+
+  assert.equal(snapSubFull.success, true, "SUBSCRIPTION 2026-12 getDashboardSnapshot must succeed");
+  assert.equal(snapSubFull.domains.latestDistribution.success, true);
+  assert.equal(snapSubFull.domains.latestDistribution.records.length, 25, "SUBSCRIPTION Snapshot must return all 25 completed records of 2026-12");
+  assert.ok(snapSubFull.domains.latestDistribution.records.every(r => r.cityName === "十二月市"), "All returned records must belong strictly to 2026-12");
+  assert.ok(!snapSubFull.domains.latestDistribution.records.some(r => r.cityName === "十月旧市" || r.cityName === "十一月旧市"), "10月・11月 records must never be mixed in");
+
+  delete mockSpreadsheets["ss-sub-full-25"];
+  console.log("  ✅ TEST 9 PASS: SUBSCRIPTION モード (Clock=2026-12) で 2026-12 の 25件全件のみを返し、10月・11月が混ざらないことを実証");
+}
+
 // テスト終了時の Clock / State 完全復帰
 global.Date = MockDate202609;
 mockCache.store.clear();

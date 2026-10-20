@@ -79,10 +79,24 @@ test('2. 観測専用原則: 管理画面にタスク割当・現場指示・強
 // 3. Phase 7 Snapshot 契約との整合
 // ----------------------------------------------------------------------------
 test('3. Phase 7 Snapshot 契約: getDashboardSnapshot (1 API) による一括取得と 7 ドメイン構造の整合', () => {
-  // manager.js の syncDashboardData で getDashboardSnapshot を呼び出していること
+  // manager.js の syncDashboardData で limit: 20 を付けずに getDashboardSnapshot を呼び出していること
   assert.ok(
-    managerJs.includes("callApiPost('getDashboardSnapshot', { districtId, limit: 20 })"),
-    'syncDashboardData で getDashboardSnapshot を呼び出していること'
+    managerJs.includes("callApiPost('getDashboardSnapshot', { districtId })"),
+    'syncDashboardData で limit 上限なしの getDashboardSnapshot を呼び出していること'
+  );
+  assert.ok(
+    !managerJs.includes("callApiPost('getDashboardSnapshot', { districtId, limit: 20 })"),
+    'syncDashboardData から limit: 20 が撤廃されていること'
+  );
+
+  // DashboardState.liveRecords への全件格納契約と renderLiveFeed の slice(0, 4) 維持
+  assert.ok(
+    managerJs.includes('DashboardState.liveRecords = latestDistRes.records;'),
+    'DashboardState.liveRecords への格納契約が維持されていること'
+  );
+  assert.ok(
+    managerJs.includes('const latest4 = records.slice(0, 4);'),
+    'renderLiveFeed の slice(0, 4) 表示制限が維持されていること'
   );
 
   // v2_api.js に 7 つのドメインが集約されていること

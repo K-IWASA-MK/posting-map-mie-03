@@ -1043,7 +1043,7 @@ function processPostAction(action, postData, e, districtId = "") {
 
       // 7. Latest Distribution ドメイン
       try {
-        const distLimit = (postData && postData.limit) ? Number(postData.limit) : 20;
+        const distLimit = (postData && postData.limit !== undefined && postData.limit !== null) ? Number(postData.limit) : 0;
         const records = typeof DistributionRepository !== 'undefined' && DistributionRepository.getInstance
           ? DistributionRepository.getInstance().fetchLatestRecords(distLimit, reqLineUserId, districtId)
           : [];

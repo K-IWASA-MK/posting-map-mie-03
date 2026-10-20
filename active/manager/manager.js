@@ -1141,7 +1141,7 @@ async function syncDashboardData() {
   _isSyncing = true;
   try {
     const districtId = (DashboardState && DashboardState.districtId) || (window.PMS_CLIENT_CONFIG && window.PMS_CLIENT_CONFIG.districtId) || "";
-    const snapshotRes = await callApiPost('getDashboardSnapshot', { districtId, limit: 20 })
+    const snapshotRes = await callApiPost('getDashboardSnapshot', { districtId })
       .catch(e => ({ success: false, error: e.message }));
 
     if (snapshotRes && (snapshotRes.code === 'CONTRACT_EXPIRED' || snapshotRes.code === 'CONTRACT_CHECK_FAILED')) {

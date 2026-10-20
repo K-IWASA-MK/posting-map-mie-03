@@ -279,7 +279,7 @@ if (typeof DistributionRepository === 'undefined') {
         return (parseInt(b.rowId, 10) || 0) - (parseInt(a.rowId, 10) || 0);
       });
 
-      return records.slice(0, limit);
+      return (typeof limit === 'number' && limit > 0) ? records.slice(0, limit) : records;
     }
   };
   DistributionRepository.instance = null;
