@@ -143,32 +143,32 @@ global.ContentService = {
 };
 
 // スプレッドシートの準備
-const kuwanaSS = new MockSpreadsheet("ss-kuwana-id", "POSTING_MAP_KUWANA", {
+const testDistrictSS = new MockSpreadsheet("ss-test-district-id", "POSTING_MAP_TEST_DISTRICT", {
   "SYSTEM_INFO": new MockSheet("SYSTEM_INFO", [
     ["項目", "設定値"],
-    ["地区コード", "KUWANA"],
+    ["地区コード", "TEST_DISTRICT"],
     ["運用モード", "SUBSCRIPTION"],
     ["契約終了日", "2026-10-31"],
-    ["システム名", "POSTING MAP KUWANA"]
+    ["システム名", "POSTING MAP TEST_DISTRICT"]
   ]),
   "名簿2026-09": new MockSheet("名簿2026-09", [
     ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
-    ["K001", "桑名 太郎", "U_KUWANA_001", "2026/01/01"],
-    ["K002", "桑名 花子", "U_KUWANA_002", "2026/01/02"]
+    ["K001", "テスト 太郎", "U_TEST_001", "2026/01/01"],
+    ["K002", "テスト 花子", "U_TEST_002", "2026/01/02"]
   ]),
   "保有チラシ枚数2026-09": new MockSheet("保有チラシ枚数2026-09", [
     ["スタッフID", "スタッフ名", "チラシ種別", "保管場所", "枚数", "更新日時"],
-    ["K001", "桑名 太郎", "A4チラシ", "自宅", 500, "2026/09/20"],
-    ["K002", "桑名 花子", "B4チラシ", "事務所", 300, "2026/09/20"]
+    ["K001", "テスト 太郎", "A4チラシ", "自宅", 500, "2026/09/20"],
+    ["K002", "テスト 花子", "B4チラシ", "事務所", 300, "2026/09/20"]
   ]),
   "配布実績2026-09": new MockSheet("配布実績2026-09", [
     ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
-    ["1", "桑名市", "中央町1", "2026-09-20 10:00:00", 150, "K001", "桑名 太郎", "", "", "", "", "", "", "", "", "U_KUWANA_001"],
-    ["2", "桑名市", "中央町2", "2026-09-21 11:00:00", 200, "K002", "桑名 花子", "", "", "", "", "", "", "", "", "U_KUWANA_002"]
+    ["1", "テスト市", "中央町1", "2026-09-20 10:00:00", 150, "K001", "テスト 太郎", "", "", "", "", "", "", "", "", "U_TEST_001"],
+    ["2", "テスト市", "中央町2", "2026-09-21 11:00:00", 200, "K002", "テスト 花子", "", "", "", "", "", "", "", "", "U_TEST_002"]
   ]),
   "受渡要請履歴2026-09": new MockSheet("受渡要請履歴2026-09", [
     ["要請ID", "要請者ID", "要請者名", "対象者ID", "対象者名", "チラシ種別", "希望枚数", "ステータス", "作成日時"],
-    ["REQ001", "K001", "桑名 太郎", "K002", "桑名 花子", "A4チラシ", 100, "PENDING", "2026/09/22"]
+    ["REQ001", "K001", "テスト 太郎", "K002", "テスト 花子", "A4チラシ", 100, "PENDING", "2026/09/22"]
   ]),
   "PinStatus2026-09": new MockSheet("PinStatus2026-09", [
     ["rowId", "status", "updatedAt"],
@@ -176,9 +176,9 @@ const kuwanaSS = new MockSpreadsheet("ss-kuwana-id", "POSTING_MAP_KUWANA", {
     ["2", "inProgress", "2026/09/21"]
   ])
 });
-mockSpreadsheets["ss-kuwana-id"] = kuwanaSS;
+mockSpreadsheets["ss-test-district-id"] = testDistrictSS;
 
-scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-kuwana-id";
+scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-test-district-id";
 
 // コード読み込みと実行
 const rootDir = process.cwd();
@@ -213,11 +213,11 @@ vm.runInThisContext(transferServiceCode);
 vm.runInThisContext(systemInfoCode);
 vm.runInThisContext(systemSummaryCode);
 
-global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_KUWANA_001" } });
+global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_TEST_001" } });
 vm.runInThisContext(v2ApiCode);
 
 // 有効な Dashboard 認証セッションの発行 (SEC-001)
-const dashSession = createDashboardSession("KUWANA");
+const dashSession = createDashboardSession("TEST_DISTRICT");
 const validDashToken = dashSession.token;
 
 // -------------------------------------------------------------
@@ -225,14 +225,14 @@ const validDashToken = dashSession.token;
 // -------------------------------------------------------------
 console.log("▶ [TEST 1] Snapshot Schema 完全性検証");
 const reqSnapshot = {
-  postData: { contents: JSON.stringify({ action: "getDashboardSnapshot", districtId: "KUWANA", dashboardSessionToken: validDashToken, limit: 20 }) }
+  postData: { contents: JSON.stringify({ action: "getDashboardSnapshot", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken, limit: 20 }) }
 };
 const resSnap = doPost(reqSnapshot);
 const snap = JSON.parse(resSnap.text);
 
 assert.equal(snap.success, true);
 assert.equal(snap.status, "SUCCESS");
-assert.equal(snap.districtId, "KUWANA");
+assert.equal(snap.districtId, "TEST_DISTRICT");
 assert.ok(snap.timestamp);
 assert.ok(snap.domains);
 assert.ok(snap.domains.summary);
@@ -250,37 +250,37 @@ console.log("  ✅ TEST 1 PASS: Snapshot Schema（7ドメイン構造・メタ�
 console.log("▶ [TEST 2] 既存 7 API と Snapshot 内ドメインデータの完全等価性検証");
 
 // 1. getSystemSummary
-const resSummary = doPost({ postData: { contents: JSON.stringify({ action: "getSystemSummary", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resSummary = doPost({ postData: { contents: JSON.stringify({ action: "getSystemSummary", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonSummary = JSON.parse(resSummary.text);
 assert.deepEqual(snap.domains.summary, jsonSummary, "summary data must be identical");
 
 // 2. getFlyerStock
-const resStock = doPost({ postData: { contents: JSON.stringify({ action: "getFlyerStock", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resStock = doPost({ postData: { contents: JSON.stringify({ action: "getFlyerStock", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonStock = JSON.parse(resStock.text);
 assert.deepEqual(snap.domains.flyerStock.stocks, jsonStock.stocks, "flyerStock must be identical");
 
 // 3. getRanking
-const resRank = doPost({ postData: { contents: JSON.stringify({ action: "getRanking", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resRank = doPost({ postData: { contents: JSON.stringify({ action: "getRanking", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonRank = JSON.parse(resRank.text);
 assert.deepEqual(snap.domains.ranking, jsonRank, "ranking must be identical");
 
 // 4. getGlobalPinStatus
-const resPin = doPost({ postData: { contents: JSON.stringify({ action: "getGlobalPinStatus", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resPin = doPost({ postData: { contents: JSON.stringify({ action: "getGlobalPinStatus", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonPin = JSON.parse(resPin.text);
 assert.deepEqual(snap.domains.pinStatus, jsonPin, "pinStatus must be identical");
 
 // 5. getRoster
-const resRoster = doPost({ postData: { contents: JSON.stringify({ action: "getRoster", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resRoster = doPost({ postData: { contents: JSON.stringify({ action: "getRoster", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonRoster = JSON.parse(resRoster.text);
 assert.deepEqual(snap.domains.roster, jsonRoster, "roster must be identical");
 
 // 6. getTransferRequests
-const resTransfer = doPost({ postData: { contents: JSON.stringify({ action: "getTransferRequests", districtId: "KUWANA", dashboardSessionToken: validDashToken }) } });
+const resTransfer = doPost({ postData: { contents: JSON.stringify({ action: "getTransferRequests", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken }) } });
 const jsonTransfer = JSON.parse(resTransfer.text);
 assert.deepEqual(snap.domains.transfer, jsonTransfer, "transfer requests must be identical");
 
 // 7. getLatestDistribution
-const resLatest = doPost({ postData: { contents: JSON.stringify({ action: "getLatestDistribution", districtId: "KUWANA", dashboardSessionToken: validDashToken, limit: 20 }) } });
+const resLatest = doPost({ postData: { contents: JSON.stringify({ action: "getLatestDistribution", districtId: "TEST_DISTRICT", dashboardSessionToken: validDashToken, limit: 20 }) } });
 const jsonLatest = JSON.parse(resLatest.text);
 assert.deepEqual(snap.domains.latestDistribution, jsonLatest, "latestDistribution must be identical");
 
@@ -345,30 +345,387 @@ console.log("  ✅ TEST 4 PASS: Snapshot API 自身の Tenant Boundary & ルー�
 console.log("▶ [TEST 5] 4サービスの districtId 伝播 & Universal DB Routing契約検証");
 
 // 1. StaffService.getRoster(districtId)
-const rosterItems = StaffService.getInstance().getRoster("KUWANA");
+const rosterItems = StaffService.getInstance().getRoster("TEST_DISTRICT");
 assert.ok(Array.isArray(rosterItems));
 assert.equal(rosterItems.length, 2);
-assert.equal(rosterItems[0].name, "桑名 太郎");
+assert.equal(rosterItems[0].name, "テスト 太郎");
 
 // 2. PinStatusService.getStatus(districtId)
-const pinStatusResult = PinStatusService.getInstance().getStatus("KUWANA");
+const pinStatusResult = PinStatusService.getInstance().getStatus("TEST_DISTRICT");
 assert.equal(pinStatusResult.success, true);
 assert.deepEqual(pinStatusResult.completed, [1, 2]);
 assert.deepEqual(pinStatusResult.inProgress, [1, 2]);
 
 // 3. TransferService.getTransferRequests(lineUserId, districtId)
-const transferItems = TransferService.getInstance().getTransferRequests("U_KUWANA_001", "KUWANA");
+const transferItems = TransferService.getInstance().getTransferRequests("U_TEST_001", "TEST_DISTRICT");
 assert.ok(Array.isArray(transferItems));
 assert.equal(transferItems.length, 1);
 assert.equal(transferItems[0].requesterName, "K001");
 
 // 4. DistributionRepository.fetchLatestRecords(limit, lineUserId, districtId)
-const latestRecords = DistributionRepository.getInstance().fetchLatestRecords(20, "U_KUWANA_001", "KUWANA");
+const latestRecords = DistributionRepository.getInstance().fetchLatestRecords(20, "U_TEST_001", "TEST_DISTRICT");
 assert.ok(Array.isArray(latestRecords));
 assert.equal(latestRecords.length, 2);
-assert.equal(latestRecords[0].cityName, "桑名市");
+assert.equal(latestRecords[0].cityName, "テスト市");
 
 console.log("  ✅ TEST 5 PASS: 4サービスすべてで渡された districtId が Service → Repository → Resolver まで正しく伝播し、指定地区DBを解決");
+
+// -------------------------------------------------------------
+// [TEST 6] ELECTION Cross-Month Fixed Dataset 統合検証
+//
+// 条件:
+// - MASTER initial mode = ELECTION
+// - Provisioned dataset / Active Dataset Key = 2026-09
+// - Runtime clock = 2026-10 (月跨ぎ発生)
+// - 存在するOperational Sheet: 2026-09 の5業務シートのみ (2026-10 は存在しない)
+// - 実 doPost() -> getDashboardSnapshot を通し、全7ドメインが固定 2026-09 Dataset から取得されることを具体値で検証
+// -------------------------------------------------------------
+console.log("▶ [TEST 6] ELECTION Cross-Month Fixed Dataset (7ドメイン統合検証)");
+{
+  const mockOctDate = new baseOriginalDate("2026-10-15T12:00:00+09:00");
+  class MockDate202610 extends baseOriginalDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(mockOctDate.getTime());
+      } else {
+        super(...args);
+      }
+    }
+    static now() {
+      return mockOctDate.getTime();
+    }
+  }
+
+  // State Isolation: Clock, Cache, Spreadsheet, ScriptProperties, Session を TEST 6 専用に切り替え
+  global.Date = MockDate202610;
+  mockCache.store.clear();
+
+  const electionSS = new MockSpreadsheet("ss-election-id", "POSTING_MAP_ELECTION_DIST", {
+    "SYSTEM_INFO": new MockSheet("SYSTEM_INFO", [
+      ["項目", "設定値"],
+      ["地区コード", "ELECTION_DIST"],
+      ["運用モード", "ELECTION"],
+      ["Active Dataset Key", "2026-09"],
+      ["契約開始日時", "2026-09-01 09:00:00"],
+      ["契約終了日", "2026-11-30"],
+      ["システム名", "POSTING MAP ELECTION_DIST"]
+    ]),
+    "名簿2026-09": new MockSheet("名簿2026-09", [
+      ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+      ["E001", "選挙 一郎", "U_ELEC_001", "2026/09/01"],
+      ["E002", "選挙 二郎", "U_ELEC_002", "2026/09/02"]
+    ]),
+    "保有チラシ枚数2026-09": new MockSheet("保有チラシ枚数2026-09", [
+      ["ID", "スタッフID", "スタッフ名", "保管場所", "枚数", "更新日時", "LINE_USER_ID"],
+      ["STK_E01", "E001", "選挙 一郎", "選挙事務所", 1200, "2026/09/10", "U_ELEC_001"],
+      ["STK_E02", "E002", "選挙 二郎", "自宅", 800, "2026/09/11", "U_ELEC_002"]
+    ]),
+    "配布実績2026-09": new MockSheet("配布実績2026-09", [
+      ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
+      ["10", "選挙市", "本町1丁目", "2026-09-12 10:00:00", 450, "E001", "選挙 一郎", "", "", "", "", "", "", "", "", "U_ELEC_001"],
+      ["11", "選挙市", "本町2丁目", "2026-09-13 15:30:00", 350, "E002", "選挙 二郎", "", "", "", "", "", "", "", "", "U_ELEC_002"],
+      ["12", "選挙市", "本町3丁目", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+    ]),
+    "受渡要請履歴2026-09": new MockSheet("受渡要請履歴2026-09", [
+      ["要請日時", "要請者名", "要請者ID", "保有者名", "保有者ID", "連絡方法", "連絡先", "ステータス"],
+      ["2026/09/14 10:00:00", "選挙 二郎", "E002", "選挙 一郎", "E001", "LINE", "elec_line_09", "要請中"]
+    ]),
+    "PinStatus2026-09": new MockSheet("PinStatus2026-09", [
+      ["rowId", "status", "updatedAt"],
+      ["10", "completed", "2026/09/12"],
+      ["11", "completed", "2026/09/13"],
+      ["12", "inProgress", "2026/09/14"]
+    ])
+  });
+
+  // 2026-10 の業務シートが存在しないことを明示検証
+  assert.equal(electionSS.getSheetByName("配布実績2026-10"), null);
+  assert.equal(electionSS.getSheetByName("名簿2026-10"), null);
+  assert.equal(electionSS.getSheetByName("保有チラシ枚数2026-10"), null);
+  assert.equal(electionSS.getSheetByName("受渡要請履歴2026-10"), null);
+  assert.equal(electionSS.getSheetByName("PinStatus2026-10"), null);
+  assert.equal(Utilities.formatDate(new Date(), "Asia/Tokyo", "yyyy-MM"), "2026-10", "Runtime clock must be 2026-10");
+
+  delete mockSpreadsheets["ss-test-district-id"];
+  mockSpreadsheets["ss-election-id"] = electionSS;
+  scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-election-id";
+  global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_ELEC_001" } });
+
+  const elecSession = createDashboardSession("ELECTION_DIST");
+  const resElecRaw = doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "ELECTION_DIST",
+        dashboardSessionToken: elecSession.token,
+        limit: 20
+      })
+    }
+  });
+  const snapElec = JSON.parse(resElecRaw.text);
+
+  assert.equal(snapElec.success, true, "ELECTION cross-month getDashboardSnapshot must succeed");
+  assert.equal(snapElec.status, "SUCCESS", "ELECTION cross-month status must be SUCCESS");
+  assert.equal(snapElec.districtId, "ELECTION_DIST");
+
+  // 1. summary (2026-09 固定 Dataset: 全3エリア中2エリア完了 = 67%)
+  assert.equal(snapElec.domains.summary.success, true);
+  assert.equal(snapElec.domains.summary.districtName, "POSTING_MAP_ELECTION_DIST");
+  assert.equal(snapElec.domains.summary.total, 3);
+  assert.equal(snapElec.domains.summary.done, 2);
+  assert.equal(snapElec.domains.summary.percent, 67);
+
+  // 2. flyerStock (2026-09 固定 Dataset: E001=1200, E002=800)
+  assert.equal(snapElec.domains.flyerStock.success, true);
+  assert.equal(snapElec.domains.flyerStock.stocks.length, 2);
+  assert.equal(snapElec.domains.flyerStock.stocks[0].staffId, "E001");
+  assert.equal(snapElec.domains.flyerStock.stocks[0].staffName, "選挙 一郎");
+  assert.equal(snapElec.domains.flyerStock.stocks[0].count, 1200);
+  assert.equal(snapElec.domains.flyerStock.stocks[1].staffId, "E002");
+  assert.equal(snapElec.domains.flyerStock.stocks[1].staffName, "選挙 二郎");
+  assert.equal(snapElec.domains.flyerStock.stocks[1].count, 800);
+
+  // 3. ranking (2026-09 固定 Dataset: 1位 選挙 一郎 450枚, 2位 選挙 二郎 350枚)
+  assert.equal(snapElec.domains.ranking.success, true);
+  assert.equal(snapElec.domains.ranking.ranking.length, 2);
+  assert.equal(snapElec.domains.ranking.ranking[0].staffId, "E001");
+  assert.equal(snapElec.domains.ranking.ranking[0].name, "選挙 一郎");
+  assert.equal(snapElec.domains.ranking.ranking[0].count, 450);
+  assert.equal(snapElec.domains.ranking.ranking[1].staffId, "E002");
+  assert.equal(snapElec.domains.ranking.ranking[1].name, "選挙 二郎");
+  assert.equal(snapElec.domains.ranking.ranking[1].count, 350);
+
+  // 4. pinStatus (2026-09 固定 Dataset: completed [10, 11], inProgress [10, 11, 12])
+  assert.equal(snapElec.domains.pinStatus.success, true);
+  assert.deepEqual(snapElec.domains.pinStatus.completed, [10, 11]);
+  assert.deepEqual(snapElec.domains.pinStatus.inProgress, [10, 11, 12]);
+
+  // 5. roster (2026-09 固定 Dataset: 選挙 一郎 stockTotal=1200/deliveredTotal=450, 選挙 二郎 stockTotal=800/deliveredTotal=350)
+  assert.equal(snapElec.domains.roster.success, true);
+  assert.equal(snapElec.domains.roster.roster.length, 2);
+  assert.equal(snapElec.domains.roster.roster[0].id, "E001");
+  assert.equal(snapElec.domains.roster.roster[0].name, "選挙 一郎");
+  assert.equal(snapElec.domains.roster.roster[0].stockTotal, 1200);
+  assert.equal(snapElec.domains.roster.roster[0].deliveredTotal, 450);
+  assert.equal(snapElec.domains.roster.roster[1].id, "E002");
+  assert.equal(snapElec.domains.roster.roster[1].name, "選挙 二郎");
+  assert.equal(snapElec.domains.roster.roster[1].stockTotal, 800);
+  assert.equal(snapElec.domains.roster.roster[1].deliveredTotal, 350);
+
+  // 6. transfer (2026-09 固定 Dataset: 選挙 二郎 -> 選挙 一郎, elec_line_09)
+  assert.equal(snapElec.domains.transfer.success, true);
+  assert.equal(snapElec.domains.transfer.requests.length, 1);
+  assert.equal(snapElec.domains.transfer.requests[0].requesterName, "選挙 二郎");
+  assert.equal(snapElec.domains.transfer.requests[0].holderName, "選挙 一郎");
+  assert.equal(snapElec.domains.transfer.requests[0].contactValue, "elec_line_09");
+  assert.equal(snapElec.domains.transfer.requests[0].status, "要請中");
+
+  // 7. latestDistribution (2026-09 固定 Dataset: 本町2丁目 350枚, 本町1丁目 450枚)
+  assert.equal(snapElec.domains.latestDistribution.success, true);
+  assert.equal(snapElec.domains.latestDistribution.records.length, 2);
+  assert.equal(snapElec.domains.latestDistribution.records[0].cityName, "選挙市");
+  assert.equal(snapElec.domains.latestDistribution.records[0].townName, "本町2丁目");
+  assert.equal(snapElec.domains.latestDistribution.records[0].count, 350);
+  assert.equal(snapElec.domains.latestDistribution.records[1].townName, "本町1丁目");
+  assert.equal(snapElec.domains.latestDistribution.records[1].count, 450);
+
+  console.log("  ✅ TEST 6 PASS: ELECTION モード月跨ぎ時 (Clock=2026-10) も全7ドメインが固定 2026-09 Dataset から完全解決されることを実証");
+}
+
+// -------------------------------------------------------------
+// [TEST 7] SUBSCRIPTION Month Transition 統合検証
+//
+// 条件:
+// - MASTER initial mode = SUBSCRIPTION
+// - old dataset = 2026-09 / current dataset = 2026-10
+// - Runtime clock = 2026-10
+// - 両月の5業務シートに明確に異なるFixture値を配置し、
+//   getDashboardSnapshot が全7ドメインについて旧月(2026-09)ではなく当月(2026-10)の具体値を返すことを検証
+// -------------------------------------------------------------
+console.log("▶ [TEST 7] SUBSCRIPTION Month Transition (旧月2026-09 vs 当月2026-10 全7ドメイン識別検証)");
+{
+  const mockOctDate = new baseOriginalDate("2026-10-15T12:00:00+09:00");
+  class MockDate202610 extends baseOriginalDate {
+    constructor(...args) {
+      if (args.length === 0) {
+        super(mockOctDate.getTime());
+      } else {
+        super(...args);
+      }
+    }
+    static now() {
+      return mockOctDate.getTime();
+    }
+  }
+
+  // State Isolation: TEST 6 の ELECTION 状態を完全に消去し、SUBSCRIPTION 専用環境を構築
+  global.Date = MockDate202610;
+  mockCache.store.clear();
+  delete mockSpreadsheets["ss-election-id"];
+
+  const subscriptionSS = new MockSpreadsheet("ss-sub-transition-id", "POSTING_MAP_SUB_DIST", {
+    "SYSTEM_INFO": new MockSheet("SYSTEM_INFO", [
+      ["項目", "設定値"],
+      ["地区コード", "SUB_DIST"],
+      ["運用モード", "SUBSCRIPTION"],
+      ["Active Dataset Key", "2026-09"], // 初期Provisioning時の記録が残っていてもSUBSCRIPTIONは当月(2026-10)を解決する
+      ["契約開始日時", "2026-09-01 09:00:00"],
+      ["契約終了日", "2026-12-31"],
+      ["システム名", "POSTING MAP SUB_DIST"]
+    ]),
+    // --- 旧月 (2026-09) Dataset (選ばれてはならない旧データ) ---
+    "名簿2026-09": new MockSheet("名簿2026-09", [
+      ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+      ["S_OLD", "九月 旧太郎", "U_SUB_001", "2026/09/01"]
+    ]),
+    "保有チラシ枚数2026-09": new MockSheet("保有チラシ枚数2026-09", [
+      ["ID", "スタッフID", "スタッフ名", "保管場所", "枚数", "更新日時", "LINE_USER_ID"],
+      ["STK_OLD", "S_OLD", "九月 旧太郎", "旧倉庫", 111, "2026/09/10", "U_SUB_001"]
+    ]),
+    "配布実績2026-09": new MockSheet("配布実績2026-09", [
+      ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
+      ["1", "旧月市", "九月町1", "2026-09-10 10:00:00", 111, "S_OLD", "九月 旧太郎", "", "", "", "", "", "", "", "", "U_SUB_001"],
+      ["2", "旧月市", "九月町2", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+    ]),
+    "受渡要請履歴2026-09": new MockSheet("受渡要請履歴2026-09", [
+      ["要請日時", "要請者名", "要請者ID", "保有者名", "保有者ID", "連絡方法", "連絡先", "ステータス"],
+      ["2026/09/15 09:00:00", "九月 旧太郎", "S_OLD", "九月 旧太郎", "S_OLD", "電話", "090-0000-0009", "要請中"]
+    ]),
+    "PinStatus2026-09": new MockSheet("PinStatus2026-09", [
+      ["rowId", "status", "updatedAt"],
+      ["1", "completed", "2026/09/10"]
+    ]),
+
+    // --- 当月 (2026-10) Dataset (解決されるべき最新データ) ---
+    "名簿2026-10": new MockSheet("名簿2026-10", [
+      ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+      ["S_NEW_1", "十月 新太郎", "U_SUB_001", "2026/10/01"],
+      ["S_NEW_2", "十月 新花子", "U_SUB_002", "2026/10/02"]
+    ]),
+    "保有チラシ枚数2026-10": new MockSheet("保有チラシ枚数2026-10", [
+      ["ID", "スタッフID", "スタッフ名", "保管場所", "枚数", "更新日時", "LINE_USER_ID"],
+      ["STK_NEW_1", "S_NEW_1", "十月 新太郎", "新拠点A", 900, "2026/10/05", "U_SUB_001"],
+      ["STK_NEW_2", "S_NEW_2", "十月 新花子", "新拠点B", 700, "2026/10/06", "U_SUB_002"]
+    ]),
+    "配布実績2026-10": new MockSheet("配布実績2026-10", [
+      ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "", "", "", "", "", "", "", "", "lineUserId"],
+      ["101", "新月市", "十月町1", "2026-10-10 09:00:00", 600, "S_NEW_1", "十月 新太郎", "", "", "", "", "", "", "", "", "U_SUB_001"],
+      ["102", "新月市", "十月町2", "2026-10-11 14:00:00", 400, "S_NEW_2", "十月 新花子", "", "", "", "", "", "", "", "", "U_SUB_002"],
+      ["103", "新月市", "十月町3", "2026-10-12 16:00:00", 250, "S_NEW_1", "十月 新太郎", "", "", "", "", "", "", "", "", "U_SUB_001"],
+      ["104", "新月市", "十月町4", "", "", "", "", "", "", "", "", "", "", "", "", ""]
+    ]),
+    "受渡要請履歴2026-10": new MockSheet("受渡要請履歴2026-10", [
+      ["要請日時", "要請者名", "要請者ID", "保有者名", "保有者ID", "連絡方法", "連絡先", "ステータス"],
+      ["2026/10/12 11:00:00", "十月 新花子", "S_NEW_2", "十月 新太郎", "S_NEW_1", "LINE", "oct_new_line_10", "完了"]
+    ]),
+    "PinStatus2026-10": new MockSheet("PinStatus2026-10", [
+      ["rowId", "status", "updatedAt"],
+      ["101", "completed", "2026/10/10"],
+      ["102", "completed", "2026/10/11"],
+      ["103", "completed", "2026/10/12"],
+      ["104", "inProgress", "2026/10/13"]
+    ])
+  });
+
+  mockSpreadsheets["ss-sub-transition-id"] = subscriptionSS;
+  scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-sub-transition-id";
+  global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_SUB_001" } });
+
+  const subSession = createDashboardSession("SUB_DIST");
+  const resSubRaw = doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getDashboardSnapshot",
+        districtId: "SUB_DIST",
+        dashboardSessionToken: subSession.token,
+        limit: 20
+      })
+    }
+  });
+  const snapSub = JSON.parse(resSubRaw.text);
+
+  assert.equal(snapSub.success, true, "SUBSCRIPTION month-transition getDashboardSnapshot must succeed");
+  assert.equal(snapSub.status, "SUCCESS");
+  assert.equal(snapSub.districtId, "SUB_DIST");
+
+  // 1. summary: 2026-10 の値 (total=4, done=3, percent=75) であり、旧月2026-09 (total=2, done=1, percent=50) ではないこと
+  assert.equal(snapSub.domains.summary.success, true);
+  assert.equal(snapSub.domains.summary.districtName, "POSTING_MAP_SUB_DIST");
+  assert.equal(snapSub.domains.summary.total, 4);
+  assert.equal(snapSub.domains.summary.done, 3);
+  assert.equal(snapSub.domains.summary.percent, 75);
+  assert.notEqual(snapSub.domains.summary.total, 2);
+  assert.notEqual(snapSub.domains.summary.done, 1);
+
+  // 2. flyerStock: 2026-10 の値 (十月 新太郎 900, 十月 新花子 700) であり、旧月(九月 旧太郎 111)ではないこと
+  assert.equal(snapSub.domains.flyerStock.success, true);
+  assert.equal(snapSub.domains.flyerStock.stocks.length, 2);
+  assert.equal(snapSub.domains.flyerStock.stocks[0].staffId, "S_NEW_1");
+  assert.equal(snapSub.domains.flyerStock.stocks[0].staffName, "十月 新太郎");
+  assert.equal(snapSub.domains.flyerStock.stocks[0].count, 900);
+  assert.equal(snapSub.domains.flyerStock.stocks[1].staffId, "S_NEW_2");
+  assert.equal(snapSub.domains.flyerStock.stocks[1].staffName, "十月 新花子");
+  assert.equal(snapSub.domains.flyerStock.stocks[1].count, 700);
+  assert.ok(!snapSub.domains.flyerStock.stocks.some(s => s.staffName === "九月 旧太郎"));
+
+  // 3. ranking: 2026-10 の値 (1位 十月 新太郎 850枚, 2位 十月 新花子 400枚) であり、旧月(九月 旧太郎 111枚)ではないこと
+  assert.equal(snapSub.domains.ranking.success, true);
+  assert.equal(snapSub.domains.ranking.ranking.length, 2);
+  assert.equal(snapSub.domains.ranking.ranking[0].staffId, "S_NEW_1");
+  assert.equal(snapSub.domains.ranking.ranking[0].name, "十月 新太郎");
+  assert.equal(snapSub.domains.ranking.ranking[0].count, 850);
+  assert.equal(snapSub.domains.ranking.ranking[1].staffId, "S_NEW_2");
+  assert.equal(snapSub.domains.ranking.ranking[1].name, "十月 新花子");
+  assert.equal(snapSub.domains.ranking.ranking[1].count, 400);
+  assert.ok(!snapSub.domains.ranking.ranking.some(r => r.name === "九月 旧太郎"));
+
+  // 4. pinStatus: 2026-10 の値 (completed [101, 102, 103], inProgress [101, 102, 103, 104]) であり、旧月([1])ではないこと
+  assert.equal(snapSub.domains.pinStatus.success, true);
+  assert.deepEqual(snapSub.domains.pinStatus.completed, [101, 102, 103]);
+  assert.deepEqual(snapSub.domains.pinStatus.inProgress, [101, 102, 103, 104]);
+  assert.ok(!snapSub.domains.pinStatus.completed.includes(1));
+
+  // 5. roster: 2026-10 の値 (十月 新太郎 stockTotal=900/deliveredTotal=850, 十月 新花子 stockTotal=700/deliveredTotal=400) であり、旧月(九月 旧太郎)ではないこと
+  assert.equal(snapSub.domains.roster.success, true);
+  assert.equal(snapSub.domains.roster.roster.length, 2);
+  assert.equal(snapSub.domains.roster.roster[0].id, "S_NEW_1");
+  assert.equal(snapSub.domains.roster.roster[0].name, "十月 新太郎");
+  assert.equal(snapSub.domains.roster.roster[0].stockTotal, 900);
+  assert.equal(snapSub.domains.roster.roster[0].deliveredTotal, 850);
+  assert.equal(snapSub.domains.roster.roster[1].id, "S_NEW_2");
+  assert.equal(snapSub.domains.roster.roster[1].name, "十月 新花子");
+  assert.equal(snapSub.domains.roster.roster[1].stockTotal, 700);
+  assert.equal(snapSub.domains.roster.roster[1].deliveredTotal, 400);
+  assert.ok(!snapSub.domains.roster.roster.some(r => r.name === "九月 旧太郎"));
+
+  // 6. transfer: 2026-10 の値 (十月 新花子 -> 十月 新太郎, oct_new_line_10) であり、旧月(九月 旧太郎, 090-0000-0009)ではないこと
+  assert.equal(snapSub.domains.transfer.success, true);
+  assert.equal(snapSub.domains.transfer.requests.length, 1);
+  assert.equal(snapSub.domains.transfer.requests[0].requesterName, "十月 新花子");
+  assert.equal(snapSub.domains.transfer.requests[0].holderName, "十月 新太郎");
+  assert.equal(snapSub.domains.transfer.requests[0].contactValue, "oct_new_line_10");
+  assert.equal(snapSub.domains.transfer.requests[0].status, "完了");
+  assert.notEqual(snapSub.domains.transfer.requests[0].requesterName, "九月 旧太郎");
+  assert.notEqual(snapSub.domains.transfer.requests[0].contactValue, "090-0000-0009");
+
+  // 7. latestDistribution: 2026-10 の値 (新月市 十月町3/2/1 の3件) であり、旧月(旧月市 九月町1)ではないこと
+  assert.equal(snapSub.domains.latestDistribution.success, true);
+  assert.equal(snapSub.domains.latestDistribution.records.length, 3);
+  assert.equal(snapSub.domains.latestDistribution.records[0].cityName, "新月市");
+  assert.equal(snapSub.domains.latestDistribution.records[0].townName, "十月町3");
+  assert.equal(snapSub.domains.latestDistribution.records[0].count, 250);
+  assert.ok(!snapSub.domains.latestDistribution.records.some(r => r.cityName === "旧月市"));
+
+  console.log("  ✅ TEST 7 PASS: SUBSCRIPTION モード月替わり時 (Clock=2026-10) に全7ドメインが旧月(2026-09)ではなく当月(2026-10)のDatasetを返すことを実証");
+}
+
+// テスト終了時の Clock / State 完全復帰
+global.Date = MockDate202609;
+mockCache.store.clear();
+delete mockSpreadsheets["ss-sub-transition-id"];
+mockSpreadsheets["ss-test-district-id"] = testDistrictSS;
+scriptPropertiesStore["TARGET_SPREADSHEET_ID"] = "ss-test-district-id";
+global.authenticateRequest = () => ({ success: true, user: { lineUserId: "U_TEST_001" } });
 
 console.log("====================================================");
 console.log("🎉 ALL DASHBOARD SNAPSHOT TESTS PASSED PERFECTLY!");
