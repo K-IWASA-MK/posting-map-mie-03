@@ -146,7 +146,7 @@ Object.assign(sandbox.window.DashboardState, {
   currentFocus: 'map',
   map: mockMap,
   markersLayer: mockLayer,
-  masterPins: [{ rowId: 1, cityName: '桑名市', lat: 35.0, lng: 136.0 }, { rowId: 2, cityName: '桑名市', lat: 35.1, lng: 136.1 }]
+  masterPins: [{ rowId: 1, cityName: 'サンプル市', lat: 35.0, lng: 136.0 }, { rowId: 2, cityName: 'サンプル市', lat: 35.1, lng: 136.1 }]
 });
 sandbox._hasAppliedPinStatus = true; // 初回適用済み
 
@@ -412,6 +412,386 @@ apiCallLog.length = 0;
 await sandbox.renderMainStageBulletin({ force: true });
 assert.equal(apiCallLog.filter(c => c.action === 'getBulletinPosts').length, 1, "force: true は即座に強制再取得を発火");
 console.log("  ✅ Gate H PASS: force:true: existing manual refresh still performs API refresh");
+
+// -------------------------------------------------------------
+// [UI TEST 6] DASHBOARD-TURNOUT-001 + DASHBOARD-AREA-DESKTOP-001
+// Desktop 2-Level Drilldown, Single Municipality 1-Level Preservation,
+// Turnout Common SSOT & Mobile Isolation Verification (21 Acceptance Gates)
+// -------------------------------------------------------------
+console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT Contract (21 Gates)");
+
+{
+  const domMap = new Map();
+  const createRichEl = (tag = 'div', id = '') => {
+    const attrs = new Map();
+    const children = [];
+    const el = {
+      tagName: tag.toUpperCase(),
+      id,
+      style: {},
+      className: '',
+      textContent: '',
+      _innerHTML: '',
+      onclick: null,
+      children,
+      previousElementSibling: null,
+      classList: {
+        add: (...cls) => {
+          const set = new Set(el.className.split(/\s+/).filter(Boolean));
+          cls.forEach(c => set.add(c));
+          el.className = Array.from(set).join(' ');
+        },
+        remove: (...cls) => {
+          const set = new Set(el.className.split(/\s+/).filter(Boolean));
+          cls.forEach(c => set.delete(c));
+          el.className = Array.from(set).join(' ');
+        },
+        contains: (c) => el.className.split(/\s+/).filter(Boolean).includes(c),
+        toggle: (c) => {
+          if (el.classList.contains(c)) el.classList.remove(c);
+          else el.classList.add(c);
+        }
+      },
+      setAttribute: (k, v) => attrs.set(k, String(v)),
+      getAttribute: (k) => attrs.has(k) ? attrs.get(k) : null,
+      appendChild: (child) => {
+        if (children.length > 0) {
+          child.previousElementSibling = children[children.length - 1];
+        }
+        children.push(child);
+        return child;
+      },
+      querySelectorAll: (selector) => {
+        if (selector === 'button[data-town-id]') {
+          return children.filter(c => c.getAttribute && c.getAttribute('data-town-id') !== null);
+        }
+        if (selector === 'button[data-city-val]') {
+          return children.filter(c => c.getAttribute && c.getAttribute('data-city-val') !== null);
+        }
+        return [];
+      },
+      querySelector: (selector) => {
+        if (selector === '.town-check' || selector === '.city-check') {
+          return {
+            get textContent() {
+              const m = el._innerHTML.match(/<span[^>]*class="[^"]*(?:town-check|city-check)[^"]*"[^>]*>([^<]*)<\/span>/);
+              return m ? m[1] : '';
+            },
+            set textContent(v) {
+              el._innerHTML = el._innerHTML.replace(
+                /(<span[^>]*class="[^"]*(?:town-check|city-check)[^"]*"[^>]*>)[^<]*(<\/span>)/,
+                `$1${v}$2`
+              );
+            }
+          };
+        }
+        return null;
+      }
+    };
+    Object.defineProperty(el, 'innerHTML', {
+      get() { return el._innerHTML; },
+      set(val) {
+        el._innerHTML = String(val);
+        if (val === '') {
+          children.length = 0;
+        }
+      }
+    });
+    return el;
+  };
+
+  const getEl = (id) => {
+    if (!domMap.has(id)) {
+      domMap.set(id, createRichEl('div', id));
+    }
+    return domMap.get(id);
+  };
+
+  // Setup header title + count sibling relationship in #area-selector-card
+  const headerTitleEl = createRichEl('span', 'area-selector-title');
+  headerTitleEl.innerHTML = '<span>📍</span> エリア選択';
+  const countEl = getEl('area-selector-count');
+  countEl.previousElementSibling = headerTitleEl;
+
+  // Override document methods for rich DOM inspection
+  mockDocument.getElementById = (id) => getEl(id);
+  mockDocument.createElement = (tag) => createRichEl(tag);
+
+  let fitBoundsCalls = [];
+  let setViewCalls = [];
+  let lastCreatedMarkers = [];
+  mockMap.fitBounds = (bounds, opts) => { fitBoundsCalls.push({ bounds, opts }); };
+  mockMap.setView = (coords, zoom, opts) => { setViewCalls.push({ coords, zoom, opts }); };
+  sandbox.L.latLngBounds = (coords) => ({ coords });
+  sandbox.L.circleMarker = (latlng, opts) => {
+    const handlers = {};
+    const marker = {
+      latlng,
+      opts,
+      on: (evt, fn) => { handlers[evt] = fn; },
+      trigger: (evt) => { if (handlers[evt]) handlers[evt](); }
+    };
+    lastCreatedMarkers.push(marker);
+    return marker;
+  };
+
+  // Sample dynamic multi-municipality dataset (3 cities, 5 pins)
+  const cityA = '市町村A';
+  const cityB = '市町村B';
+  const cityC = '市町村C';
+  const samplePins = [
+    { rowId: 1, cityName: cityA, townName: 'A町一丁目', fullName: `${cityA} A町一丁目`, lat: 35.01, lng: 136.61, households: 100, population: 250 },
+    { rowId: 2, cityName: cityA, townName: 'A町二丁目', fullName: `${cityA} A町二丁目`, lat: 35.02, lng: 136.62, households: 120, population: 300 },
+    { rowId: 3, cityName: cityB, townName: 'B町本町', fullName: `${cityB} B町本町`, lat: 35.05, lng: 136.65, households: 200, population: 500 },
+    { rowId: 4, cityName: cityB, townName: 'B町栄町', fullName: `${cityB} B町栄町`, lat: 35.06, lng: 136.66, households: 180, population: 420 },
+    { rowId: 5, cityName: cityC, townName: 'C町中央', fullName: `${cityC} C町中央`, lat: 35.10, lng: 136.70, households: 150, population: 350 }
+  ];
+
+  const sampleElectionData = {
+    elections: [
+      {
+        electionId: 'EL-2026',
+        electionType: 'general',
+        electionName: '2026総選挙',
+        year: '2026',
+        electionDate: '2026-02-08',
+        eligibleVoters: 400000,
+        voters: 235200,
+        turnout: 58.80,
+        districtTurnout: 58.80,
+        municipalities: {
+          [cityA]: 64.07,
+          [cityB]: 58.25
+          // cityC is intentionally missing to test Gate 14 & 15 (no false fallback to 58.80)
+        }
+      },
+      {
+        electionId: 'EL-2024',
+        electionType: 'general',
+        electionName: '2024総選挙',
+        year: '2024',
+        electionDate: '2024-10-27',
+        turnout: 56.64,
+        districtTurnout: 56.64,
+        municipalities: {
+          [cityA]: 62.34,
+          [cityB]: 56.82
+        }
+      },
+      {
+        electionId: 'EL-2021',
+        electionType: 'general',
+        electionName: '2021総選挙',
+        year: '2021',
+        electionDate: '2021-10-31',
+        turnout: 55.31,
+        districtTurnout: 55.31,
+        municipalities: {
+          [cityA]: 60.94,
+          [cityB]: 55.16
+        }
+      }
+    ]
+  };
+
+  // --- [Single Municipality: Gates 1 & 2] ---
+  const singlePins = samplePins.filter(p => p.cityName === cityA);
+  Object.assign(sandbox.window.DashboardState, {
+    cities: [cityA],
+    masterPins: singlePins,
+    masterLoadStatus: 'LOADED',
+    selectedCity: 'ALL',
+    selectedTownId: 'ALL',
+    selectedPin: null,
+    desktopAreaSelectorView: 'CITIES',
+    electionTurnout: {
+      elections: [
+        { year: '2025', electionDate: '2025-11-01', electionName: '市議選', turnout: 49.12 },
+        { year: '2021', electionDate: '2021-11-01', electionName: '市議選', turnout: 47.00 }
+      ]
+    }
+  });
+
+  sandbox.populateAreaSelector(singlePins);
+  const pcListSingle = getEl('area-selector-list');
+  assert.equal(getEl('area-selector-count').textContent, 2, "Gate 1a: 単一自治体モードのバッジは全町丁目数(2)");
+  assert.equal(pcListSingle.children.length, 3, "Gate 1b: 単一自治体モードのDesktop左ナビは『全域 + 2町丁目』の1層構造を維持");
+  assert.equal(pcListSingle.children[1].getAttribute('data-town-id'), '1', "Gate 1c: 単一自治体モードでは最初から町丁目ボタンが並ぶ");
+
+  const singleTurnout = sandbox.getMunicipalityTurnout(sandbox.window.DashboardState.electionTurnout, cityA);
+  assert.equal(singleTurnout.turnout, '49.12', "Gate 2: 単一自治体コンテキスト(cities.length<=1)では自治体別構造が無くてもトップレベルturnoutを正常利用");
+  console.log("  ✅ Gates 1-2 PASS: Single Municipality 1-layer preserved & top-level turnout resolved");
+
+  // --- [Multi Municipality: Gates 3, 4, 5, 6, 7, 8, 9, 10, 11] ---
+  Object.assign(sandbox.window.DashboardState, {
+    cities: [cityA, cityB, cityC],
+    masterPins: samplePins,
+    masterLoadStatus: 'LOADED',
+    selectedCity: 'ALL',
+    selectedTownId: 'ALL',
+    selectedPin: null,
+    desktopAreaSelectorView: 'CITIES',
+    electionTurnout: sampleElectionData
+  });
+
+  sandbox.populateAreaSelector(samplePins);
+  sandbox.renderCurrentView();
+
+  const pcList = getEl('area-selector-list');
+  const mobileList = getEl('mobile-city-selector-list');
+
+  // Gate 3 & 4: Desktop initial view is Layer 1 (municipalities only, 0 towns in Desktop DOM)
+  assert.equal(sandbox.window.DashboardState.desktopAreaSelectorView, 'CITIES', "Gate 3a: 複数自治体モードの初期状態は CITIES");
+  assert.equal(getEl('area-selector-count').textContent, 3, "Gate 3b: 第1層の件数バッジは動的市町村数(3)");
+  assert.equal(pcList.children.length, 4, "Gate 3c: 第1層リストは『全域 + 3市町村』の4件のみ");
+  assert.equal(pcList.querySelectorAll('button[data-town-id]').length, 0, "Gate 4: 初期Desktop左ナビDOMには町丁目(data-town-id)を1件も展開しない");
+  assert.ok( getEl('right-slot-top').innerHTML.includes('58.80'), "初期全域表示の投票率は 58.80%");
+  console.log("  ✅ Gates 3-4 PASS: Multi Municipality initial Desktop view shows only municipalities (0 towns)");
+
+  // Gate 5, 6, 7: Click Municipality (cityB) -> Layer 2 towns, MAP/KPI linkage, Municipality turnout
+  fitBoundsCalls = [];
+  lastCreatedMarkers = [];
+  const cityBBtn = pcList.children.find(b => b.getAttribute('data-city-val') === cityB);
+  assert.ok(cityBBtn, "第1層に市町村Bボタンが存在");
+  cityBBtn.onclick({ stopPropagation: () => {} });
+
+  assert.equal(sandbox.window.DashboardState.desktopAreaSelectorView, 'TOWNS', "Gate 5a: 市町村クリックで TOWNS 第2層へ遷移");
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 5b: selectedCity が市町村Bに更新");
+  assert.equal(getEl('area-selector-count').textContent, 2, "Gate 5c: 第2層バッジは市町村Bの町丁目数(2)");
+  assert.ok(headerTitleEl.innerHTML.includes('‹') && headerTitleEl.innerHTML.includes(cityB), "Gate 5d: 第2層ヘッダーに ‹ 市町村B が表示");
+  const layer2TownBtns = pcList.querySelectorAll('button[data-town-id]');
+  assert.equal(layer2TownBtns.length, 3, "Gate 5e: 第2層リストは『市町村B 全域 + 2町丁目』の3行");
+  assert.ok(layer2TownBtns[0].innerHTML.includes(`${cityB} 全域`), "Gate 5f: 第2層先頭は『市町村B 全域』");
+  assert.equal(layer2TownBtns[1].getAttribute('data-town-id'), '3', "Gate 5g: 選択市町村所属の町丁目(rowId=3)のみ表示");
+  assert.equal(layer2TownBtns[2].getAttribute('data-town-id'), '4', "Gate 5h: 選択市町村所属の町丁目(rowId=4)のみ表示");
+
+  assert.equal(getEl('fact-total-areas').textContent, '2', "Gate 6a: KPI 総エリア数が市町村B(2)に連動");
+  assert.equal(fitBoundsCalls.length, 1, "Gate 6b: 市町村Bのピン群へ fitBounds が発火");
+  assert.equal(lastCreatedMarkers.length, 2, "Gate 6c: マップ上のピンが市町村Bの2件に絞り込まれる");
+
+  const turnoutTopHtmlAfterCityB = getEl('right-slot-top').innerHTML;
+  assert.ok(turnoutTopHtmlAfterCityB.includes(cityB), "Gate 7a: 右上投票率ヘッダーバッジが市町村Bに連動");
+  assert.ok(turnoutTopHtmlAfterCityB.includes('58.25'), "Gate 7b: 右上投票率が市町村Bの 58.25% に連動 (全域58.80%ではない)");
+  console.log("  ✅ Gates 5-7 PASS: Municipality click transitions to Layer 2 and syncs MAP, KPI, and Municipality Turnout");
+
+  // Gate 9: Click Town in Layer 2 -> town zoom, right-bottom stats, municipality turnout maintained
+  setViewCalls = [];
+  const town3Btn = layer2TownBtns[1]; // rowId 3 (cityB)
+  town3Btn.onclick({ stopPropagation: () => {} });
+
+  assert.equal(sandbox.window.DashboardState.selectedTownId, 3, "Gate 9a: selectedTownId が 3 に更新");
+  assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 3, "Gate 9b: selectedPin が rowId=3 に更新");
+  assert.equal(setViewCalls.length, 1, "Gate 9c: 町丁目クリックで map.setView(zoom 15) が発火");
+  assert.equal(setViewCalls[0].zoom, 15, "Gate 9d: zoom レベルが 15");
+  assert.ok(getEl('right-slot-bottom').innerHTML.includes('200'), "Gate 9e: 右下エリア統計に rowId=3 の世帯数(200)が表示");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 9f: 町丁目クリック時も所属自治体(市町村B: 58.25%)の投票率を表示");
+
+  // Gate 8: Click Layer 2 "<Municipality> 全域" -> clears town/pin only, fits city bounds, keeps cityB turnout
+  fitBoundsCalls = [];
+  const cityBAllBtn = pcList.querySelectorAll('button[data-town-id]')[0];
+  cityBAllBtn.onclick({ stopPropagation: () => {} });
+
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 8a: 『市町村B 全域』クリック後も selectedCity は市町村Bを維持 (ALLに戻らない)");
+  assert.equal(sandbox.window.DashboardState.selectedTownId, 'ALL', "Gate 8b: selectedTownId が ALL にリセット");
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "Gate 8c: selectedPin が null にリセット");
+  assert.ok(getEl('right-slot-bottom').innerHTML.includes('area-stats-empty'), "Gate 8d: 右下エリア統計が未選択状態に戻る");
+  assert.equal(fitBoundsCalls.length, 1, "Gate 8e: 市町村B全体へ fitBounds が実行される");
+  assert.equal(fitBoundsCalls[0].bounds.coords.length, 2, "Gate 8f: fitBounds の対象座標数が市町村Bの2ピンである(全5ピンではない)");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 8g: 右上投票率は市町村B(58.25%)を維持");
+  console.log("  ✅ Gates 8-9 PASS: Layer 2 town click & Municipality-All row behave strictly as contracted");
+
+  // Gate 11: Back button (`‹ 市町村B`) -> switches view to CITIES only, keeps selectedCity/MAP/KPI/turnout
+  fitBoundsCalls = [];
+  headerTitleEl.onclick({ stopPropagation: () => {} });
+
+  assert.equal(sandbox.window.DashboardState.desktopAreaSelectorView, 'CITIES', "Gate 11a: Backクリックで表示階層だけ CITIES へ戻る");
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 11b: Back後も selectedCity は市町村Bのまま維持");
+  assert.equal(fitBoundsCalls.length, 0, "Gate 11c: Back操作でMAP視点は変更されない");
+  assert.equal(getEl('fact-total-areas').textContent, '2', "Gate 11d: Back後もKPIは市町村B(2)を維持");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 11e: Back後も右上投票率は市町村B(58.25%)を維持");
+  const backCityBBtn = pcList.children.find(b => b.getAttribute('data-city-val') === cityB);
+  assert.ok(backCityBBtn && backCityBBtn.innerHTML.includes('✓'), "Gate 11f: 第1層に戻った際、選択中の市町村Bに ✓ ハイライトが付いている");
+  console.log("  ✅ Gate 11 PASS: Back navigation changes only presentation layer while preserving selectedCity/MAP/KPI/Turnout");
+
+  // Gate 10: MAP Pin click -> updates turnout to pin.cityName (even when selectedCity is ALL)
+  lastCreatedMarkers = [];
+  const allCityBtn = pcList.children.find(b => b.getAttribute('data-city-val') === 'ALL');
+  allCityBtn.onclick({ stopPropagation: () => {} });
+  assert.equal(sandbox.window.DashboardState.selectedCity, 'ALL', "全域へ復帰");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "全域投票率 58.80%");
+
+  // Trigger click on marker for rowId 1 (cityA: 64.07%)
+  assert.ok(lastCreatedMarkers.length === 5, "全域では5つのマーカーが生成されている");
+  lastCreatedMarkers[0].trigger('click'); // rowId 1 (cityA)
+  assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "Gate 10a: MAP Pinクリックで selectedPin が rowId=1 に設定");
+  assert.ok(getEl('right-slot-top').innerHTML.includes(cityA), "Gate 10b: MAP Pinクリックで右上投票率バッジがピンの所属自治体(市町村A)に連動");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 10c: MAP Pinクリックで右上投票率が市町村Aの 64.07% に連動");
+  console.log("  ✅ Gate 10 PASS: MAP Pin click updates turnout to pin.cityName");
+
+  // --- [Turnout Contract: Gates 12, 13, 14, 15, 16, 17] ---
+  const turnoutDataA = sandbox.getMunicipalityTurnout(sampleElectionData, cityA);
+  assert.deepEqual(
+    turnoutDataA.history.map(h => h.turnout),
+    ['64.07', '62.34', '60.94'],
+    "Gate 12: 過去3回推移(history)がすべて同一自治体(市町村A)の履歴であること"
+  );
+  assert.equal(turnoutDataA.diffPt, '+1.73', "Gate 13: 前回比(64.07 - 62.34 = +1.73)が同一自治体同士の差で計算されること");
+
+  // Gate 14 & 15: Missing municipality value in multi-municipality dashboard -> '--' (NO false fallback to 58.80)
+  const turnoutDataMissing = sandbox.getMunicipalityTurnout(sampleElectionData, cityC);
+  assert.equal(turnoutDataMissing.turnout, '--', "Gate 14: 複数自治体で自治体値が欠損している場合は '--' となること");
+  assert.notEqual(turnoutDataMissing.turnout, '58.80', "Gate 15a: 選挙区全体値(58.80)への偽Fallbackが絶対に起きないこと");
+  assert.equal(turnoutDataMissing.showDiff, false, "Gate 15b: 欠損時は前回比を偽計算せず非表示(showDiff=false)とすること");
+  assert.deepEqual(turnoutDataMissing.history.map(h => h.turnout), ['--', '--', '--'], "Gate 15c: 過去3回推移も欠損時はすべて '--'");
+
+  // Gate 17: 30-second sync preserves current target turnout (pin selected -> keeps pin.cityName turnout)
+  assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "現在 rowId=1 (市町村A) のPinを選択中");
+  sandbox.renderCurrentView(); // Simulates 30s sync re-render
+  assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 17: 30秒同期(renderCurrentView)が走っても選択中Pin(市町村A: 64.07%)の投票率が維持され全域にリセットされない");
+
+  // Gate 16: closeAreaDetail() -> clears selectedPin and restores selectedCity turnout
+  sandbox.closeAreaDetail();
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "Gate 16a: closeAreaDetail() で selectedPin が null にクリアされる");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Gate 16b: selectedCity==='ALL' のとき Close すると全域投票率(58.80%)へ復帰");
+
+  // Also test Close when selectedCity === cityB and a pin was selected
+  sandbox.selectDesktopMunicipality(cityB);
+  sandbox.selectTownArea(3); // pin in cityB
+  sandbox.closeAreaDetail();
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "Gate 16c: 市町村B選択中のPin Closeで selectedPin が null");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 16d: 市町村B選択中のPin Closeで市町村Bの投票率(58.25%)へ復帰");
+
+  // Also test selecting another municipality resets old selectedTownId and selectedPin
+  sandbox.selectTownArea(3);
+  assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 3, "rowId=3 選択中");
+  sandbox.selectDesktopMunicipality(cityA);
+  assert.equal(sandbox.window.DashboardState.selectedTownId, 'ALL', "別市町村選択時に selectedTownId が ALL にリセットされる");
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "別市町村選択時に旧 selectedPin が null にリセットされる");
+  assert.ok(getEl('right-slot-bottom').innerHTML.includes('area-stats-empty'), "別市町村選択時に右下エリア統計から旧市町村の町丁目情報が消える");
+  console.log("  ✅ Gates 12-17 PASS: Turnout history, diff, no-false-fallback (--), 30s sync preservation, and Close recovery verified");
+
+  // --- [Mobile Contract: Gates 18, 19, 20, 21] ---
+  // Gate 18: Mobile UI list remains flat (全域 + all 5 towns) with zero 2-layer mutation
+  assert.equal(mobileList.children.length, 6, "Gate 18a: Mobileドロップダウンは『全域 + 全5町丁目』の既存フラット構造を完全維持");
+  assert.equal(mobileList.querySelectorAll('button[data-town-id]').length, 6, "Gate 18b: Mobileの全ボタンが既存の data-town-id 契約を維持");
+
+  // Gate 19: Mobile town selection updates turnout to pin.cityName
+  sandbox.selectTownArea('ALL');
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Mobile 全域選択で全域投票率(58.80%)");
+  const mobileTown1Btn = mobileList.children[1]; // rowId 1 (cityA: 64.07%)
+  mobileTown1Btn.onclick({ stopPropagation: () => {} });
+  assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "Gate 19a: Mobile町丁目選択で selectedPin が更新");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 19b: Mobile町丁目選択で所属自治体(市町村A: 64.07%)の投票率に連動");
+
+  // Gate 20 & 21: Mobile MAP Pin click & Mobile Close recovery
+  lastCreatedMarkers = [];
+  sandbox.selectTownArea('ALL');
+  lastCreatedMarkers[2].trigger('click'); // rowId 3 (cityB: 58.25%)
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 20: Mobile MAP Pinタップで所属自治体(市町村B: 58.25%)の投票率に連動");
+  sandbox.closeAreaDetail();
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Gate 21: Mobile Pin詳細Closeで selectedCity(ALL: 58.80%)の投票率へ復帰");
+  console.log("  ✅ Gates 18-21 PASS: Mobile UI unchanged & Mobile town/pin/close turnout linkage verified");
+}
 
 console.log("\n====================================================");
 console.log("🎉 ALL MANAGER UI INTERACTION TESTS PASSED PERFECTLY!");

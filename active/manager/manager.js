@@ -32,6 +32,8 @@ const DashboardState = {
   electionTurnout: null, // 国政・地方選 投票率SSOTデータ (data/election_history.json)
   selectedPin: null, // 現在MAP上で選択中のピン/エリアデータ (右下エリア統計連動)
   selectedCity: 'ALL',
+  selectedTownId: 'ALL',
+  desktopAreaSelectorView: 'CITIES',
   currentFocus: 'areas',
   domainState: {
     ranking: 'IDLE',
@@ -621,6 +623,12 @@ if (typeof window !== 'undefined') {
   window.toggleCityDropdown = toggleCityDropdown;
   window.selectCity = selectCity;
   window.onCitySelected = onCitySelected;
+  window.selectTownArea = selectTownArea;
+  window.selectDesktopMunicipality = selectDesktopMunicipality;
+  window.backToDesktopMunicipalityList = backToDesktopMunicipalityList;
+  window.selectDesktopMunicipalityAll = selectDesktopMunicipalityAll;
+  window.renderDesktopAreaSelector = renderDesktopAreaSelector;
+  window.getMunicipalityTurnout = getMunicipalityTurnout;
 }
 
 function toggleCityDropdown(event, isMobile) {
@@ -668,7 +676,14 @@ document.addEventListener('click', (e) => {
 });
 
 function selectCity(cityName) {
+  DashboardState.selectedPin = null;
+  DashboardState.selectedTownId = 'ALL';
   DashboardState.selectedCity = cityName;
+  if (typeof closeAreaDetail === 'function') {
+    const detailEl = document.getElementById('map-area-detail');
+    if (detailEl) detailEl.classList.add('hidden');
+  }
+
   const labelText = cityName === 'ALL' ? '全域' : cityName;
 
   const currentLabelEl = document.getElementById('city-selector-current');
@@ -682,6 +697,7 @@ function selectCity(cityName) {
 
   updateCitySelectorHighlight(cityName);
   onCitySelected(cityName);
+  renderDesktopAreaSelector(DashboardState.masterPins);
 }
 
 function updateCitySelectorHighlight(selectedCity) {
@@ -741,24 +757,96 @@ function populateCitySelector(cities) {
   });
 }
 
-/**
- * 地方選挙モデル: エリア選択リストの動的生成 (PC & モバイル両対応)
- */
-function populateAreaSelector(pins) {
-  const pcListEl = document.getElementById('area-selector-list');
-  const mobileListEl = document.getElementById('mobile-city-selector-list');
+function updateDesktopAreaSelectorHeader(mode, cityName, count) {
   const countEl = document.getElementById('area-selector-count');
-  if (countEl && pins) {
-    countEl.textContent = pins.length;
+  if (countEl && count !== undefined && count !== null) {
+    countEl.textContent = count;
   }
 
-  const currentSelected = DashboardState.selectedTownId || 'ALL';
+  let titleEl = null;
+  if (countEl && countEl.previousElementSibling) {
+    titleEl = countEl.previousElementSibling;
+  } else {
+    const cardEl = document.getElementById('area-selector-card');
+    if (cardEl && typeof cardEl.querySelector === 'function') {
+      titleEl = cardEl.querySelector('span');
+    }
+  }
+  if (!titleEl) return;
 
-  [pcListEl, mobileListEl].forEach(listEl => {
-    if (!listEl) return;
-    listEl.innerHTML = '';
+  if (mode === 'TOWNS' && cityName && cityName !== 'ALL') {
+    titleEl.className = 'text-xs font-bold text-white hover:text-brand tracking-wide flex items-center gap-1 cursor-pointer transition-colors';
+    titleEl.onclick = (e) => backToDesktopMunicipalityList(e);
+    titleEl.innerHTML = `<span class="text-brand font-bold">‹</span> <span class="truncate">${escapeHtml(cityName)}</span>`;
+  } else {
+    titleEl.className = 'text-xs font-bold text-white tracking-wide flex items-center gap-1';
+    titleEl.onclick = null;
+    titleEl.innerHTML = `<span>📍</span> エリア選択`;
+  }
+}
 
-    // 1. 「全域」ボタン
+function selectDesktopMunicipality(cityName) {
+  if (!cityName || cityName === 'ALL') {
+    DashboardState.desktopAreaSelectorView = 'CITIES';
+    selectCity('ALL');
+    return;
+  }
+  DashboardState.desktopAreaSelectorView = 'TOWNS';
+  selectCity(cityName);
+}
+
+function backToDesktopMunicipalityList(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  DashboardState.desktopAreaSelectorView = 'CITIES';
+  renderDesktopAreaSelector(DashboardState.masterPins);
+}
+
+function selectDesktopMunicipalityAll() {
+  const currentCity = DashboardState.selectedCity;
+  if (!currentCity || currentCity === 'ALL') {
+    selectCity('ALL');
+    return;
+  }
+
+  DashboardState.selectedPin = null;
+  DashboardState.selectedTownId = 'ALL';
+
+  const detailEl = document.getElementById('map-area-detail');
+  if (detailEl) detailEl.classList.add('hidden');
+
+  updateAreaSelectorHighlight('ALL');
+
+  if (DashboardState.map && Array.isArray(DashboardState.masterPins)) {
+    const cityPins = DashboardState.masterPins.filter(
+      p => p.cityName === currentCity && isFinite(p.lat) && isFinite(p.lng) && p.lat !== 0 && p.lng !== 0
+    );
+    if (cityPins.length > 0) {
+      const bounds = L.latLngBounds(cityPins.map(p => [p.lat, p.lng]));
+      DashboardState.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 13 });
+    }
+  }
+
+  renderCurrentView();
+}
+
+function renderDesktopAreaSelector(pins) {
+  const pcListEl = document.getElementById('area-selector-list');
+  const pinList = Array.isArray(pins) ? pins : (DashboardState.masterPins || []);
+  const cities = (Array.isArray(DashboardState.cities) && DashboardState.cities.length > 0)
+    ? DashboardState.cities
+    : Array.from(new Set(pinList.map(p => p.cityName).filter(Boolean)));
+
+  const isMultiMunicipality = cities.length > 1;
+  const currentSelectedTown = DashboardState.selectedTownId || 'ALL';
+  const currentSelectedCity = DashboardState.selectedCity || 'ALL';
+
+  if (!isMultiMunicipality) {
+    updateDesktopAreaSelectorHeader('SINGLE', null, pinList.length);
+    if (!pcListEl) return;
+    pcListEl.innerHTML = '';
+
     const allBtn = document.createElement('button');
     allBtn.type = 'button';
     allBtn.setAttribute('data-town-id', 'ALL');
@@ -766,16 +854,14 @@ function populateAreaSelector(pins) {
       e.stopPropagation();
       selectTownArea('ALL');
     };
-    allBtn.innerHTML = `<span class="truncate font-semibold text-xs">全域</span><span class="town-check text-[11px] font-bold">${currentSelected === 'ALL' ? '✓' : ''}</span>`;
-    allBtn.className = currentSelected === 'ALL'
+    const isAllSelected = currentSelectedTown === 'ALL';
+    allBtn.innerHTML = `<span class="truncate font-semibold text-xs">全域</span><span class="town-check text-[11px] font-bold">${isAllSelected ? '✓' : ''}</span>`;
+    allBtn.className = isAllSelected
       ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
       : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
-    listEl.appendChild(allBtn);
+    pcListEl.appendChild(allBtn);
 
-    if (!pins || pins.length === 0) return;
-
-    // 2. 各町丁目ボタン (104件)
-    pins.forEach(pin => {
+    pinList.forEach(pin => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.setAttribute('data-town-id', String(pin.rowId));
@@ -783,13 +869,137 @@ function populateAreaSelector(pins) {
         e.stopPropagation();
         selectTownArea(pin.rowId);
       };
-      const isSelected = String(currentSelected) === String(pin.rowId);
+      const isSelected = String(currentSelectedTown) === String(pin.rowId);
       btn.innerHTML = `<span class="truncate text-xs">${escapeHtml(pin.townName)}</span><span class="town-check text-[11px] font-bold">${isSelected ? '✓' : ''}</span>`;
       btn.className = isSelected
         ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
         : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
-      listEl.appendChild(btn);
+      pcListEl.appendChild(btn);
     });
+    return;
+  }
+
+  const viewMode = (DashboardState.desktopAreaSelectorView === 'TOWNS' && currentSelectedCity !== 'ALL')
+    ? 'TOWNS'
+    : 'CITIES';
+  DashboardState.desktopAreaSelectorView = viewMode;
+
+  if (viewMode === 'CITIES') {
+    updateDesktopAreaSelectorHeader('CITIES', null, cities.length);
+    if (!pcListEl) return;
+    pcListEl.innerHTML = '';
+
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.setAttribute('data-city-val', 'ALL');
+    allBtn.onclick = (e) => {
+      e.stopPropagation();
+      selectDesktopMunicipality('ALL');
+    };
+    const isAllCity = currentSelectedCity === 'ALL';
+    allBtn.innerHTML = `<span class="truncate font-semibold text-xs">全域</span><span class="city-check text-[11px] font-bold">${isAllCity ? '✓' : ''}</span>`;
+    allBtn.className = isAllCity
+      ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+      : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+    pcListEl.appendChild(allBtn);
+
+    cities.forEach(cityName => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-city-val', cityName);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        selectDesktopMunicipality(cityName);
+      };
+      const isSelected = currentSelectedCity === cityName;
+      btn.innerHTML = `<span class="truncate text-xs">${escapeHtml(cityName)}</span><span class="city-check text-[11px] font-bold">${isSelected ? '✓' : ''}</span>`;
+      btn.className = isSelected
+        ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+        : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+      pcListEl.appendChild(btn);
+    });
+    return;
+  }
+
+  const cityPins = pinList.filter(p => p.cityName === currentSelectedCity);
+  updateDesktopAreaSelectorHeader('TOWNS', currentSelectedCity, cityPins.length);
+  if (!pcListEl) return;
+  pcListEl.innerHTML = '';
+
+  const cityAllBtn = document.createElement('button');
+  cityAllBtn.type = 'button';
+  cityAllBtn.setAttribute('data-town-id', 'ALL');
+  cityAllBtn.onclick = (e) => {
+    e.stopPropagation();
+    selectDesktopMunicipalityAll();
+  };
+  const isCityAllSelected = currentSelectedTown === 'ALL';
+  cityAllBtn.innerHTML = `<span class="truncate font-semibold text-xs">${escapeHtml(currentSelectedCity)} 全域</span><span class="town-check text-[11px] font-bold">${isCityAllSelected ? '✓' : ''}</span>`;
+  cityAllBtn.className = isCityAllSelected
+    ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+    : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+  pcListEl.appendChild(cityAllBtn);
+
+  cityPins.forEach(pin => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-town-id', String(pin.rowId));
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      selectTownArea(pin.rowId);
+    };
+    const isSelected = String(currentSelectedTown) === String(pin.rowId);
+    btn.innerHTML = `<span class="truncate text-xs">${escapeHtml(pin.townName)}</span><span class="town-check text-[11px] font-bold">${isSelected ? '✓' : ''}</span>`;
+    btn.className = isSelected
+      ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+      : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+    pcListEl.appendChild(btn);
+  });
+}
+
+/**
+ * エリア選択リストの動的生成 (Desktop: 単一自治体1層 / 複数自治体2層、Mobile: 既存フラット維持)
+ */
+function populateAreaSelector(pins) {
+  renderDesktopAreaSelector(pins);
+
+  const mobileListEl = document.getElementById('mobile-city-selector-list');
+  if (!mobileListEl) return;
+
+  const currentSelected = DashboardState.selectedTownId || 'ALL';
+  mobileListEl.innerHTML = '';
+
+  // 1. 「全域」ボタン
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.setAttribute('data-town-id', 'ALL');
+  allBtn.onclick = (e) => {
+    e.stopPropagation();
+    selectTownArea('ALL');
+  };
+  allBtn.innerHTML = `<span class="truncate font-semibold text-xs">全域</span><span class="town-check text-[11px] font-bold">${currentSelected === 'ALL' ? '✓' : ''}</span>`;
+  allBtn.className = currentSelected === 'ALL'
+    ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+    : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+  mobileListEl.appendChild(allBtn);
+
+  if (!pins || pins.length === 0) return;
+
+  // 2. 各町丁目ボタン
+  pins.forEach(pin => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('data-town-id', String(pin.rowId));
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      selectTownArea(pin.rowId);
+    };
+    const isSelected = String(currentSelected) === String(pin.rowId);
+    btn.innerHTML = `<span class="truncate text-xs">${escapeHtml(pin.townName)}</span><span class="town-check text-[11px] font-bold">${isSelected ? '✓' : ''}</span>`;
+    btn.className = isSelected
+      ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
+      : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+    mobileListEl.appendChild(btn);
   });
 }
 
@@ -797,8 +1007,6 @@ function populateAreaSelector(pins) {
  * town_nameクリック時の該当ピンへの直接移動・ズームおよびフォーカス (PC & モバイル共通)
  */
 function selectTownArea(target) {
-  DashboardState.selectedTownId = target;
-
   // モバイルラベルの更新
   const mobileLabelEl = document.getElementById('mobile-city-selector-current');
   // モバイルドロップダウンを閉じる
@@ -808,11 +1016,20 @@ function selectTownArea(target) {
   if (mobileTrigger) mobileTrigger.setAttribute('aria-expanded', 'false');
 
   if (target === 'ALL') {
+    DashboardState.selectedPin = null;
+    DashboardState.selectedTownId = 'ALL';
+    DashboardState.selectedCity = 'ALL';
+    const detailEl = document.getElementById('map-area-detail');
+    if (detailEl) detailEl.classList.add('hidden');
+
     if (mobileLabelEl) mobileLabelEl.textContent = '全域';
     updateAreaSelectorHighlight('ALL');
+    renderCurrentView();
 
     if (!DashboardState.map) return;
-    DashboardState.selectedPin = null;
+    if (DashboardState.markersLayer) {
+      renderPinsOnMap(DashboardState.map, DashboardState.markersLayer, DashboardState.masterPins);
+    }
     if (DashboardState.masterPins && DashboardState.masterPins.length > 0) {
       const validCoords = DashboardState.masterPins
         .filter(p => isFinite(p.lat) && isFinite(p.lng) && p.lat !== 0 && p.lng !== 0)
@@ -828,16 +1045,12 @@ function selectTownArea(target) {
   const pin = DashboardState.masterPins.find(p => String(p.rowId) === String(target));
   if (!pin) return;
 
+  DashboardState.selectedTownId = target;
+  DashboardState.selectedPin = pin;
+
   if (mobileLabelEl) mobileLabelEl.textContent = pin.townName;
   updateAreaSelectorHighlight(target);
 
-  if (!DashboardState.map || !isFinite(pin.lat) || !isFinite(pin.lng) || pin.lat === 0) return;
-
-  // 該当ピンへマップ移動・ズーム
-  DashboardState.map.setView([pin.lat, pin.lng], 15, { animate: true });
-
-  // 該当ピンをフォーカス＆詳細更新
-  DashboardState.selectedPin = pin;
   const completedList = (DashboardState.globalPinStatus && DashboardState.globalPinStatus.completed) || [];
   const inProgressList = (DashboardState.globalPinStatus && DashboardState.globalPinStatus.inProgress) || [];
   const isCompleted = completedList.includes(pin.rowId);
@@ -855,9 +1068,12 @@ function selectTownArea(target) {
       population: population
     });
   }
-  if (typeof renderRightBottomAreaStats === 'function') {
-    renderRightBottomAreaStats(pin);
-  }
+  renderCurrentView();
+
+  if (!DashboardState.map || !isFinite(pin.lat) || !isFinite(pin.lng) || pin.lat === 0) return;
+
+  // 該当ピンへマップ移動・ズーム
+  DashboardState.map.setView([pin.lat, pin.lng], 15, { animate: true });
 }
 
 function updateAreaSelectorHighlight(selectedTownId) {
@@ -1120,6 +1336,7 @@ function renderPinsOnMap(mapInstance, layerGroup, pins) {
         households: households,
         population: population
       });
+      renderRightTopTurnout(DashboardState.selectedPin?.cityName ? DashboardState.selectedPin.cityName : (DashboardState.selectedCity || 'ALL'));
       renderRightBottomAreaStats(pin);
     });
 
@@ -1264,7 +1481,10 @@ function renderCurrentView() {
   if (DashboardState.currentFocus === 'roster') renderMainStageRoster(DashboardState.roster);
   if (DashboardState.currentFocus === 'requests') renderMainStageRequests(DashboardState.requests);
 
-  renderRightTopTurnout(selected);
+  const turnoutTargetCity = DashboardState.selectedPin?.cityName
+    ? DashboardState.selectedPin.cityName
+    : (DashboardState.selectedCity || 'ALL');
+  renderRightTopTurnout(turnoutTargetCity);
   renderRightBottomAreaStats(DashboardState.selectedPin);
 }
 
@@ -1360,11 +1580,13 @@ async function loadElectionTurnoutData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     DashboardState.electionTurnout = data;
-    renderRightTopTurnout(DashboardState.selectedCity || 'ALL');
+    const turnoutTarget = DashboardState.selectedPin?.cityName ? DashboardState.selectedPin.cityName : (DashboardState.selectedCity || 'ALL');
+    renderRightTopTurnout(turnoutTarget);
   } catch (err) {
     console.warn('[Election Turnout Load Warning - fallback enabled]', err);
     DashboardState.electionTurnout = null;
-    renderRightTopTurnout(DashboardState.selectedCity || 'ALL');
+    const turnoutTarget = DashboardState.selectedPin?.cityName ? DashboardState.selectedPin.cityName : (DashboardState.selectedCity || 'ALL');
+    renderRightTopTurnout(turnoutTarget);
   }
 }
 
@@ -1398,28 +1620,65 @@ function getMunicipalityTurnout(electionData, cityName) {
   // 各選挙オブジェクトの electionType を優先（未指定時は national プロパティの有無で自動フォールバック）
   const electionType = currentElection.electionType || (currentElection.national !== undefined ? 'national' : 'local');
 
+  const isSingleMunicipalityContext = !Array.isArray(DashboardState.cities) || DashboardState.cities.length <= 1;
+
   const getCityValue = (election) => {
     if (!election) return null;
-    // local 選挙標準の turnout フィールド優先
-    if (election.turnout !== undefined) return Number(election.turnout);
-    if (isAll) return Number(election.districtTurnout !== undefined ? election.districtTurnout : (election.district3 !== undefined ? election.district3 : 0));
-    const munis = election.municipalities || {};
-    if (munis[cityName] !== undefined) return Number(munis[cityName]);
-    const cleanTarget = cityName.replace(/（一部）/g, '').replace(/市|町|村|郡/g, '').trim();
-    for (const [key, val] of Object.entries(munis)) {
-      const cleanKey = key.replace(/（一部）/g, '').replace(/市|町|村|郡/g, '').trim();
-      if (cleanKey && (cleanTarget.includes(cleanKey) || cleanKey.includes(cleanTarget))) {
-        return Number(val);
+
+    // A. Target = ALL (選挙区全域)
+    if (isAll) {
+      if (election.districtTurnout !== undefined && election.districtTurnout !== null && !isNaN(Number(election.districtTurnout))) {
+        return Number(election.districtTurnout);
+      }
+      if (election.turnout !== undefined && election.turnout !== null && !isNaN(Number(election.turnout))) {
+        return Number(election.turnout);
+      }
+      if (election.district3 !== undefined && election.district3 !== null && !isNaN(Number(election.district3))) {
+        return Number(election.district3);
+      }
+      return null;
+    }
+
+    // B & C. Target = 特定自治体名 (cityName)
+    const munis = (election.municipalities && typeof election.municipalities === 'object') ? election.municipalities : null;
+    if (munis) {
+      if (munis[cityName] !== undefined && munis[cityName] !== null && !isNaN(Number(munis[cityName]))) {
+        return Number(munis[cityName]);
+      }
+      const cleanTarget = cityName.replace(/（一部）/g, '').replace(/市|町|村|郡/g, '').trim();
+      if (cleanTarget) {
+        for (const [key, val] of Object.entries(munis)) {
+          const cleanKey = key.replace(/（一部）/g, '').replace(/市|町|村|郡/g, '').trim();
+          if (cleanKey && (cleanTarget.includes(cleanKey) || cleanKey.includes(cleanTarget))) {
+            if (val !== undefined && val !== null && !isNaN(Number(val))) {
+              return Number(val);
+            }
+          }
+        }
       }
     }
+
     if (Array.isArray(election.municipalitiesTurnout)) {
       const found = election.municipalitiesTurnout.find(m => {
         const mClean = (m.name || '').replace(/（一部）/g, '').trim();
-        return cityName.includes(mClean) || mClean.includes(cityName);
+        return mClean && (cityName.includes(mClean) || mClean.includes(cityName));
       });
-      if (found) return Number(found.turnout);
+      if (found && found.turnout !== undefined && found.turnout !== null && !isNaN(Number(found.turnout))) {
+        return Number(found.turnout);
+      }
     }
-    return Number(election.districtTurnout !== undefined ? election.districtTurnout : (election.district3 !== undefined ? election.district3 : 0));
+
+    // C. 単一自治体コンテキスト (DashboardState.cities.length <= 1) かつ自治体別構造が無い場合のみ election.turnout を許可
+    const hasMunicipalityBreakdown = (munis && Object.keys(munis).length > 0) ||
+      (Array.isArray(election.municipalitiesTurnout) && election.municipalitiesTurnout.length > 0);
+    if (isSingleMunicipalityContext && !hasMunicipalityBreakdown) {
+      if (election.turnout !== undefined && election.turnout !== null && !isNaN(Number(election.turnout))) {
+        return Number(election.turnout);
+      }
+    }
+
+    // 複数自治体Dashboardで自治体値が見つからない場合、地区全体値 (districtTurnout / turnout) への偽Fallbackは禁止
+    return null;
   };
 
   const currentVal = getCityValue(currentElection);
@@ -1754,8 +2013,14 @@ function showAreaDetail(data) {
 }
 
 function closeAreaDetail() {
+  DashboardState.selectedPin = null;
   const detailEl = document.getElementById('map-area-detail');
   if (detailEl) detailEl.classList.add('hidden');
+  const turnoutTarget = DashboardState.selectedPin?.cityName
+    ? DashboardState.selectedPin.cityName
+    : (DashboardState.selectedCity || 'ALL');
+  renderRightTopTurnout(turnoutTarget);
+  renderRightBottomAreaStats(null);
 }
 
 function renderDomainStateBanner(domainKey) {
