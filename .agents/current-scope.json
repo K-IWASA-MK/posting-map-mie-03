@@ -1,5 +1,5 @@
 {
-  "mission": "DASHBOARD-TURNOUT-001 + DASHBOARD-AREA-DESKTOP-001",
+  "mission": "DASHBOARD-AREA-BACK-VISIBILITY-001",
   "files": [
     ".agents/current-scope.json",
     "active/manager/manager.js",
