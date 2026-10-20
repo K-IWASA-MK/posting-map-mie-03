@@ -1,11 +1,13 @@
 {
-  "mission": "DISTRICT-INITIALIZATION-SANITIZATION-001",
+  "mission": "DASHBOARD-SNAPSHOT-FULL-RECORDS-001",
   "files": [
     ".agents/current-scope.json",
-    "active/business/system/district_provisioner.js",
-    ".agents/skills/district-app-deployment/SKILL.md",
-    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
+    "active/manager/manager.js",
+    "active/api/v2_api.js",
+    "active/business/distribution/distribution_repository.js",
+    "docs/architecture/decisions/ADR-014_DASHBOARD_SPECIFICATION.md",
     ".agents/os-registry.json",
-    "tests/test_district_app_deployment_skill.mjs"
+    "tests/test_phase13_dashboard_verification.mjs",
+    "tests/test_dashboard_snapshot.mjs"
   ]
 }
