@@ -67,29 +67,34 @@ version: 1.0.0
   - したがって、コピー元の既存実績を理由に「本番実績あり（Migration 要）」として HARD STOP してはならず、新地区 rowId への移植（Migration）も一切行わない。
 - **標準初期化フロー**:
   ```text
-  コピー元状態（旧地区Master + コピー元既存実績）
-          ↓
-  新地区 District Initialization（data/** + Spreadsheet 不可分一体執行）
-          ↓
-  1. Git data/** を新地区確定データ（全 N 件）へ更新
-  2. Spreadsheet 配布実績<Active Dataset Key> の旧地区行およびコピー元既存実績を消去
-  3. 新地区 data/address_master.csv（全 N 件）を A2:C(N+1) へ投入し、D2:Q(N+1) を空欄化
+  Copy
+    ↓
+  New District Master CSV 完成・監査 (data/address_master.csv 全 N 件確定)
+    ↓
+  Spreadsheet District Initialization（単一不可分処理）
+    ├─ SYSTEM_INFO                  : Sanitization 対象外 (mutation = 0)
+    ├─ 配布実績<Active Dataset Key> : A2:C(N+1) 新地区化 / D列以降クリア / N超過余剰行クリア
+    └─ その他全既存sheet            : Row 1 維持 / Row 2+ クリア (非Active過月 配布実績* を含む)
+    ↓
+  Verification ➔ Activation
   ```
-- **District Initialization の 5 完了条件（すべて必須）**:
+- **District Initialization の完了条件（すべて必須）**:
   1. Git `data/**` が新地区確定データへ更新されていること。
-  2. Spreadsheet `配布実績<Active Dataset Key>` が新地区 `data/address_master.csv` で同期されていること。
-  3. 総件数 $N$、`rowId` `1..N` 連番、`city_name`、`town_name` が Git `data/address_master.csv` と Spreadsheet `A2:C(N+1)` で 100% 完全一致していること。
-  4. `配布実績<Active Dataset Key>` の活動列 `D2:Q(N+1)`（および旧行数が $N$ を超えていた場合の `N+2` 行目以降の余剰行 `A(N+2):Q<舊最終行>`）がすべて空欄であること。
-  5. Git 側（`test_district_data_gate.mjs` 等）および Spreadsheet 側の双方で Self-Verify が PASS していること。
+  2. `SYSTEM_INFO` が Sanitization 対象外として無改変（`mutation = 0`、Before == After）であること。
+  3. Spreadsheet `配布実績<Active Dataset Key>` が新地区 `data/address_master.csv` で同期され、総件数 $N$、`rowId` `1..N` 連番、`city_name`、`town_name` が Git `data/address_master.csv` と Spreadsheet `A2:C(N+1)` で 100% 完全一致していること。
+  4. `配布実績<Active Dataset Key>` の活動列 `D2:Q(N+1)`（`D` 列以降すべて）および旧行数が $N$ を超えていた場合の `N+2` 行目以降の余剰旧行がすべて空欄（non-empty = 0）であること。
+  5. `SYSTEM_INFO` と `配布実績<Active Dataset Key>` を除く **その他すべての既存シート**（`名簿*`, `保有チラシ枚数*`, `受渡要請履歴*`, `PinStatus*`, `掲示板*`, `掲示板連絡履歴*`, `端末管理`, および非Activeの過月 `配布実績*` を含む全シート）において、**Row 1（ヘッダー・構造）が 100% 維持され、かつ Row 2+ の非空セル数が 0 件（Row 2+ non-empty = 0）** であること。
+  6. Git 側（`test_district_data_gate.mjs` 等）および Spreadsheet 側の双方で Self-Verify が PASS していること。
 
 ### 4.2 Recovery Path（片側先行更新状態からの回復経路）
 
-- 前工程の分割等により、すでに Git `data/**` だけが新地区化され、Spreadsheet の `配布実績<Active Dataset Key>` がコピー元状態のまま残っている状態を検出した場合は、異常や Master Mismatch として HARD STOP するのではなく、**`Recovery Path`（片側未同期状態からの回復経路）** として扱う。
-- Recovery Path では、確定済みの Git `data/address_master.csv`（全 $N$ 件）を正本として `配布実績<Active Dataset Key>` の `A2:C(N+1)` 同期および `D2:Q(N+1)`（＋余剰行）クリアを実行し、上記 5 完了条件を満たして District Initialization を完結させる。
+- 前工程の分割等により、すでに Git `data/**` だけが新地区化され、Spreadsheet の `配布実績<Active Dataset Key>` や他シートにコピー元データが残っている状態を検出した場合は、異常や Master Mismatch として HARD STOP するのではなく、**`Recovery Path`（片側未同期状態からの回復経路）** として扱う。
+- Recovery Path では、確定済みの Git `data/address_master.csv`（全 $N$ 件）を正本として上記の一括初期化（`配布実績<Active Dataset Key>` の `A2:C(N+1)` 同期・`D2:Q(N+1)` 及び余剰行クリア、ならびにその他全既存シートの `Row 2+` クリア）を実行し、全完了条件を満たして District Initialization を完結させる。
 
-### 4.3 シート保護規程
+### 4.3 シート保護・Sanitization 規程
 
-- `配布実績<Active Dataset Key>` の 1 行目ヘッダー（`A1:Q1`）、書式・列幅・条件付き書式、`SYSTEM_INFO`（`A1:B16`）、および他シート（`名簿<Key>`, `保有チラシ枚数<Key>`, `受渡要請履歴<Key>`, `掲示板<Key>`, `PinStatus<Key>`, `端末管理`）の構造・ヘッダーは 100% 保護する。
+- `SYSTEM_INFO`（`A1:B16`）は Sanitization 対象外（`mutation = 0`）とし、全シートの 1 行目ヘッダー、シート数、シート名、書式・列幅・条件付き書式・固定行（Freeze）・保護設定（Protection）は 100% 保護する。
+- シート削除（`deleteSheet()`）、書式ごと消去する `clear()`、およびシート rename は絶対禁止とし、値のみを消去する `clearContent()` を使用する。
 
 ---
 
@@ -234,7 +239,8 @@ Pre-Cutover Verification がすべて PASS した後、以下の **確定シー�
 - `active/system_info_service.js` の `syncSystemInfo()` を実行すること（`SYSTEM_INFO!A16:B16` が消去されるため）。
 - Normal Path において AI が `SYSTEM_INFO!A4` または `A16` の入力欄を勝手に新設・上書きすること。
 - `SYSTEM_INFO!B16`（`GOOGLE_MAPS_API_KEY`）の生値をチャット・ログ・Git・テストへ出力すること。
-- `data/**` 更新と Spreadsheet `配布実績<Key>` 同期を切り離し、片側だけ更新して放置すること。
+- `data/**` 更新と Spreadsheet District Initialization（`配布実績<Active Dataset Key>` 同期およびその他全既存シートの Row 2+ クリア）を切り離し、片側だけ更新してコピー元業務データを残存させること。
+- District Initialization において `deleteSheet()`、`clear()`（書式消去）、またはシート rename を使用すること。
 - コピー元 Spreadsheet に元から入っていた旧地区行・既存実績（`D〜Q` 列）を新地区の本番実績と誤認して HARD STOP したり、新地区 rowId へ Migration しようとすること。
 - Script Properties に地区サフィックスなしの無印 `GOOGLE_MAPS_API_KEY` を設定・残存させること。
 - 固定の Deployment 世代番号や特定地区名を Universal 手順・ルール・スキルにハードコードすること（必ず `<LEGACY_DEPLOYMENT>` / `<NEW_DEPLOYMENT>` または「旧Deployment / 新Deployment」で記述すること）。
@@ -247,7 +253,7 @@ Pre-Cutover Verification がすべて PASS した後、以下の **確定シー�
 ## 13. Evidence & Acceptance Checklist (完了検収チェックリスト)
 
 - [ ] **Human Input**: MASTER 直接入力が `SYSTEM_INFO!B4`（`https://<DOMAIN>/`）および `SYSTEM_INFO!B16`（`<GOOGLE_MAPS_API_KEY>`）の 2 項目のみであり、AI は READ ONLY で参照したこと（`B16` 生値の露出ゼロ、`syncSystemInfo()` 未実行）。
-- [ ] **District Initialization**: Git `data/**` と Spreadsheet `配布実績<Active Dataset Key>` が不可分一体で同期され、5 完了条件（① `data/**` 更新、② Spreadsheet 同期、③ 件数 $N$・`rowId 1..N`・`city_name`・`town_name` 100% 一致、④ `D2:Q(N+1)` 空欄、⑤ 双方向 Self-Verify PASS）をすべて満たしていること。
+- [ ] **District Initialization**: Git `data/**` と Spreadsheet が不可分一体で初期化され、完了条件（① `data/**` 更新、② `SYSTEM_INFO` Sanitization `mutation = 0`、③ `配布実績<Active Dataset Key>` の件数 $N$・`rowId 1..N`・`city_name`・`town_name` が `A2:C(N+1)` と 100% 一致、④ `配布実績<Active Dataset Key>` の `D2:Q(N+1)` および $N$ 超過余剰行が空欄、⑤ その他全既存シートの Row 1 ヘッダー維持 & Row 2+ 非空セル 0、⑥ 双方向 Self-Verify PASS）をすべて満たしていること。
 - [ ] **Bound GAS & Script Properties**: `<TARGET_SPREADSHEET_ID>` に紐づく `<BOUND_SCRIPT_ID>` に無改変の `active/**` が push され、Tier 1 標準 9 キーが設定され、無印 `GOOGLE_MAPS_API_KEY` が存在しないこと。
 - [ ] **Pre-Cutover 5 Checks**: `<NEW_DEPLOYMENT>` に対して `getDashboardData`（$N$ 件）、`getMapsApiKey`（`isFallback: false`）、引数なし `MISSING_DISTRICT_ID`、他地区 `DISTRICT_MISMATCH`、`switchDistrictSpreadsheet`（3 意味論的不変条件：① `success: true` にならない、② `Provisioning token is missing` に入らない、③ 副作用ゼロ）が確認済みであること。
 - [ ] **Audit & Cutover Sequence**: `Scope Lock Commit (<BASE>)` ➔ `data/config.js` 更新 ➔ `Self Verify` ➔ `Implementation Commit (<TARGET>, <BASE> !== <TARGET>)` ➔ `Stage 7 Independent Auditor (<BASE>..<TARGET>)` ➔ `gate:auditor` Exit 0 ➔ `git push` の順序が厳守されたこと。

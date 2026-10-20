@@ -13,7 +13,7 @@
 ## 1. 目的と最上位原則
 
 本書は、日本全国の新しい自治体・地域（以下「新地区」）を Universal POSTING MAP に投入し、安全・確実・反復可能に本番稼働（ACTIVE）させるための **唯一の標準運用手順書（SSOT）** である。
-完成コピーから出発した新地区の具体的な本番アクティベーション実行契約（Human Input 最小化 2 項目 `SYSTEM_INFO!B4` / `B16` の READ ONLY 参照、`data/**` 新地区化と Spreadsheet `配布実績<Key>` 新地区同期を不可分一体で行う District Initialization、Script Properties 3 区分、`<NEW_DEPLOYMENT>` / `<LEGACY_DEPLOYMENT>` の切替・Stage 7 独立監査順序・Legacy Deployment Retirement）は、本書の Companion Skill である [`.agents/skills/district-app-deployment/SKILL.md`](../../.agents/skills/district-app-deployment/SKILL.md) に定式化されており、AI 社員は本書と当該 Skill を一体として遵守する（二重定義による SSOT Drift を防ぐため、13 章の詳細実行手順は当該 Skill を正本とする）。
+完成コピーから出発した新地区の具体的な本番アクティベーション実行契約（Human Input 最小化 2 項目 `SYSTEM_INFO!B4` / `B16` の READ ONLY 参照、`data/**` 新地区化と Spreadsheet 全体の一括初期化［`SYSTEM_INFO` Sanitization `mutation = 0`、`配布実績<Active Dataset Key>` の `A:C` 新地区Master化＋`D` 列以降及び余剰旧行クリア、非Active過月 `配布実績*` を含むその他全既存シートの Row 1 維持＋Row 2+ クリア］を不可分一体で行う District Initialization、Script Properties 3 区分、`<NEW_DEPLOYMENT>` / `<LEGACY_DEPLOYMENT>` の切替・Stage 7 独立監査順序・Legacy Deployment Retirement）は、本書の Companion Skill である [`.agents/skills/district-app-deployment/SKILL.md`](../../.agents/skills/district-app-deployment/SKILL.md) に定式化されており、AI 社員は本書と当該 Skill を一体として遵守する（二重定義による SSOT Drift を防ぐため、13 章の詳細実行手順は当該 Skill を正本とする）。
 
 ### 最重要不変原則
 1. **Zero Code Duplication / Zero Runtime Modification**:
@@ -142,16 +142,16 @@
      - `契約開始日時`: プロビジョニング実行時の JST 日時。
      - `契約終了日` (必須): 契約有効期限（YYYY-MM-DD）。
      - `Manager認証パスワード`: 初期管理者PIN（英数字6桁ランダム数値）。
-  4. **実運用 5 シート直接生成**:
+  4. **実運用 5 シート直接生成 & 全シート一括初期化 (District Initialization)**:
      - `DistrictProvisioner.getInstance().provisionNewDistrict(addresses, options, districtId)` を実行。
-     - `address_master.csv` から実運用 5 シート（`配布実績<Key>`, `名簿<Key>`, `保有チラシ枚数<Key>`, `受渡要請履歴<Key>`, `PinStatus<Key>`）を直接生成する（原本5種は生成しない、計6シート構成）。
-     - 5シートの直接生成成功後、`SYSTEM_INFO` の「状態」を `ACTIVE` に確定する。
+     - `address_master.csv` から実運用 5 シート（`配布実績<Key>`, `名簿<Key>`, `保有チラシ枚数<Key>`, `受渡要請履歴<Key>`, `PinStatus<Key>`）を直接生成する（原本5種は生成しない、計6シート構成）。また、完成コピーからの District Initialization 時には、`SYSTEM_INFO` を Sanitization 対象外（`mutation = 0`）とした上で、`配布実績<Active Dataset Key>` の `A2:C(N+1)` 新地区Master投入・`D` 列以降および $N$ 超過余剰行のクリア、ならびにその他全既存シート（非Active過月 `配布実績*` を含む）の Row 1 維持・Row 2+ クリア（`clearContent()`）を一括実行する。
+     - 5シートの生成・初期化成功後、`SYSTEM_INFO` の「状態」を `ACTIVE` に確定する（`skipSystemInfo: true` 指定時は既存 `SYSTEM_INFO` を無改変維持）。
   5. スプレッドシートID（`spreadsheetId`）を取得。
 - **Validation**:
   - **Human Navigation Contract**: スプレッドシートが `03_BRANCH/{districtId}/` 直下に実体として存在し、ショートカット（`application/vnd.google-apps.shortcut`）ではないこと。
   - `SYSTEM_INFO` の `地区コード` とリクエスト `districtId` が完全一致すること（Integrity Guard）。
   - `SYSTEM_INFO` の `運用モード` が `ELECTION` または `SUBSCRIPTION` として確定していること。
-  - 実運用 5 シートが欠損なく 5/5 生成されていること。原本5種が存在しないこと。
+  - 実運用 5 シートが欠損なく 5/5 存在し、`配布実績<Active Dataset Key>` の `A2:C(N+1)` が新地区 `address_master.csv`（全 $N$ 件）と完全一致し、`D` 列以降・余剰旧行、および `SYSTEM_INFO` と `配布実績<Active Dataset Key>` 以外の全既存シートの Row 2+ 非空セル数が 0 件であること。原本5種が存在しないこと。
   - シート面内にカスタム関数や `onEdit` トリガーが存在しないこと。
 - **Evidence**:
   - 新規スプレッドシートの URL / ID

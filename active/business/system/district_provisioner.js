@@ -131,6 +131,27 @@
       lock.waitLock(30000);
 
       try {
+        const existingSysSheet = ss.getSheetByName("SYSTEM_INFO");
+        if (options && options.skipSystemInfo === true && !existingSysSheet) {
+          throw new Error(`[DistrictProvisioner] SYSTEM_INFO sheet is required when skipSystemInfo is true (Fail-Closed).`);
+        }
+        if (existingSysSheet && cleanDistrictId) {
+          const sysLr = existingSysSheet.getLastRow();
+          const sysLc = existingSysSheet.getLastColumn();
+          if (sysLr >= 1 && sysLc >= 2) {
+            const sysRows = existingSysSheet.getRange(1, 1, sysLr, 2).getValues();
+            for (let i = 0; i < sysRows.length; i++) {
+              if (String(sysRows[i][0] || "").trim() === "地区コード") {
+                const existingCode = String(sysRows[i][1] || "").trim().toUpperCase();
+                if (existingCode && existingCode !== "TEMPLATE" && existingCode !== cleanDistrictId) {
+                  throw new Error(`[DistrictProvisioner] DISTRICT_MISMATCH: Spreadsheet district code "${existingCode}" does not match target district "${cleanDistrictId}".`);
+                }
+                break;
+              }
+            }
+          }
+        }
+
         const provisioningNow = (options && options.provisioningNow instanceof Date) ? options.provisioningNow : new Date();
         let jstIso = "";
         let currentMonthStr = "";
@@ -144,14 +165,42 @@
         }
 
         // Active Dataset Key / 契約開始日時: 単一 provisioningNow から一意に確定（caller options による上書き禁止）
-        const activeDatasetKey = currentMonthStr;
+        // ただし skipSystemInfo === true（既存 SYSTEM_INFO 保護経路）かつ SYSTEM_INFO に既存の Active Dataset Key がある場合はそれを維持
+        let activeDatasetKey = currentMonthStr;
+        if (options && options.skipSystemInfo === true && existingSysSheet) {
+          const sysLr = existingSysSheet.getLastRow();
+          const sysLc = existingSysSheet.getLastColumn();
+          if (sysLr >= 1 && sysLc >= 2) {
+            const sysRows = existingSysSheet.getRange(1, 1, sysLr, 2).getValues();
+            for (let i = 0; i < sysRows.length; i++) {
+              if (String(sysRows[i][0] || "").trim() === "Active Dataset Key") {
+                const rawKey = sysRows[i][1];
+                if (rawKey instanceof Date) {
+                  activeDatasetKey = (typeof Utilities !== 'undefined' && typeof Utilities.formatDate === 'function')
+                    ? Utilities.formatDate(rawKey, "JST", "yyyy-MM")
+                    : rawKey.toISOString().slice(0, 7);
+                } else {
+                  const strKey = String(rawKey || "").trim();
+                  if (strKey) activeDatasetKey = strKey;
+                }
+                break;
+              }
+            }
+          }
+        }
 
         options.operationMode = operationMode;
         options.activeDatasetKey = activeDatasetKey;
         options.contractStartDate = jstIso;
 
-        // 1. 実運用5シートを直接生成 (All-or-Nothing)
+        // 0. 事前ヘッダー契約検証 (非 SYSTEM_INFO シートで Row 2+ にデータがあるのに Row 1 ヘッダーが空欄の場合は mutation 0 で停止)
+        this.validateExistingSheetHeaders(ss);
+
+        // 1. 実運用5シートを直接生成 (All-or-Nothing, 5/5 存在時は No-op 維持)
         const datasetResult = this.createOperationalDataset(ss, activeDatasetKey, addresses);
+
+        // 1b. 新地区 District Initialization 一括初期化 (SYSTEM_INFO 対象外、配布実績<Active> A:C同期+D以降&余剰行クリア、他全シート Row 2+ クリア)
+        this.initializeDistrictSheets(ss, activeDatasetKey, addresses, datasetResult);
 
         // 2. SYSTEM_INFO 同期（5シート生成成功後に ACTIVE 化）
         let sysInfoResult = null;
@@ -802,6 +851,90 @@
         });
         SpreadsheetApp.flush();
         throw err;
+      }
+    }
+
+    /**
+     * 非 SYSTEM_INFO シートの Row 1 ヘッダー契約検証 (書込前 Fail-Closed)
+     * Row 2+ にデータがあるにもかかわらず Row 1 ヘッダーが全空欄の異常シートが存在する場合は mutation 0 で停止する
+     */
+    validateExistingSheetHeaders(ss) {
+      if (!ss || typeof ss.getSheets !== "function") return;
+      const sheets = ss.getSheets();
+      for (let i = 0; i < sheets.length; i++) {
+        const s = sheets[i];
+        const sName = s.getName();
+        if (sName === "SYSTEM_INFO") continue;
+        const lr = s.getLastRow();
+        const lc = s.getLastColumn();
+        if (lr >= 2) {
+          const headerRow = s.getRange(1, 1, 1, Math.max(lc, 1)).getValues()[0];
+          const hasHeader = Array.isArray(headerRow) && headerRow.some(v => v !== "" && v !== null && v !== undefined);
+          if (!hasHeader) {
+            throw new Error(`[DistrictProvisioner] INVALID_SHEET_HEADER_CONTRACT: Sheet "${sName}" has data in Row 2+ without a valid Row 1 header.`);
+          }
+        }
+      }
+    }
+
+    /**
+     * 新地区 District Initialization における全シート一括初期化
+     * - SYSTEM_INFO: Sanitization 対象外 (mutation = 0)
+     * - 配布実績<Active Dataset Key>: Row 1維持 / A:C = 新地区Master / D列以降クリア / N超過余剰行クリア
+     * - その他すべての既存シート (非Active過月 配布実績* を含む): Row 1維持 / Row 2+ クリア
+     */
+    initializeDistrictSheets(ss, activeDatasetKey, addresses, datasetResult) {
+      if (!ss || typeof ss.getSheets !== "function") return;
+      const activeDistName = `${this.prefixes.distribution}${activeDatasetKey}`;
+      const sheets = ss.getSheets();
+      const masterRows = addresses.map((addr, idx) => {
+        const rowId = addr.rowId !== undefined ? addr.rowId : (idx + 1);
+        const city = addr.cityName || addr.city_name || "";
+        const town = addr.townName || addr.town_name || "";
+        return [rowId, city, town];
+      });
+      const targetRowCount = masterRows.length;
+
+      for (let i = 0; i < sheets.length; i++) {
+        const sheet = sheets[i];
+        const sheetName = sheet.getName();
+
+        // 1. SYSTEM_INFO -> Sanitization 対象外 (mutation = 0)
+        if (sheetName === "SYSTEM_INFO") {
+          continue;
+        }
+
+        // 2. 配布実績<Active Dataset Key>
+        if (sheetName === activeDistName) {
+          if (datasetResult && datasetResult.noop === true) {
+            const oldLastRow = sheet.getLastRow();
+            const oldLastCol = sheet.getLastColumn();
+
+            // D列以降 (Col 4..oldLastCol) の既存実績データを clearContent() で全クリア
+            if (oldLastRow >= 2 && oldLastCol >= 4) {
+              sheet.getRange(2, 4, oldLastRow - 1, oldLastCol - 3).clearContent();
+            }
+
+            // 新地区 N 件を超える旧余剰行 (Row N+2..oldLastRow) の A:C を clearContent() で全クリア
+            if (oldLastRow > targetRowCount + 1) {
+              const surplusRows = oldLastRow - (targetRowCount + 1);
+              sheet.getRange(targetRowCount + 2, 1, surplusRows, 3).clearContent();
+            }
+
+            // A2:C(N+1) に新地区 address_master を投入
+            if (targetRowCount > 0) {
+              sheet.getRange(2, 1, targetRowCount, 3).setValues(masterRows);
+            }
+          }
+          continue;
+        }
+
+        // 3. その他すべての既存シート (非Active過月 配布実績* を含む): Row 1維持, Row 2+ clearContent()
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+        if (lastRow >= 2 && lastCol >= 1) {
+          sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+        }
       }
     }
 
