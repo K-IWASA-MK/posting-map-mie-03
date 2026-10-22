@@ -68,7 +68,8 @@ const mockLayer = {
   addTo: () => mockLayer
 };
 
-// Node VM 内で manager.js を評価
+// Node VM 内で report-export.js → manager.js を評価
+const reportExportCode = fs.readFileSync(path.join(process.cwd(), "active/manager/modules/report-export.js"), 'utf8');
 const managerCode = fs.readFileSync(path.join(process.cwd(), "active/manager/manager.js"), 'utf8');
 
 let mockApiResponseHandler = null;
@@ -126,7 +127,8 @@ vm.createContext(sandbox);
 sandbox.setSyncStatus = (status) => {};
 sandbox.showManagerPinGate = () => {};
 
-// manager.js をサンドボックスに読み込む
+// report-export.js → manager.js をサンドボックスに順番に読み込む
+vm.runInContext(reportExportCode, sandbox);
 vm.runInContext(managerCode, sandbox);
 
 // -------------------------------------------------------------
@@ -884,7 +886,7 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
 
   // 1. PDF出力の検証
   const pdfHtml = sandbox.generateRecordsReportPdfHtml(reportState25);
-  assert.ok(!managerCode.includes('liveRecordsList.slice(0, 15)'), "manager.js から liveRecordsList.slice(0, 15) が完全撤廃されていること");
+  assert.ok(!reportExportCode.includes('liveRecordsList.slice(0, 15)') && !managerCode.includes('liveRecordsList.slice(0, 15)'), "report-export.js / manager.js から liveRecordsList.slice(0, 15) が完全撤廃されていること");
   assert.ok(!pdfHtml.includes('Page 1 / 1'), "PDF HTML から固定の 'Page 1 / 1' が削除されていること");
   assert.ok(pdfHtml.includes('display: table-header-group;'), "PDF CSS に thead 再掲 (display: table-header-group) が設定されていること");
   assert.ok(pdfHtml.includes('.report-table tr {\n      break-inside: avoid;\n      page-break-inside: avoid;\n    }'), "PDF CSS に tr 行途中分断防止が設定されていること");
