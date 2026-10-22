@@ -1052,9 +1052,13 @@
 
   <script>
     (function() {
-      var s = document.createElement('script');
-      s.src = 'manager.js?_t=' + Date.now();
-      document.body.appendChild(s);
+      var t = Date.now();
+      ['modules/report-export.js', 'manager.js'].forEach(function(src) {
+        var s = document.createElement('script');
+        s.async = false;
+        s.src = src + '?_t=' + t;
+        document.body.appendChild(s);
+      });
     })();
   </script>
 </body>
