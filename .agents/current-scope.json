@@ -1,8 +1,27 @@
 {
-  "mission": "DASHBOARD-REPORT-FULL-RECORDS-AND-RANKING-AREAS-001",
+  "mission": "H-APP-PIN-STATUS-OWNERSHIP-RECOVERY-001",
   "files": [
     ".agents/current-scope.json",
+    ".agents/os-registry.json",
+    "active/business/pin/pin_status_service.js",
+    "active/business/gps/gps_service.js",
+    "active/api/v2_api.js",
+    "active/business/system/district_provisioner.js",
+    "active/gas/v2_migration.js",
+    "active/h-app/modules/pin-status.js",
+    "active/h-app/modules/activity.js",
+    "active/h-app/db.js",
+    "active/h-app/render.js",
+    "active/h-app/app.js",
     "active/manager/manager.js",
-    "tests/test_manager_ui_interaction.mjs"
+    "docs/data/DATA_DICTIONARY.md",
+    "docs/architecture/03_CURRENT_H_APP_INVENTORY.md",
+    "docs/api/API_CONTRACT.md",
+    "tests/test_pin_status_module_lifecycle.mjs",
+    "tests/test_schema_provisioning_healing.mjs",
+    "tests/test_multi_district_routing_auth.mjs",
+    "tests/test_phase11_activity_state_machine.mjs",
+    "scripts/test_browser_h_app_pin_status.mjs",
+    "scripts/test_browser_h_app_activity.mjs"
   ]
 }
