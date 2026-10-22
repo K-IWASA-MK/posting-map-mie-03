@@ -415,7 +415,7 @@ async function runActivityBrowserTests() {
     report(7, 'オフライン提出 ➔ 即時画面解放・Queue永続化 (isDone: false)', case7Res.passed);
 
     // =========================================================================
-    // Case 8: Activity ACCEPTED transition integration
+    // Case 8: Activity ACCEPTED transition integration (Backend completion release -> Frontend remove = 0)
     // =========================================================================
     const case8Res = await page.evaluate(async () => {
       const p = { rowId: 907, isDone: false, photoStatus: 'OK', photoBase64: 'data:img' };
@@ -429,7 +429,7 @@ async function runActivityBrowserTests() {
       const item = { id: 1, rowId: 907, latitude: 35.0, longitude: 136.0 };
       const res = { success: true, accepted: true, photoUrl: 'https://test/p.jpg' };
 
-      // onAcceptedAfterDequeue の因果順序を追跡
+      // onAcceptedAfterDequeue の因果順序を追跡 (新契約: Backend側でPinStatus解除済みのため Frontend setPinInProgress(remove) = 0回)
       const events = [];
       const fakeSetPinInProgress = (rid, action) => {
         if (action === 'remove') {
@@ -440,24 +440,26 @@ async function runActivityBrowserTests() {
       const origSetPin = window.setPinInProgress;
       window.setPinInProgress = fakeSetPinInProgress;
 
-      // Composition Root の accepted wiring 実行
-      // 1. window.setPinInProgress(item.rowId, "remove")
-      window.setPinInProgress(item.rowId, "remove");
-      // 2. PinStatusModule.reflectCompleted
+      // Composition Root の accepted wiring 実行 (app.js onAcceptedAfterDequeue と同一順序)
+      // 1. PinStatusModule.reflectCompleted(item.rowId)
+      PinStatusModule.reflectCompleted(item.rowId);
       events.push('reflect_completed');
       reflectedCount++;
-      // 3. ActivityModule.applyQueueOutcome
+      // 2. ActivityModule.applyQueueOutcome
       ActivityModule.applyQueueOutcome(p, { type: 'ACCEPTED', res, item });
       events.push('apply_outcome');
       outcomeApplied = (p.isDone === true);
 
       window.setPinInProgress = origSetPin;
 
-      const passed = removedCount === 1 && reflectedCount === 1 && outcomeApplied &&
-                     events[0] === 'pin_remove' && events[1] === 'reflect_completed' && events[2] === 'apply_outcome';
-      return { passed, events, isDone: p.isDone, gps: p.gps };
+      const passed = removedCount === 0 && reflectedCount === 1 && outcomeApplied &&
+                     PinStatusModule.isCompleted(907) === true &&
+                     PinStatusModule.isInProgress(907) === false &&
+                     events.length === 2 &&
+                     events[0] === 'reflect_completed' && events[1] === 'apply_outcome';
+      return { passed, removedCount, reflectedCount, events, isDone: p.isDone, gps: p.gps };
     });
-    report(8, 'Activity ACCEPTED transition integration', case8Res.passed, JSON.stringify(case8Res));
+    report(8, 'Activity ACCEPTED transition integration (Frontend remove = 0)', case8Res.passed, JSON.stringify(case8Res));
 
     // =========================================================================
     // Case 9: Activity REJECTED transition integration

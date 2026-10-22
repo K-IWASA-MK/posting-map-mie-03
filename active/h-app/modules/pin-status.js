@@ -21,7 +21,7 @@ const PinStatusModule = (() => {
   const _myLocks = new Map(); // rowId (number) -> lockId (string)
   let _lastSyncTime = 0;
   let _actionPromiseChain = Promise.resolve();
-  let _flushingPendingRemoves = false;
+  let _pendingFlushPromise = null;
 
   const PENDING_REMOVES_KEY = 'h_app_pending_pin_removes_v1';
 
@@ -112,41 +112,56 @@ const PinStatusModule = (() => {
     );
   }
 
-  async function _flushPendingRemoves(hooks) {
-    if (_flushingPendingRemoves) return;
-    const pending = _loadPendingRemoves();
-    if (pending.length === 0) return;
-    if (typeof callApiPost !== 'function') return;
-
-    _flushingPendingRemoves = true;
-    const currentHooks = hooks || {};
-    let remaining = pending.slice();
-
-    try {
-      for (let i = 0; i < pending.length; i++) {
-        const entry = pending[i];
-        try {
-          if (typeof currentHooks.authorize === 'function') {
-            await currentHooks.authorize();
-          }
-          await callApiPost('setPinInProgress', {
-            rowId: entry.rowId,
-            pinAction: 'remove',
-            lockId: entry.lockId
-          });
-          remaining = remaining.filter(r => !(r.rowId === entry.rowId && r.lockId === entry.lockId));
-        } catch (err) {
-          const code = err && err.code ? String(err.code) : '';
-          if (_isTerminalRemoveError(code)) {
-            remaining = remaining.filter(r => !(r.rowId === entry.rowId && r.lockId === entry.lockId));
-          }
-          // 通信失敗等の非終端エラーは remaining に残して次回再試行
-        }
-      }
-      _savePendingRemoves(remaining);
-    } finally {
-      _flushingPendingRemoves = false;
+  function _flushPendingRemoves(hooks) {
+    if (_pendingFlushPromise) {
+      return _pendingFlushPromise;
     }
+    const currentHooks = hooks || {};
+    const flushPromise = (async () => {
+      try {
+        await Promise.resolve();
+        if (typeof callApiPost !== 'function') return;
+        const snapshot = _loadPendingRemoves();
+        if (snapshot.length === 0) return;
+
+        for (let i = 0; i < snapshot.length; i++) {
+          const entry = snapshot[i];
+          const currentPending = _loadPendingRemoves();
+          const stillPending = currentPending.some(
+            p => p.rowId === entry.rowId && p.lockId === entry.lockId
+          );
+          if (!stillPending) continue;
+
+          try {
+            if (typeof currentHooks.authorize === 'function') {
+              await currentHooks.authorize();
+            }
+            const res = await callApiPost('setPinInProgress', {
+              rowId: entry.rowId,
+              pinAction: 'remove',
+              lockId: entry.lockId
+            });
+            if (res && res.success === false) {
+              const err = new Error(res.message || 'setPinInProgress remove failed');
+              err.code = res.code || 'REMOVE_FAILED';
+              throw err;
+            }
+            _dequeuePendingRemove(entry.rowId, entry.lockId);
+          } catch (err) {
+            const code = err && err.code ? String(err.code) : '';
+            if (_isTerminalRemoveError(code)) {
+              _dequeuePendingRemove(entry.rowId, entry.lockId);
+            }
+            // 通信失敗等の非終端エラーは localStorage に残して次回再試行
+          }
+        }
+      } finally {
+        _pendingFlushPromise = null;
+      }
+    })();
+
+    _pendingFlushPromise = flushPromise;
+    return flushPromise;
   }
 
   /**
@@ -250,8 +265,32 @@ const PinStatusModule = (() => {
       }
 
       if (action === 'add') {
-        const candidateLockId = String(currentHooks.lockId || '').trim() || _generateLockId();
         try {
+          // 同一 rowId に未解決の pending remove がある場合（または進行中の flush がある場合）は先に決着させる
+          if (
+            _pendingFlushPromise ||
+            _loadPendingRemoves().some(item => item.rowId === numericRowId)
+          ) {
+            await _flushPendingRemoves(currentHooks);
+          }
+
+          const hasUnresolvedPendingRemove = _loadPendingRemoves().some(
+            item => item.rowId === numericRowId
+          );
+          if (hasUnresolvedPendingRemove) {
+            const unresolvedErr = new Error('Pending remove for this pin is not yet resolved');
+            unresolvedErr.code = 'PENDING_REMOVE_UNRESOLVED';
+            if (typeof currentHooks.onError === 'function') {
+              currentHooks.onError(unresolvedErr);
+            }
+            return {
+              success: false,
+              code: 'PENDING_REMOVE_UNRESOLVED',
+              error: unresolvedErr
+            };
+          }
+
+          const candidateLockId = String(currentHooks.lockId || '').trim() || _generateLockId();
           if (typeof currentHooks.authorize === 'function') {
             await currentHooks.authorize();
           }

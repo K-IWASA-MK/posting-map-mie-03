@@ -641,9 +641,9 @@ test('9. P1 #3: isDone=false 取消経路の完全閉鎖（Fail-Closed & Mutatio
 });
 
 // ----------------------------------------------------------------------------
-// 10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャンセル契約維持)
+// 10. P1: PinStatus Completion Zero-Frontend-Remove & Cancel Contract Verification (Case 1〜11)
 // ----------------------------------------------------------------------------
-test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャンセル契約維持)', async () => {
+test('10. P1: PinStatus Completion Zero-Frontend-Remove & Cancel Contract Verification (Case 1〜11)', async () => {
   // --- 静的構造検証: 冗長呼出の完全排除と正規配置 ---
   // appJs: triggerUISyncRefresh 内から setPinInProgress が排除されていること
   const triggerRefreshMatch = appJs.match(/window\.triggerUISyncRefresh\s*=\s*async\s*function[\s\S]*?^};/m);
@@ -653,10 +653,14 @@ test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャン
   // appJs: submitMissionComplete 内から setPinInProgress の重複呼出が排除されていること
   const submitCompleteMatch = appJs.match(/async\s*function\s*submitMissionComplete[\s\S]*?^}/m);
   assert.ok(submitCompleteMatch, 'submitMissionComplete が存在すること');
-  assert.ok(!submitCompleteMatch[0].includes('setPinInProgress'), 'submitMissionComplete 内に setPinInProgress が存在しないこと (Single-Fire)');
+  assert.ok(!submitCompleteMatch[0].includes('setPinInProgress'), 'submitMissionComplete 内に setPinInProgress が存在しないこと');
 
-  // Composition Root: onAcceptedAfterDequeue 内で setPinInProgress remove が実行されること
-  assert.ok(appJs.includes('window.setPinInProgress(item.rowId, "remove");'), 'app.js の onAcceptedAfterDequeue で setPinInProgress remove が呼ばれること');
+  // Composition Root: onAcceptedAfterDequeue 内から setPinInProgress が完全撤去され、PinStatusModule.reflectCompleted が呼ばれていること
+  const hookIdx = appJs.indexOf('onAcceptedAfterDequeue');
+  assert.ok(hookIdx > 0, 'app.js に onAcceptedAfterDequeue が存在すること');
+  const hookBlock = appJs.substring(hookIdx, appJs.indexOf('onFailedAfterQueueUpdate', hookIdx));
+  assert.ok(!hookBlock.includes('setPinInProgress'), 'app.js の onAcceptedAfterDequeue で Frontend setPinInProgress が呼ばれないこと (Backend完了時一体解除)');
+  assert.ok(hookBlock.includes('PinStatusModule.reflectCompleted(item.rowId);'), 'app.js の onAcceptedAfterDequeue で PinStatusModule.reflectCompleted が呼ばれること');
 
   // dbJs: dequeueSync 完了後に onAcceptedAfterDequeue Hook が呼ばれること
   assert.ok(dbJs.includes('await dequeueSync(item.id);'), 'dequeueSync が存在すること');
@@ -688,7 +692,7 @@ test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャン
       triggerUISyncRefresh: null
     };
 
-    // db.js の dequeue 後処理ロジックの抽出シミュレータ (rowId基準統一)
+    // db.js + onAcceptedAfterDequeue 新契約シミュレータ (Backend一体解除済みのため Frontend remove = 0、reflectCompleted のみ)
     async function simulateDbPostAcceptance(item, res, pointOrAreaCondition) {
       if (res && res.success) {
         if (res.accepted === false) {
@@ -699,14 +703,14 @@ test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャン
           return;
         }
 
-        // 正規発火点 (表示エリア非依存)
-        if (typeof mockWindow.setPinInProgress === 'function') {
-          mockWindow.setPinInProgress(item.rowId, "remove");
-        }
-        if (mockWindow.globalPinStatus && Array.isArray(mockWindow.globalPinStatus.completed)) {
+        // PinStatusModule.reflectCompleted(item.rowId) 相当 (API 0回で completed 反映 + inProgress 除去)
+        if (mockWindow.globalPinStatus) {
           const numericRowId = Number(item.rowId);
-          if (!isNaN(numericRowId) && !mockWindow.globalPinStatus.completed.includes(numericRowId)) {
-            mockWindow.globalPinStatus.completed.push(numericRowId);
+          if (!isNaN(numericRowId)) {
+            if (!mockWindow.globalPinStatus.completed.includes(numericRowId)) {
+              mockWindow.globalPinStatus.completed.push(numericRowId);
+            }
+            mockWindow.globalPinStatus.inProgress = mockWindow.globalPinStatus.inProgress.filter(id => id !== numericRowId);
           }
         }
 
@@ -782,75 +786,81 @@ test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャン
     };
   }
 
-  // Case 1: 正常即時成功 → remove API 論理発火 = 1
+  // Case 1: 正常即時成功 → Frontend remove API 論理発火 = 0 (Backend側で解除済み、ローカルは reflectCompleted で終端)
   {
     const h = createTestHarness();
     const item = { id: 1, rowId: 101, areaName: "テスト市中央" };
     const res = { success: true, accepted: true };
     await h.simulateDbPostAcceptance(item, res, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1, 'Case 1: 正常即時成功で remove 発火が厳格に 1 回であること');
+    assert.equal(h.getRemoveCount(), 0, 'Case 1: 正常即時成功で Frontend remove 発火が 0 回であること');
+    assert.ok(h.mockWindow.globalPinStatus.completed.includes(101), 'Case 1: completed に 101 が反映されること');
+    assert.ok(!h.mockWindow.globalPinStatus.inProgress.includes(101), 'Case 1: inProgress から 101 が除去されること');
   }
 
-  // Case 2: triggerUISyncRefresh を成功後に複数回実行 → additional remove = 0
+  // Case 2: triggerUISyncRefresh を成功後に複数回実行 → remove = 0
   {
     const h = createTestHarness();
     const item = { id: 1, rowId: 101, areaName: "テスト市中央" };
     await h.simulateDbPostAcceptance(item, { success: true, accepted: true }, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1);
+    assert.equal(h.getRemoveCount(), 0);
 
     const pt = { rowId: 101, isDone: true };
     h.simulateTriggerUISyncRefresh(pt);
     h.simulateTriggerUISyncRefresh(pt);
     h.simulateTriggerUISyncRefresh(pt);
-    assert.equal(h.getRemoveCount(), 1, 'Case 2: triggerUISyncRefresh 複数回実行でも追加発火が 0 であること (通算1)');
+    assert.equal(h.getRemoveCount(), 0, 'Case 2: triggerUISyncRefresh 複数回実行でも Frontend remove 発火が 0 であること');
   }
 
-  // Case 3: submitMissionComplete が成功を検知 → additional remove = 0
+  // Case 3: submitMissionComplete が成功を検知 → remove = 0
   {
     const h = createTestHarness();
     const item = { id: 1, rowId: 101, areaName: "テスト市中央" };
     await h.simulateDbPostAcceptance(item, { success: true, accepted: true }, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1);
+    assert.equal(h.getRemoveCount(), 0);
 
     const pt = { rowId: 101, isDone: true };
     const detected = h.simulateSubmitPollingDetect(pt);
     assert.equal(detected, true);
-    assert.equal(h.getRemoveCount(), 1, 'Case 3: submitMissionComplete 成功検知でも追加発火が 0 であること (通算1)');
+    assert.equal(h.getRemoveCount(), 0, 'Case 3: submitMissionComplete 成功検知でも Frontend remove 発火が 0 であること');
   }
 
-  // Case 4: areaName条件に依存せず、Backend受諾時に db.js 正規 remove は発火 = 1
+  // Case 4: areaName条件に依存せず、Backend受諾時に reflectCompleted が反映され Frontend remove = 0
   {
     const h = createTestHarness();
     const item = { id: 1, rowId: 101, areaName: "テスト市中央" };
     // 表示中エリアが別エリア（"テスト市東部"）
     await h.simulateDbPostAcceptance(item, { success: true, accepted: true }, "テスト市東部");
-    assert.equal(h.getRemoveCount(), 1, 'Case 4: areaName条件に依存せず正規発火点から remove が 1 回発火すること');
+    assert.equal(h.getRemoveCount(), 0, 'Case 4: areaName条件に依存せず Frontend remove が 0 回であること');
+    assert.ok(h.mockWindow.globalPinStatus.completed.includes(101), 'Case 4: completed に 101 が反映されること');
   }
 
-  // Case 5: offline Queue 復旧後の成功 → remove = 1
+  // Case 5: offline Queue 復旧後の成功 → Frontend remove = 0
   {
     const h = createTestHarness();
     const offlineItem = { id: 2, rowId: 102, areaName: "テスト市中央", syncStatus: "PENDING" };
     await h.simulateDbPostAcceptance(offlineItem, { success: true, accepted: true }, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1, 'Case 5: オフライン復旧後の送信成功で remove が 1 回発火すること');
+    assert.equal(h.getRemoveCount(), 0, 'Case 5: オフライン復旧後の送信成功で Frontend remove が 0 回であること');
+    assert.ok(h.mockWindow.globalPinStatus.completed.includes(102), 'Case 5: completed に 102 が反映されること');
   }
 
-  // Case 6: Backend duplicate:true → accepted success として Queue 終端 → remove = 1
+  // Case 6: Backend duplicate:true → accepted success として Queue 終端 → Frontend remove = 0
   {
     const h = createTestHarness();
     const item = { id: 3, rowId: 103, areaName: "テスト市中央" };
     const res = { success: true, accepted: true, duplicate: true };
     await h.simulateDbPostAcceptance(item, res, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1, 'Case 6: duplicate:true 受諾時に remove が 1 回発火すること');
+    assert.equal(h.getRemoveCount(), 0, 'Case 6: duplicate:true 受諾時に Frontend remove が 0 回であること');
+    assert.ok(h.mockWindow.globalPinStatus.completed.includes(103), 'Case 6: completed に 103 が反映されること');
   }
 
-  // Case 7: alreadyCompleted:true → accepted success として Queue 終端 → remove = 1
+  // Case 7: alreadyCompleted:true → accepted success として Queue 終端 → Frontend remove = 0
   {
     const h = createTestHarness();
     const item = { id: 4, rowId: 104, areaName: "テスト市中央" };
     const res = { success: true, accepted: true, alreadyCompleted: true };
     await h.simulateDbPostAcceptance(item, res, "テスト市中央");
-    assert.equal(h.getRemoveCount(), 1, 'Case 7: alreadyCompleted:true 受諾時に remove が 1 回発火すること');
+    assert.equal(h.getRemoveCount(), 0, 'Case 7: alreadyCompleted:true 受諾時に Frontend remove が 0 回であること');
+    assert.ok(h.mockWindow.globalPinStatus.completed.includes(104), 'Case 7: completed に 104 が反映されること');
   }
 
   // Case 8: STALE_MONTH accepted:false → remove = 0
@@ -880,25 +890,25 @@ test('10. P1: PinStatus remove Single-Fire Verification (Case 1〜11 & キャン
     assert.equal(h.getRemoveCount(), 0, 'Case 10: FAILED_PERMANENT では remove が 0 であること');
   }
 
-  // Case 11: 新Contract (areaName非依存 ➔ db.js rowId同期で p.isDone=true ➔ Handshake成功 ➔ remove追加発火なし)
+  // Case 11: 新Contract (areaName非依存 ➔ db.js rowId同期で p.isDone=true & reflectCompleted ➔ Handshake成功 ➔ Frontend remove 0回)
   {
     const h = createTestHarness();
     // 1. MAP直接動線を再現: rowId 基準で item と point を生成
     const item = { id: 8, rowId: 332, areaName: "" };
     const pt = { rowId: 332, isDone: false, syncStatus: 'submitting' };
 
-    // 2. Backend accepted 受領 (db.js 新契約: areaName に依存せず rowId 一致で pt.isDone = true が同期確定)
+    // 2. Backend accepted 受領 (db.js 新契約: areaName に依存せず rowId 一致で pt.isDone = true が同期確定、Frontend remove = 0)
     await h.simulateDbPostAcceptance(item, { success: true, accepted: true }, pt);
     assert.equal(pt.isDone, true, '新契約: db.js が rowId 一致で pt.isDone = true を直接同期すること');
     assert.ok(h.mockWindow.globalPinStatus.completed.includes(332), 'globalPinStatus.completed に 332 が記録されること');
-    assert.equal(h.getRemoveCount(), 1, 'db.js の正規 remove が厳格に 1 回発火すること');
+    assert.equal(h.getRemoveCount(), 0, 'Backend側で解除済みのため Frontend remove は 0 回であること');
 
     // 3. app.js のポーリング検知: Handshake 成功 (p.isDone === true または isCompletedInPinStatus) ➔ 正常完了
     const detected = h.simulateSubmitPollingDetect(pt, 332);
     assert.equal(detected, true, 'Handshake が成立し正常完了が検知されること');
     assert.equal(pt.isDone, true, 'pt.isDone が true を維持すること');
     assert.equal(pt.syncStatus, 'synced', 'pt.syncStatus が synced に更新されること');
-    assert.equal(h.getRemoveCount(), 1, 'Single-Fire 維持: app.js からの追加 remove はなく通算 1 回であること');
+    assert.equal(h.getRemoveCount(), 0, 'app.js からの Frontend remove も 0 回であること');
 
     // 4. 反例確認: Queue消滅(null)だが globalPinStatus.completed が空で p.isDone=false の場合は成功検知しないこと
     const emptyPt = { rowId: 999, isDone: false };

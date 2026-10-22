@@ -515,13 +515,13 @@ await runGate(18, 'Popup cancel/close remove integration', async () => {
 });
 
 // ============================================================================
-// Gate 19: Backend 受諾パスからの remove が Exactly Once であること
+// Gate 19: Backend 受諾パス (onAcceptedAfterDequeue) では Frontend remove 通信が 0 回で reflectCompleted のみ呼ばれること
 // ============================================================================
-await runGate(19, 'Backend accepted path remove = exactly once', async () => {
+await runGate(19, 'Backend accepted path sends 0 Frontend remove calls and uses reflectCompleted only', async () => {
   const env = createPinStatusContext();
   const mod = vm.runInContext('PinStatusModule', env.context);
 
-  // 1. Production code wiring static verification (Single-Fire point via Queue Hook)
+  // 1. Production code wiring static verification (Queue Hook)
   const dbJs = fs.readFileSync(path.join(REPO_ROOT, 'active/h-app/db.js'), 'utf8');
   const appJs = fs.readFileSync(path.join(REPO_ROOT, 'active/h-app/app.js'), 'utf8');
 
@@ -531,26 +531,26 @@ await runGate(19, 'Backend accepted path remove = exactly once', async () => {
   const postDequeueBlock = dbJs.substring(dequeueIdx, dequeueIdx + 300);
   assert.ok(postDequeueBlock.includes('onAcceptedAfterDequeue'), 'db.js fires onAcceptedAfterDequeue right after dequeueSync');
 
-  // app.js: onAcceptedAfterDequeue Hook 内部で window.setPinInProgress(item.rowId, "remove") が呼ばれること
+  // app.js: onAcceptedAfterDequeue Hook 内部で setPinInProgress(remove) が撤去され、PinStatusModule.reflectCompleted(item.rowId) が呼ばれること
   const hookIdx = appJs.indexOf('onAcceptedAfterDequeue');
   assert.ok(hookIdx > 0, 'app.js defines onAcceptedAfterDequeue');
   const hookBlock = appJs.substring(hookIdx, appJs.indexOf('onFailedAfterQueueUpdate', hookIdx));
-  assert.ok(hookBlock.includes('window.setPinInProgress(item.rowId, "remove")'), 'app.js fires window.setPinInProgress remove inside onAcceptedAfterDequeue');
+  assert.ok(!hookBlock.includes('setPinInProgress'), 'app.js must NOT call setPinInProgress inside onAcceptedAfterDequeue');
+  assert.ok(hookBlock.includes('PinStatusModule.reflectCompleted(item.rowId)'), 'app.js calls PinStatusModule.reflectCompleted inside onAcceptedAfterDequeue');
 
-  // 2. Dynamic execution
-  let removeCount = 0;
-  const setPinInProgress = function(rowId, action) {
-    if (action === 'remove') removeCount++;
-    return mod.setInProgress(rowId, action, {
-      authorize: async () => {},
-      onError: () => {}
-    });
-  };
+  // 2. Dynamic execution: add -> reflectCompleted -> 0 remove API calls, local state cleanly transitioned
+  await mod.setInProgress(1101, 'add');
+  assert.strictEqual(mod.isInProgress(1101), true);
+  assert.strictEqual(mod.isMyInProgress(1101), true);
 
-  // onAcceptedAfterDequeue の dequeueSync 後呼出シミュレーション
-  await setPinInProgress(1101, 'remove');
+  const removeCallsBefore = env._apiCalls.filter(c => c.action === 'setPinInProgress' && c.payload.pinAction === 'remove').length;
+  mod.reflectCompleted(1101);
+  const removeCallsAfter = env._apiCalls.filter(c => c.action === 'setPinInProgress' && c.payload.pinAction === 'remove').length;
 
-  assert.strictEqual(removeCount, 1, 'accepted hook sends exactly one remove');
+  assert.strictEqual(removeCallsAfter - removeCallsBefore, 0, 'accepted path sends 0 Frontend remove API calls');
+  assert.strictEqual(mod.isCompleted(1101), true, '1101 is marked completed');
+  assert.strictEqual(mod.isInProgress(1101), false, '1101 is removed from local inProgress');
+  assert.strictEqual(mod.isMyInProgress(1101), false, '1101 is removed from local _myLocks');
 });
 
 // ============================================================================
@@ -840,6 +840,91 @@ await runGate(31, 'Pending remove persistence, retry on fetchStatus, and LOCK_MI
   assert.strictEqual(mod.getMyLockId(2101), 'lock_gen_2', 'New generation lockId restored');
 });
 
+// ============================================================================
+// Gate 32: Same-row add 前の pending remove 先決着 (PENDING_REMOVE_UNRESOLVED) & Single-Flight 並走保証
+// ============================================================================
+await runGate(32, 'Same-row add awaits pending remove resolution (PENDING_REMOVE_UNRESOLVED on failure) & single-flight with fetchStatus', async () => {
+  let failRemoveNetwork = false;
+  const actionSequence = [];
+
+  const env = createPinStatusContext({
+    apiHandler: async (action, payload) => {
+      if (action === 'setPinInProgress' && payload.pinAction === 'add') {
+        actionSequence.push(`add:${payload.rowId}:${payload.lockId}`);
+        return { success: true, status: 'IN_PROGRESS', rowId: payload.rowId, lockId: payload.lockId };
+      }
+      if (action === 'setPinInProgress' && payload.pinAction === 'remove') {
+        actionSequence.push(`remove:${payload.rowId}:${payload.lockId}`);
+        await new Promise(r => setTimeout(r, 15));
+        if (failRemoveNetwork) {
+          throw new Error('NETWORK_DOWN');
+        }
+        return { success: true, status: 'REMOVED', rowId: payload.rowId, lockId: payload.lockId };
+      }
+      if (action === 'getGlobalPinStatus') {
+        actionSequence.push('getGlobalPinStatus');
+        return { success: true, inProgress: [], completed: [], myInProgress: [] };
+      }
+      return { success: true };
+    }
+  });
+  const mod = vm.runInContext('PinStatusModule', env.context);
+
+  // 0. 初回 fetchStatus (pending remove が空の状態でも _pendingFlushPromise が残留しないことを検証)
+  await mod.fetchStatus({ force: true });
+
+  // 1. row 2201 を lock_A で配布開始
+  const addARes = await mod.setInProgress(2201, 'add', { lockId: 'lock_A' });
+  assert.strictEqual(addARes.success, true);
+  assert.strictEqual(mod.getMyLockId(2201), 'lock_A');
+
+  // 2. 通信失敗下で remove A ➔ pending remove に { rowId: 2201, lockId: 'lock_A' } が残る
+  failRemoveNetwork = true;
+  const remARes = await mod.setInProgress(2201, 'remove');
+  assert.strictEqual(remARes.success, false);
+  const pendingAfterRem = JSON.parse(env.context.localStorage.getItem('h_app_pending_pin_removes_v1') || '[]');
+  assert.strictEqual(pendingAfterRem.length, 1);
+  assert.strictEqual(pendingAfterRem[0].lockId, 'lock_A');
+
+  // 3. 【Case B】まだ通信障害が継続している状態で同一 row 2201 を再開始 (add B)
+  //    ➔ 先に remove A の再送が試みられ失敗 ➔ PENDING_REMOVE_UNRESOLVED で add API は 0 回
+  actionSequence.length = 0;
+  let errorCaught = null;
+  const addBlockedRes = await mod.setInProgress(2201, 'add', {
+    lockId: 'lock_B',
+    onError: (err) => { errorCaught = err; }
+  });
+  assert.strictEqual(addBlockedRes.success, false);
+  assert.strictEqual(addBlockedRes.code, 'PENDING_REMOVE_UNRESOLVED');
+  assert.ok(errorCaught && errorCaught.code === 'PENDING_REMOVE_UNRESOLVED', 'onError received PENDING_REMOVE_UNRESOLVED');
+  const addCallsWhileUnresolved = actionSequence.filter(s => s.startsWith('add:'));
+  assert.strictEqual(addCallsWhileUnresolved.length, 0, 'Zero add API calls when pending remove is unresolved');
+  assert.strictEqual(mod.isInProgress(2201), false, 'Pin must not become locally inProgress when blocked');
+  assert.strictEqual(mod.isMyInProgress(2201), false, 'Pin must not acquire local lock when blocked');
+
+  // 4. 【Case C】通信回復後、fetchStatus({ force: true }) と同一 row 2201 の add B が同時並走
+  //    ➔ single-flight により remove A は厳格に 1 回だけ送信され、その完了後にのみ add B が 1 回送信される
+  failRemoveNetwork = false;
+  actionSequence.length = 0;
+  const [fetchRes, addBRes] = await Promise.all([
+    mod.fetchStatus({ force: true }),
+    mod.setInProgress(2201, 'add', { lockId: 'lock_B' })
+  ]);
+
+  assert.strictEqual(addBRes.success, true, 'add B succeeds after pending remove A is resolved');
+  assert.strictEqual(addBRes.lockId, 'lock_B');
+  const removeCalls = actionSequence.filter(s => s === 'remove:2201:lock_A');
+  const addCalls = actionSequence.filter(s => s === 'add:2201:lock_B');
+  assert.strictEqual(removeCalls.length, 1, 'Single-flight ensures remove:2201:lock_A is sent exactly once');
+  assert.strictEqual(addCalls.length, 1, 'add:2201:lock_B is sent once after remove resolves');
+  assert.ok(
+    actionSequence.indexOf('remove:2201:lock_A') < actionSequence.indexOf('add:2201:lock_B'),
+    `remove A must precede add B (actual: ${JSON.stringify(actionSequence)})`
+  );
+  assert.strictEqual(mod.isInProgress(2201), true);
+  assert.strictEqual(mod.getMyLockId(2201), 'lock_B');
+});
+
 console.log("\n====================================================");
-console.log(`🎉 ALL 31 PIN STATUS LIFECYCLE GATES PASSED PERFECTLY!`);
+console.log(`🎉 ALL 32 PIN STATUS LIFECYCLE GATES PASSED PERFECTLY!`);
 console.log("====================================================");

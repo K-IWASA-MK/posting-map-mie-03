@@ -228,15 +228,10 @@ async function startApp() {
       }
     },
     onAcceptedAfterDequeue(item, res) {
-      // 1. window.setPinInProgress(item.rowId, "remove") - 既存 Single-Fire 契約維持 (await しない)
-      if (typeof window.setPinInProgress === 'function') {
-        window.setPinInProgress(item.rowId, "remove");
-      }
-
-      // 2. PinStatusModule.reflectCompleted(item.rowId) - 必須直接呼出
+      // 1. PinStatusModule.reflectCompleted(item.rowId) - 必須直接呼出 (Backend側で既にPinStatus解除済みのためFrontend remove通信は0)
       PinStatusModule.reflectCompleted(item.rowId);
 
-      // 3. ActivityModule.applyQueueOutcome(point, ACCEPTED)
+      // 2. ActivityModule.applyQueueOutcome(point, ACCEPTED)
       // → ここで初めて p.isDone = true
       const pt = Array.isArray(allPoints) ? allPoints.find(p => Number(p.rowId) === Number(item.rowId)) : null;
       if (pt) {
@@ -247,12 +242,12 @@ async function startApp() {
         });
       }
 
-      // 4. lockActivePinAndBubble(rowId)
+      // 3. lockActivePinAndBubble(rowId)
       if (typeof window.lockActivePinAndBubble === 'function') {
         window.lockActivePinAndBubble(item.rowId);
       }
 
-      // 5. current detail modal rerender if applicable
+      // 4. current detail modal rerender if applicable
       if (typeof rerenderDetailModalIfOpen === 'function') {
         rerenderDetailModalIfOpen(item.rowId);
       }
