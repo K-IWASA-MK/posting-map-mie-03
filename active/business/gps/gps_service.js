@@ -95,9 +95,30 @@ if (typeof GPSService === 'undefined') {
         const incomingReqId = data.requestId ? String(data.requestId).trim() : "";
         const existingReqId = existing && existing.existingRequestId ? String(existing.existingRequestId).trim() : "";
 
+        const reqOwner = String((data && data.resolvedLineUserId) || "").trim();
+        const reqLockId = String((data && data.lockId) || "").trim();
+        const releasePinLockIfNeeded = () => {
+          if (!isComplete) return { success: true };
+          if (typeof PinStatusService !== 'undefined' && PinStatusService.getInstance) {
+            return PinStatusService.getInstance().releasePinInExistingLock(rowIdNum, reqOwner, reqLockId, districtId);
+          }
+          return { success: true };
+        };
+
         // Step 2: requestId == Q → duplicate
         if (incomingReqId && existingReqId && incomingReqId === existingReqId) {
           console.log(`[GPSService] RowId ${rowIdNum} duplicate requestId: ${incomingReqId}`);
+          const releaseDup = releasePinLockIfNeeded();
+          if (!releaseDup || releaseDup.success === false) {
+            return {
+              success: false,
+              accepted: false,
+              code: (releaseDup && releaseDup.code) || "PIN_RELEASE_FAILED",
+              errorType: "TRANSIENT",
+              retryable: true,
+              message: (releaseDup && releaseDup.message) || "PinStatus release failed on duplicate retry"
+            };
+          }
           return {
             success: true,
             accepted: true,
@@ -113,6 +134,17 @@ if (typeof GPSService === 'undefined') {
         // Step 3: D completedAtあり → alreadyCompleted（同月再配布なし、既存実績保護）
         if (isComplete && existing && existing.existingCompletedAt) {
           console.log(`[GPSService] RowId ${rowIdNum} already completed in current month. Rejecting re-completion.`);
+          const releaseAlready = releasePinLockIfNeeded();
+          if (!releaseAlready || releaseAlready.success === false) {
+            return {
+              success: false,
+              accepted: false,
+              code: (releaseAlready && releaseAlready.code) || "PIN_RELEASE_FAILED",
+              errorType: "TRANSIENT",
+              retryable: true,
+              message: (releaseAlready && releaseAlready.message) || "PinStatus release failed on alreadyCompleted retry"
+            };
+          }
           return {
             success: true,
             accepted: true,
@@ -160,6 +192,20 @@ if (typeof GPSService === 'undefined') {
 
         console.log("[GPSService] Updating Spreadsheet record...");
         const result = this.repository.updateSheetRecordAndLog(data, rowIdNum, gpsStatus, photoStatus, existing, photoFileId, districtId);
+
+        if (result && result.success) {
+          const releaseNorm = releasePinLockIfNeeded();
+          if (!releaseNorm || releaseNorm.success === false) {
+            return {
+              success: false,
+              accepted: false,
+              code: (releaseNorm && releaseNorm.code) || "PIN_RELEASE_FAILED",
+              errorType: "TRANSIENT",
+              retryable: true,
+              message: (releaseNorm && releaseNorm.message) || "PinStatus release failed after completion save"
+            };
+          }
+        }
 
         return result;
       } catch (e) {

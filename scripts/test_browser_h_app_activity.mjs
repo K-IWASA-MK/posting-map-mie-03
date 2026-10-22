@@ -173,19 +173,20 @@ async function runActivityBrowserTests() {
       });
     }
 
-    if (action === 'getPinStatus') {
+    if (action === 'getPinStatus' || action === 'getGlobalPinStatus') {
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
           inProgress: [],
-          completed: []
+          completed: [],
+          myInProgress: []
         })
       });
     }
 
-    if (action === 'updatePinGpsRecord' || action === 'updateGpsRecord') {
+    if (action === 'updateRecordWithGPSPhoto' || action === 'updatePinGpsRecord' || action === 'updateGpsRecord') {
       if (backendResponseMode === 'REJECTED') {
         return route.fulfill({
           status: 200,

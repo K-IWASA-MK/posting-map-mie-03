@@ -52,7 +52,7 @@
 2. **`名簿<Key>`**: 4列 `[ID, 名前, LINE_USER_ID, 登録日時]`
 3. **`保有チラシ枚数<Key>`**: 7列 `[ID, 担当者ID, 担当者名, 保管場所, 保有枚数, 最終更新日時, lineUserId]`
 4. **`受渡要請履歴<Key>`**: 14列 `[日時, 要請者, 要請者ID, 保管者, 保管者ID, 連絡方法, 連絡先, 状態, requestId, LINE送信状態, LINE HTTP status, LINE送信日時, requesterLineUserId, holderLineUserId]`
-5. **`PinStatus<Key>`**: 2列 `[rowId, status]`
+5. **`PinStatus<Key>`**: 5列 `[rowId, status, lineUserId, lockId, startedAt]`（所有権・ロック世代管理対応、Pre-Deploy Cutover Gate にて `healSchemaHeaders` により5列保証）
 
 ### (3) 現場コミュニケーション・履歴シート群（2シート: オンデマンド生成）
 1. **`掲示板`**: 5列 `[日時, 投稿者ID, 投稿者名, メッセージ, lineUserId]`
@@ -80,19 +80,19 @@
 | `active/h-app/style.css` | 1,227 | 29,277 | 🟢 継承 | グラスモフィズム、ネオモルフィズム、タッチアニメーション等のデザインシステム。 |
 | `active/h-app/tailwind-utils.css` | 321 | 16,683 | 🟢 継承 | オフライン稼働・高速レンダリングのためのTailwind事前生成CSS。 |
 | `active/h-app/app.js` | 1,426 | 54,282 | 🟡 再構築完了 | Target Architecture B' に基づく Composition Root（Wave 1〜17 分離完了、Dead Code 除去後 1,426行）。Boot/Bootstrap、DI配線（`setApiAuthGates`, `setQueueLifecycleGates`）、Google Maps ライフサイクル、各 Feature Module と View の結合を担当。 |
-| `active/h-app/render.js` | 2,597 | 109,823 | 🟡 再構築完了 | Google Maps ピン・ポリゴン・モーダル描画、および `NumpadView` / `StorageView` / `BulletinView` / `TransferView` / `RankingView` / `StaffRegistrationView` の Presentation 層を集約。 |
-| `active/h-app/db.js` | 486 | 18,385 | 🟢 継承 | IndexedDB オフライン送信キュー（`PostingMapDB` -> `syncQueue`）。配布完了送信（`updateRecordWithGPSPhoto`）の先行永続化、指数バックオフ再送（10s/30s/60s/60s）、4固定フック連携、DI Gate 受領を担当。 |
+| `active/h-app/render.js` | 2,597 | 109,823 | 🟡 再構築完了 | Google Maps ピン・ポリゴン・モーダル描画、吹き出し表示時の Write-0 制御と「配布開始」押下時の Backend ロック取得（本人青ピン自動復元・`IN_PROGRESS > COMPLETED > UNALLOCATED` 色優先順位統一）、および `NumpadView` / `StorageView` / `BulletinView` / `TransferView` / `RankingView` / `StaffRegistrationView` の Presentation 層を集約。 |
+| `active/h-app/db.js` | 486 | 18,385 | 🟢 継承 | IndexedDB オフライン送信キュー（`PostingMapDB` -> `syncQueue`）。配布完了送信（`updateRecordWithGPSPhoto`、`lockId` 伝播対応）の先行永続化、指数バックオフ再送（10s/30s/60s/60s）、4固定フック連携、DI Gate 受領を担当。 |
 | `active/h-app/components/navigation.js` | 50 | 3,386 | 🟢 継承 | `renderBottomNavigation` — 現場目線の2層（Tier1/Tier2）ボトムナビゲーションHTML生成。 |
 | `active/h-app/components/ranking.js` | 72 | 3,499 | 🟢 継承 | `renderRankingCard(rankingData, myStaffId, mySummary)` — 個人ランキングカードの純粋関数描画（グローバル状態非依存）。 |
 | `active/h-app/components/staff.js` | 360 | 17,470 | 🟢 継承 | `renderStaffCard`, `initCardGyro`, `StaffIdInfoView` — デジタル配布員証およびID情報モーダル。 |
 | `active/h-app/components/sync-status.js` | 51 | 1,839 | 🟢 継承 | `SyncStatusView` — ヘッダー通信状態（ONLINE / OFFLINE / SYNCING）Presentation Component。 |
-| `active/h-app/modules/activity.js` | 497 | 17,412 | 🟢 継承 | `ActivityModule` — 活動ログライフサイクル、Draft作成・破棄、`requestId` (`clientEventId`) 生成、Queue調停、`startDraftWorkflow`。 |
+| `active/h-app/modules/activity.js` | 497 | 17,412 | 🟢 継承 | `ActivityModule` — 活動ログライフサイクル、Draft作成・破棄（`lockId` 保持）、`requestId` (`clientEventId`) 生成、Queue調停、`startDraftWorkflow`。 |
 | `active/h-app/modules/api.js` | 240 | 8,319 | 🟡 再構築完了 | `callApiPost`, `setApiAuthGates`, `fetchMunicipalityMaster`, `fetchStorageLocations`, `fetchElectionHistory`, `fetchAreaMapping` — 通信制御およびマスター読込。 |
 | `active/h-app/modules/auth.js` | 149 | 4,780 | 🟢 継承 | `AuthModule` — LIFF認証状態、本人確認State、同期Promise、Gate所有権、Atomic Setter管理。 |
 | `active/h-app/modules/bulletin.js` | 215 | 7,194 | 🟢 継承 | `BulletinModule` — 掲示板投稿取得・作成・連絡送信・送信ロック・認可世代セッション確認。 |
 | `active/h-app/modules/device.js` | 122 | 3,335 | 🟢 継承 | `getGPSLocation`, `compressImage` — 高精度GPS取得およびクライアント側画像圧縮。 |
 | `active/h-app/modules/navigation.js` | 217 | 7,047 | 🟢 継承 | `switchPage`, `restoreMapStateIfNeeded` — 画面遷移・スクロール位置保持・ナビ切り替え。 |
-| `active/h-app/modules/pin-status.js` | 142 | 4,461 | 🟢 継承 | `PinStatusModule` — 作業中・完了ピンの排他制御・キャッシュ同期・`setPinStatus` 通知。 |
+| `active/h-app/modules/pin-status.js` | 142 | 4,461 | 🟢 継承 | `PinStatusModule` — 作業中・完了ピンの排他制御・所有権および `lockId` 世代管理・`localStorage` 解除再送キュー（7公開API: `fetchStatus`, `setInProgress`, `isInProgress`, `isMyInProgress`, `getMyLockId`, `isCompleted`, `reflectCompleted`）。 |
 | `active/h-app/modules/ranking.js` | 63 | 1,973 | 🟢 継承 | `RankingModule` — ランキングデータ・本人サマリ・In-flight Promise のカプセル化管理（`fetchRanking`, `getSnapshot`）。 |
 | `active/h-app/modules/staff-registration.js` | 78 | 2,343 | 🟢 継承 | `StaffRegistrationModule` — 初回スタッフ登録状態・多重呼出し防止・Hooks管理。 |
 | `active/h-app/modules/storage.js` | 120 | 3,237 | 🟢 継承 | `StorageModule` — チラシ在庫・保管場所データアクセス（`saveHold` 経由の `updateFlyerStock` オンライン送信、キャッシュ管理）。 |
@@ -133,8 +133,8 @@
 | `flyer/flyer_repository.js` | 143 | 4,862 | 🟢 継承 | `FlyerRepository` — チラシ在庫データアクセス（`getAllStocks`, `upsertStock`）。 |
 | `flyer/flyer_service.js` | 31 | 903 | 🟢 継承 | `FlyerService` — チラシ在庫取得・更新サービス（`getStockSummary`, `updateStock`）。 |
 | `gps/gps_repository.js` | 200 | 8,032 | 🟢 継承 | `GPSRepository` — Drive証跡写真保存（`savePhotoToDrive`）および配布実績行更新（`updateDistributionRow`）。 |
-| `gps/gps_service.js` | 157 | 6,621 | 🟢 継承 | `GPSService` — 15秒排他ロック（`waitLock(15000)`）、日本国内GPS座標境界検証、Q列 `requestId` 冪等性・D列 `alreadyCompleted` 判定（`updateRecordWithGPSPhoto`）。 |
-| `pin/pin_status_service.js` | 97 | 3,079 | 🟢 継承 | `PinStatusService` — ピンのリアルタイム作業中・完了状態管理（`getPinStatus`, `updatePinStatus`）。 |
+| `gps/gps_service.js` | 157 | 6,621 | 🟢 継承 | `GPSService` — 15秒排他ロック（`waitLock(15000)`）、日本国内GPS座標境界検証、Q列 `requestId` 冪等性・D列 `alreadyCompleted` 判定、および同一ロック内での `PinStatusService.releasePinInExistingLock` 直列解除（`updateRecordWithGPSPhoto`）。 |
+| `pin/pin_status_service.js` | 97 | 3,079 | 🟢 継承 | `PinStatusService` — ピンの5列所有権・世代ロック管理（`getStatus`, `setInProgress`, `releasePinInExistingLock`, `cleanupDaily`）。 |
 | `staff/staff_model.js` | 56 | 1,426 | 🟢 継承 | `Staff` — 配布員データモデル。 |
 | `staff/staff_repository.js` | 166 | 5,335 | 🟢 継承 | `StaffRepository` — 名簿シートへの読み書きリポジトリ（`findById`, `findByLineUserId`, `getNextSequenceNumber`, `save`, `findAll`）。 |
 | `staff/staff_service.js` | 141 | 5,108 | 🟢 継承 | `StaffService` — 配布員登録、LINE User IDからのIdentity強制解決（`resolveStaffIdentity`, `getStaffIdentity`, `registerStaff`, `getRoster`）。 |

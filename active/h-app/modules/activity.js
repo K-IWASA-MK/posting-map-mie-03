@@ -26,9 +26,9 @@ const ActivityModule = (() => {
    * @param {string} [maybeTempPhotoUrl] - Blob URL
    * @returns {Object} point
    */
-  function createDraft(point, countOrOptions, maybeStaffInfo, maybePhotoData, maybeTempPhotoUrl) {
+  function createDraft(point, countOrOptions, maybeStaffInfo, maybePhotoData, maybeTempPhotoUrl, maybeLockId) {
     if (!point) return point;
-    let count, staffInfo, photoData, tempPhotoUrl;
+    let count, staffInfo, photoData, tempPhotoUrl, lockId;
     if (typeof countOrOptions === 'object' && countOrOptions !== null) {
       count = countOrOptions.valNum ?? countOrOptions.count ?? 0;
       staffInfo = {
@@ -38,11 +38,13 @@ const ActivityModule = (() => {
       };
       photoData = countOrOptions.photoBase64 ?? countOrOptions.photoData;
       tempPhotoUrl = countOrOptions.tempPhotoUrl;
+      lockId = countOrOptions.lockId;
     } else {
       count = countOrOptions;
       staffInfo = maybeStaffInfo;
       photoData = maybePhotoData;
       tempPhotoUrl = maybeTempPhotoUrl;
+      lockId = maybeLockId;
     }
 
     const num = parseFloat(count) || 0;
@@ -59,6 +61,9 @@ const ActivityModule = (() => {
     point.photoStatus = hasPhoto ? 'OK' : 'NONE';
     point.tempPhotoUrl = tempPhotoUrl || undefined;
     point.photoBase64 = photoData || undefined;
+    if (lockId !== undefined && lockId !== null && String(lockId).trim() !== '') {
+      point.lockId = String(lockId).trim();
+    }
 
     return point;
   }
@@ -119,6 +124,7 @@ const ActivityModule = (() => {
     point.accuracy = null;
     delete point.tempPhotoUrl;
     delete point.photoBase64;
+    delete point.lockId;
     return point;
   }
 
@@ -193,11 +199,17 @@ const ActivityModule = (() => {
         ? currentHooks.getBranchCode()
         : (options?.branchCode || '');
 
+      const resolvedLockId = String((options && options.lockId) || point.lockId || '').trim();
+      if (resolvedLockId) {
+        point.lockId = resolvedLockId;
+      }
+
       const payload = {
         requestId,
         areaName: options?.areaName,
         clientEventId,
         rowId: Number(point.rowId),
+        lockId: resolvedLockId,
         isDone: true,
         count: point.count || 0,
         latitude: point.gpsStatus === 'OK' ? (point.latitude || '') : '',
@@ -333,15 +345,20 @@ const ActivityModule = (() => {
       const found = queue.find(q => Number(q.rowId) === Number(p.rowId));
       if (found) {
         p.syncStatus = found.syncStatus || found.status;
+        if (found.lockId && !p.lockId) {
+          p.lockId = String(found.lockId);
+        }
       } else {
         if (p.syncStatus === 'REJECTED') {
           p.isDone = false;
           delete p.isReadyToSubmit;
           delete p.tempPhotoUrl;
+          delete p.lockId;
         } else if (p.isDone === true) {
           delete p.isReadyToSubmit;
           delete p.tempPhotoUrl;
           delete p.syncStatus;
+          delete p.lockId;
         } else if (!p.isDone) {
           delete p.syncStatus;
         }
@@ -360,9 +377,13 @@ const ActivityModule = (() => {
       const isObj = typeof entry === 'object' && entry !== null;
       const rowId = isObj ? entry.rowId : entry;
       const status = isObj ? (entry.syncStatus || entry.status || 'pending') : 'pending';
+      const lockId = isObj && entry.lockId ? String(entry.lockId).trim() : '';
       const pt = points.find(p => Number(p.rowId) === Number(rowId));
       if (pt && !pt.isDone) {
         pt.syncStatus = status;
+        if (lockId) {
+          pt.lockId = lockId;
+        }
       }
     });
   }
@@ -384,11 +405,13 @@ const ActivityModule = (() => {
           point.gps = `${outcome.item.latitude},${outcome.item.longitude}`;
         }
         delete point.tempPhotoUrl;
+        delete point.lockId;
         break;
       case 'REJECTED':
         point.syncStatus = 'REJECTED';
         delete point.isReadyToSubmit;
         delete point.tempPhotoUrl;
+        delete point.lockId;
         break;
       case 'FAILED':
         point.syncStatus = outcome.finalStatus;
@@ -403,12 +426,12 @@ const ActivityModule = (() => {
    * 8. 下書き開始非同期ワークフロー (写真受領 ➔ Draft生成 ➔ GPS測位 ➔ 完了通知)
    * 画面・DOM・端末APIへの直接依存は持たず、純粋な非同期オーケストレーションと状態適用を担当する。
    * @param {Object} point
-   * @param {Object} options - { valNum, staffName, staffId, timeStr, cameraPromise, gpsPromise }
+   * @param {Object} options - { valNum, staffName, staffId, timeStr, lockId, cameraPromise, gpsPromise }
    * @param {Object} hooks - { isSessionValid, blobToBase64, createObjectURL, getGPSLocationRetry, onDraftReady, onGpsReady, onFinally }
    */
   async function startDraftWorkflow(point, options, hooks) {
     if (!options || !hooks) return;
-    const { valNum, staffName, staffId, timeStr, cameraPromise, gpsPromise } = options;
+    const { valNum, staffName, staffId, timeStr, lockId, cameraPromise, gpsPromise } = options;
     const { isSessionValid, blobToBase64, createObjectURL, getGPSLocationRetry, onDraftReady, onGpsReady, onFinally } = hooks;
 
     try {
@@ -456,6 +479,7 @@ const ActivityModule = (() => {
         staffName,
         staffId,
         timeStr,
+        lockId,
         tempPhotoUrl,
         photoBase64
       });

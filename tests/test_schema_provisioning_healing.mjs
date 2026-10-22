@@ -320,8 +320,8 @@ function runCase(name, fn) {
   }
 }
 
-// --- Case 1-A: Operational Dataset Provisioning SSOT (17/4/7/14/2 cols, 原本なし) ---
-runCase("Case 1-A: Operational Dataset Provisioning SSOT (17/4/7/14/2 cols)", () => {
+// --- Case 1-A: Operational Dataset Provisioning SSOT (17/4/7/14/5 cols, 原本なし) ---
+runCase("Case 1-A: Operational Dataset Provisioning SSOT (17/4/7/14/5 cols)", () => {
   const ss = new MockSpreadsheet("TEST_DISTRICT");
   const ctx = createVmContext(ss);
 
@@ -363,12 +363,15 @@ runCase("Case 1-A: Operational Dataset Provisioning SSOT (17/4/7/14/2 cols)", ()
   assert.equal(transferSheet.grid[0][12], "requesterLineUserId");
   assert.equal(transferSheet.grid[0][13], "holderLineUserId");
 
-  // 5. PinStatus2026-10: 2列
+  // 5. PinStatus2026-10: 5列
   const pinSheet = ss.getSheetByName("PinStatus2026-10");
   assert.ok(pinSheet);
-  assert.equal(pinSheet.getLastColumn(), 2);
+  assert.equal(pinSheet.getLastColumn(), 5);
   assert.equal(pinSheet.grid[0][0], "rowId");
   assert.equal(pinSheet.grid[0][1], "status");
+  assert.equal(pinSheet.grid[0][2], "lineUserId");
+  assert.equal(pinSheet.grid[0][3], "lockId");
+  assert.equal(pinSheet.grid[0][4], "startedAt");
 
   // 原本5種が一切生成されていないこと
   assert.equal(ss.getSheetByName("配布実績の原本"), null);
@@ -780,17 +783,19 @@ runCase("Case 16: healSchemaHeaders Plan A (2026-09 15-col -> 17-col, data rows 
   ss.addSheet("名簿2026-09", [["ID", "名前", "LINE_USER_ID", "登録日時"]]);
   ss.addSheet("保有チラシ枚数2026-09", [["ID", "担当者ID", "担当者名", "保管場所", "保有枚数", "最終更新日時", "lineUserId"]]);
   ss.addSheet("受渡要請履歴2026-09", [["日時", "要請者", "要請者ID", "保管者", "保管者ID", "連絡方法", "連絡先", "状態", "requestId", "LINE送信状態", "LINE HTTP status", "LINE送信日時", "requesterLineUserId", "holderLineUserId"]]);
-  ss.addSheet("PinStatus2026-09", [["rowId", "status"]]);
+  const pin202609 = ss.addSheet("PinStatus2026-09", [["rowId", "status"]], 2);
   ss.addSheet("SYSTEM_INFO", [["項目", "内容"], ["地区コード", "KUWANA"], ["運用モード", "SUBSCRIPTION"]]);
 
   assert.equal(dist202609.getMaxColumns(), 15);
   assert.equal(dist202609.grid[1].length, 15);
+  assert.equal(pin202609.getMaxColumns(), 2);
 
   // Phase 1: DryRun
   const dryRes = ctx.healSchemaHeaders({ isDryRun: true, targetMonth: "2026-09", districtId: "KUWANA" });
   assert.equal(dryRes.success, true);
   assert.equal(dryRes.isDryRun, true);
   assert.equal(dist202609.getMaxColumns(), 15, "DryRun must not mutate columns");
+  assert.equal(pin202609.getMaxColumns(), 2, "DryRun must not mutate PinStatus columns");
 
   // Phase 2: Actual Heal
   const healRes = ctx.healSchemaHeaders({ isDryRun: false, targetMonth: "2026-09", districtId: "KUWANA" });
@@ -798,6 +803,8 @@ runCase("Case 16: healSchemaHeaders Plan A (2026-09 15-col -> 17-col, data rows 
   assert.equal(dist202609.getMaxColumns(), 17, "2026-09 must be expanded to 17 columns");
   assert.equal(dist202609.grid[0][15], "lineUserId", "Col 16 (P) must be lineUserId");
   assert.equal(dist202609.grid[0][16], "requestId", "Col 17 (Q) must be requestId");
+  assert.equal(pin202609.getMaxColumns(), 5, "PinStatus2026-09 must be expanded from 2 to 5 columns");
+  assert.deepEqual(pin202609.grid[0], ["rowId", "status", "lineUserId", "lockId", "startedAt"], "PinStatus headers must be healed to 5 columns");
 
   // 【厳格検証】データ行 (2行目) は一切不可侵 (mutation 0、requestId は補完されない)
   assert.equal(dist202609.grid[1][0], 1);

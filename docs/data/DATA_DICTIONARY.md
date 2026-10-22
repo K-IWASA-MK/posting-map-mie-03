@@ -63,7 +63,7 @@ ADR-024 および本番運用規程に基づく実シート構成:
    - `名簿<Key>`: 4列 (A〜D列: A=`ID`, B=`名前`, C=`LINE_USER_ID`, D=`登録日時`)
    - `保有チラシ枚数<Key>`: 7列 (A〜G列: A=`ID`, B=`担当者ID`, C=`担当者名`, D=`保管場所`, E=`保有枚数`, F=`最終更新日時`, G=`lineUserId`)
    - `受渡要請履歴<Key>`: 14列 (A〜N列: 8=状態, 9=requestId, 10=LINE状態, 11=LINE HTTP, 12=LINE日時, 13=requesterLineUserId, 14=holderLineUserId)
-   - `PinStatus<Key>`: 2列 (A〜B列: A=`rowId`, B=`status`)
+   - `PinStatus<Key>`: 5列 (A〜E列: A=`rowId`, B=`status`, C=`lineUserId`, D=`lockId`, E=`startedAt`)
    - ※ELECTION モードでは `<Key>` は開始時に確定した固定キー（例: `2026-10`）であり、契約終了日まで同一シートを継続使用（月次リセット禁止）。
    - ※SUBSCRIPTION モードでは `<Key>` は現在年月（`YYYY-MM`）であり、毎月新しい5シートを直接生成し過去月は履歴保持。
    - ※第1世代の原本5種は ADR-024 により完全撤廃され、新規プロビジョニングでは生成されない。
@@ -199,7 +199,15 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
 | `rowId` | 地域行識別子 | Number | 必須 | 対象町丁目の通し番号 | Hアプリ | A列 (1) | PinStatus<Key> | address_master と連動 |
-| `status` | 作業状態 | String | 必須 | 現在の作業中状態 (`WORKING`, `EMPTY` 等) | Hアプリ | B列 (2) | PinStatus<Key> | 随時上書き更新 |
+| `status` | 作業状態 | String | 必須 | 現在の作業中状態 (`IN_PROGRESS` のみ保存) | Backend (`PinStatusService`) | B列 (2) | PinStatus<Key> | 完了時は行削除（完了SSOTは配布実績シート D列 `completedAt`） |
+| `lineUserId` | ロック保持者LINE ID | String | 必須 | 配布開始ロックを取得した本人の検証済み LINE User ID | Backend (`reqLineUserId`) | C列 (3) | LINE Platform | **機密項目**（フロントエンドへは生値を返さず `myInProgress` 判定のみに使用） |
+| `lockId` | ロック操作世代ID | String | 必須 | 1回の「配布開始」操作世代を一意に識別するロックID | Hアプリ生成 / Backend確定 | D列 (4) | PinStatus<Key> | 旧セッションの遅延 `remove` が新ロックを誤削除することを防ぐ世代キー |
+| `startedAt` | 配布開始日時 | String | 必須 | 配布開始ロックを取得した日時 (ISO 8601 / JST) | Backend (`PinStatusService`) | E列 (5) | PinStatus<Key> | 監査および日次0時クリーンアップ参照用 |
+
+- **所有権・世代管理ルール**:
+  - ピンをタップして吹き出しを開いた段階では Backend 書き込みを行わない（Write 0）。「配布開始」押下時にのみ `setPinInProgress` (`pinAction: "add"`) でロックを取得する。
+  - **1人1ピン原則**: 同一 `lineUserId` が別 `rowId` で新規に配布開始した場合（当該 `rowId` が未完了かつ他者ロックでないことを確認した後）、その本人が保持していた旧 `rowId` の `IN_PROGRESS` 行を自動削除して新 `rowId` へ乗り換える。
+  - **Pre-Deploy Cutover Gate（既存地区の2列→5列移行手順）**: Runtime (`PinStatusService`) は5列未満のシートに対してスキーマ自動変更を行わず `SCHEMA_NOT_READY` で Fail-Closed する。本番切替時は必ず **① 旧 `PinStatus` 2列データ行 = 0件確認 ➔ ② `healSchemaHeaders` 実行 ➔ ③ `A1:E1` 5列ヘッダー確認 ➔ ④ コード切替** の順序を厳守する。
 
 ### (8) 掲示板投稿 (`BulletinPost`) — `掲示板`
 

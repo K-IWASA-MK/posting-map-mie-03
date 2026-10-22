@@ -76,7 +76,7 @@
         },
         {
           "path": "docs/architecture/03_CURRENT_H_APP_INVENTORY.md",
-          "sha256": "9c49e16c791ff3ac3edba9cee144d07d2cc2cb3f978579a6610b0465064de594"
+          "sha256": "b10045d31573d98ba416c49d4f7f7860a947d3cd834e47bb5ea475396df25ea4"
         }
       ],
       "evidenceSources": [
@@ -102,11 +102,11 @@
       "canonicalSources": [
         {
           "path": "docs/api/API_CONTRACT.md",
-          "sha256": "1b8cf5a899da300499534a82d40197978549a281ca0745d6828713affca5a35b"
+          "sha256": "6191615484f160bc8828c0dffe059c3d72494ffdebb843fbeef86ffe45f5148f"
         },
         {
           "path": "active/api/v2_api.js",
-          "sha256": "82c95da044657f72261626577af2c94321ee6565591c98755fd0bdd75115ec1d"
+          "sha256": "84958cbc111273ed936ad2c12f27fb9a4cf69922ca4a407467e6ccc6d27d94c4"
         }
       ],
       "evidenceSources": [
@@ -149,7 +149,7 @@
       "canonicalSources": [
         {
           "path": "docs/api/API_CONTRACT.md",
-          "sha256": "1b8cf5a899da300499534a82d40197978549a281ca0745d6828713affca5a35b"
+          "sha256": "6191615484f160bc8828c0dffe059c3d72494ffdebb843fbeef86ffe45f5148f"
         },
         {
           "path": "docs/security/SECURITY_BASELINE.md",
@@ -243,7 +243,7 @@
         },
         {
           "path": "active/api/v2_api.js",
-          "sha256": "82c95da044657f72261626577af2c94321ee6565591c98755fd0bdd75115ec1d"
+          "sha256": "84958cbc111273ed936ad2c12f27fb9a4cf69922ca4a407467e6ccc6d27d94c4"
         }
       ],
       "evidenceSources": [

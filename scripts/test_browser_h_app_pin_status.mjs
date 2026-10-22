@@ -196,7 +196,8 @@ async function runPinStatusBrowserTests() {
         body: JSON.stringify({
           success: true,
           inProgress: [101, 102],
-          completed: [201, 202]
+          completed: [201, 202],
+          myInProgress: [{ rowId: 101, lockId: 'lock_server_101' }]
         })
       });
       return;
@@ -206,7 +207,12 @@ async function runPinStatusBrowserTests() {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ success: true })
+        body: JSON.stringify({
+          success: true,
+          status: payload.pinAction === 'add' ? 'IN_PROGRESS' : 'REMOVED',
+          rowId: payload.rowId,
+          lockId: payload.lockId || 'lock_generated'
+        })
       });
       return;
     }
@@ -233,20 +239,23 @@ async function runPinStatusBrowserTests() {
     await page.waitForFunction(() => typeof window.switchPage === 'function' && typeof window.refreshMainMapPins === 'function', { timeout: 10000 });
     await page.waitForTimeout(500);
 
-    console.log("▶ Case 1: Initial status fetch verification via window.fetchGlobalPinStatus()");
+    console.log("▶ Case 1: Initial status fetch & myInProgress restoration via window.fetchGlobalPinStatus()");
     const initialStatus = await page.evaluate(async () => {
-      await window.fetchGlobalPinStatus();
+      await window.fetchGlobalPinStatus({ force: true });
       return {
         is101InProgress: PinStatusModule.isInProgress(101),
+        is101MyInProgress: PinStatusModule.isMyInProgress(101),
+        lock101: PinStatusModule.getMyLockId(101),
+        is102MyInProgress: PinStatusModule.isMyInProgress(102),
         is201Completed: PinStatusModule.isCompleted(201),
         is999InProgress: PinStatusModule.isInProgress(999),
         is999Completed: PinStatusModule.isCompleted(999)
       };
     });
-    if (!initialStatus.is101InProgress || !initialStatus.is201Completed || initialStatus.is999InProgress || initialStatus.is999Completed) {
+    if (!initialStatus.is101InProgress || !initialStatus.is101MyInProgress || initialStatus.lock101 !== 'lock_server_101' || initialStatus.is102MyInProgress || !initialStatus.is201Completed || initialStatus.is999InProgress || initialStatus.is999Completed) {
       throw new Error(`Initial status mismatch: ${JSON.stringify(initialStatus)}`);
     }
-    console.log("  ✅ Case 1 PASS: initial fetch status verified via window.fetchGlobalPinStatus()");
+    console.log("  ✅ Case 1 PASS: initial fetch status & myInProgress restored via window.fetchGlobalPinStatus()");
 
     console.log("▶ Case 2: IN_PROGRESS styling logic via window.refreshMainMapPins()");
     const inProgressResult = await page.evaluate(() => {
@@ -269,8 +278,8 @@ async function runPinStatusBrowserTests() {
     }
     console.log("  ✅ Case 2 PASS: IN_PROGRESS marker evaluated to #00B7FF via refreshMainMapPins");
 
-    console.log("▶ Case 3: COMPLETED styling logic & conflict precedence via window.refreshMainMapPins()");
-    const completedResult = await page.evaluate(() => {
+    console.log("▶ Case 3: COMPLETED styling logic & unified conflict precedence (IN_PROGRESS > COMPLETED > UNALLOCATED) via window.refreshMainMapPins()");
+    const completedResult = await page.evaluate(async () => {
       let updatedIcon201 = null;
       const marker201 = {
         rowId: 201,
@@ -279,9 +288,8 @@ async function runPinStatusBrowserTests() {
       };
 
       // conflictMarker: rowId 999 を completed に追加し、inProgress にも add して競合状態を作成
-      PinStatusModule.setInProgress(999, 'add');
       PinStatusModule.reflectCompleted(999);
-      PinStatusModule.setInProgress(999, 'add');
+      await PinStatusModule.setInProgress(999, 'add');
 
       let updatedIconConflict = null;
       const markerConflict = {
@@ -303,10 +311,10 @@ async function runPinStatusBrowserTests() {
     if (completedResult.marker201Color !== '#EA5F08') {
       throw new Error(`COMPLETED status color failed: ${JSON.stringify(completedResult)}`);
     }
-    if (completedResult.markerConflictColor !== '#EA5F08') {
-      throw new Error(`Conflict precedence color failed: ${JSON.stringify(completedResult)}`);
+    if (completedResult.markerConflictColor !== '#00B7FF') {
+      throw new Error(`Conflict precedence color failed (expected #00B7FF for IN_PROGRESS > COMPLETED): ${JSON.stringify(completedResult)}`);
     }
-    console.log("  ✅ Case 3 PASS: COMPLETED marker = #EA5F08 and conflict resolves to #EA5F08 via refreshMainMapPins");
+    console.log("  ✅ Case 3 PASS: COMPLETED marker = #EA5F08 and conflict resolves to #00B7FF (IN_PROGRESS > COMPLETED) via refreshMainMapPins");
 
     console.log("▶ Case 4: Marker selection (add) integration verification");
     await page.evaluate(async () => {
@@ -336,7 +344,7 @@ async function runPinStatusBrowserTests() {
     const apiCountBeforeReflect = apiRequests.length;
 
     const reflectResult = await page.evaluate(() => {
-      const rowId = 101;
+      const rowId = 102;
 
       const beforeReflect = {
         inProgress: PinStatusModule.isInProgress(rowId),

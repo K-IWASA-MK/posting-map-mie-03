@@ -823,13 +823,13 @@
         transferSheet.getRange("A1:N1").setBackground("#1e293b").setFontColor("#ffffff").setFontWeight("bold");
         transferSheet.setFrozenRows(1);
 
-        // ⑤ PinStatus (2列)
+        // ⑤ PinStatus (5列)
         const pinName = `${this.prefixes.pin}${datasetKey}`;
         const pinSheet = ss.insertSheet(pinName);
         createdInThisRun.push(pinSheet);
-        const pinHeaders = [["rowId", "status"]];
-        pinSheet.getRange(1, 1, 1, 2).setValues(pinHeaders);
-        pinSheet.getRange("A1:B1").setBackground("#1e293b").setFontColor("#ffffff").setFontWeight("bold");
+        const pinHeaders = [["rowId", "status", "lineUserId", "lockId", "startedAt"]];
+        pinSheet.getRange(1, 1, 1, 5).setValues(pinHeaders);
+        pinSheet.getRange("A1:E1").setBackground("#1e293b").setFontColor("#ffffff").setFontWeight("bold");
         pinSheet.setFrozenRows(1);
 
         SpreadsheetApp.flush();

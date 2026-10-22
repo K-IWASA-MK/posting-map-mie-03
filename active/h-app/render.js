@@ -1810,26 +1810,33 @@ window.initMainMap = function() {
 
   const revertActiveMarkerColor = () => {
     if (activeMarker) {
-      const isCompleted = PinStatusModule.isCompleted(activeMarker.rowId);
-      const isRemoteView = !!activeMarker.isRemoteView;
-      const prevIcon = activeMarker.getIcon();
+      const targetRowId = activeMarker.rowId;
+      const isCompleted = PinStatusModule.isCompleted(targetRowId);
+      const isMyLock = (typeof PinStatusModule.isMyInProgress === 'function' && PinStatusModule.isMyInProgress(targetRowId));
+      const hadLock = Boolean(activeMarker.hasAcquiredLock || isMyLock);
+      const isRemoteView = !!activeMarker.isRemoteView || !hadLock;
 
+      // 一時UIフラグをリセット
+      activeMarker.hasAcquiredLock = false;
+      activeMarker.isRemoteView = false;
+
+      // 自端末が「配布開始」でロックを保持していた場合のみ IN_PROGRESS を remove
+      if (!isCompleted && !isRemoteView && typeof window.setPinInProgress === 'function') {
+        window.setPinInProgress(activeMarker.rowId, "remove");
+      }
+
+      const prevIcon = activeMarker.getIcon();
       if (prevIcon) {
         let restoredColor = "#22c55e";
-        if (isCompleted) {
-          restoredColor = "#EA5F08";
-        } else if (isRemoteView) {
+        if (PinStatusModule.isInProgress(targetRowId)) {
           restoredColor = "#00B7FF";
+        } else if (isCompleted) {
+          restoredColor = "#EA5F08";
         }
         activeMarker.setIcon({
           ...prevIcon,
           fillColor: restoredColor
         });
-      }
-
-      // Phase 4-B: 自端末で追加していた場合のみ IN_PROGRESS を remove
-      if (!isCompleted && !isRemoteView && typeof window.setPinInProgress === 'function') {
-        window.setPinInProgress(activeMarker.rowId, "remove");
       }
 
       unlockMapControls();
@@ -1840,17 +1847,20 @@ window.initMainMap = function() {
   window.refreshMainMapPins = function() {
     if (!window.masterMarkers) return;
     window.masterMarkers.forEach(marker => {
-      const isCompleted = PinStatusModule.isCompleted(marker.rowId);
       const isInProgress = PinStatusModule.isInProgress(marker.rowId);
-      const isMine = activeMarker && activeMarker.rowId === marker.rowId;
+      const isCompleted = PinStatusModule.isCompleted(marker.rowId);
 
       const currentIcon = marker.getIcon();
       if (currentIcon) {
+        // 正式ルール (Binding Rectification 1):
+        // 1. PinStatusModule.isInProgress(rowId) -> 青 (#00B7FF)
+        // 2. PinStatusModule.isCompleted(rowId)  -> オレンジ (#EA5F08)
+        // 3. それ以外                             -> 緑 (#22c55e)
         let targetColor = "#22c55e";
-        if (isCompleted) {
-          targetColor = "#EA5F08";
-        } else if (isInProgress || isMine) {
+        if (isInProgress) {
           targetColor = "#00B7FF";
+        } else if (isCompleted) {
+          targetColor = "#EA5F08";
         }
 
         if (currentIcon.fillColor !== targetColor) {
@@ -1881,6 +1891,7 @@ window.initMainMap = function() {
 
   window.lockActivePinAndBubble = function(rowId) {
     if (activeMarker && activeMarker.rowId === rowId) {
+      activeMarker.hasAcquiredLock = false;
       const currentIcon = activeMarker.getIcon();
       if (currentIcon) {
         activeMarker.setIcon({ ...currentIcon, fillColor: "#EA5F08" });
@@ -2166,22 +2177,23 @@ window.initMainMap = function() {
             </div>
           `;
 
-          const createContent = (isCompleted, isRemoteInProgress) => {
+          const createContent = (isCompleted, isRemoteInProgress, isMyInProgress) => {
             let bottomUI = '';
 
-            if (isCompleted) {
-              bottomUI = `
-                <div class="premium-glass-badge badge-completed">
-                  配布済み 🔒
-                </div>
-              `;
-            } else if (isRemoteInProgress) {
+            if (isRemoteInProgress) {
               bottomUI = `
                 <div class="premium-glass-badge badge-in-progress">
                   配布中 🔵
                 </div>
               `;
+            } else if (isCompleted && !isMyInProgress) {
+              bottomUI = `
+                <div class="premium-glass-badge badge-completed">
+                  配布済み 🔒
+                </div>
+              `;
             } else {
+              const btnLabel = isMyInProgress ? '入力操作' : '配布開始';
               bottomUI = `
                 <div style="display: flex; gap: 8px; width: 100%;">
                   <a href="${googleMapsUrl}" target="_blank" class="premium-glass-btn btn-maps" style="flex: 1;">
@@ -2197,7 +2209,7 @@ window.initMainMap = function() {
                       <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                       <path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                     </svg>
-                    <span>配布開始</span>
+                    <span>${btnLabel}</span>
                   </button>
                 </div>
               `;
@@ -2229,18 +2241,22 @@ window.initMainMap = function() {
               return;
             }
 
+            const isInProgress = PinStatusModule.isInProgress(row.rowId);
+            const isMyInProgress = (typeof PinStatusModule.isMyInProgress === 'function')
+              ? PinStatusModule.isMyInProgress(row.rowId)
+              : false;
+            const isRemoteInProgress = isInProgress && !isMyInProgress;
             const isCompleted = PinStatusModule.isCompleted(row.rowId);
-            const isRemoteInProgress = PinStatusModule.isInProgress(row.rowId);
             const isLocked = isCompleted || isRemoteInProgress;
 
-            // タップされたPINのアイコン色変更 (自端末選択表示のため青へ変更 / PinStatus追加なし)
+            // タップ時の吹き出し表示のみでは Backend Write 0（緑ピンのまま表示、自分の青ピン再表示時は青維持）
             const currentIcon = marker.getIcon();
             if (currentIcon) {
-              let targetColor = "#00B7FF";
-              if (isCompleted) {
-                targetColor = "#EA5F08";
-              } else if (isRemoteInProgress) {
+              let targetColor = "#22c55e";
+              if (isInProgress) {
                 targetColor = "#00B7FF";
+              } else if (isCompleted) {
+                targetColor = "#EA5F08";
               }
               marker.setIcon({
                 ...currentIcon,
@@ -2249,11 +2265,7 @@ window.initMainMap = function() {
             }
 
             marker.isRemoteView = isRemoteInProgress;
-
-            // Phase 4-B: 未完了かつ他端末作業中でない自端末の新規選択時のみ IN_PROGRESS を add
-            if (!isCompleted && !isRemoteInProgress && typeof window.setPinInProgress === 'function') {
-               window.setPinInProgress(row.rowId, "add");
-            }
+            marker.hasAcquiredLock = isMyInProgress;
             activeMarker = marker;
 
             // MAP操作可逆ロック
@@ -2265,17 +2277,61 @@ window.initMainMap = function() {
                 activeOverlay.setMap(null);
                 activeOverlay = null;
               }
-              let isStarted = false;
-              activeOverlay = new CustomMarkerOverlay(marker.getPosition(), createContent(isCompleted, isRemoteInProgress), map, (buttonEl) => {
-                if (isLocked) return;
+              let isStarted = isMyInProgress;
+              let isAcquiringLock = false;
+              activeOverlay = new CustomMarkerOverlay(marker.getPosition(), createContent(isCompleted, isRemoteInProgress, isMyInProgress), map, async (buttonEl) => {
+                if (isLocked || isAcquiringLock) return;
 
                 if (!isStarted) {
-                  isStarted = true;
-                  const span = buttonEl ? buttonEl.querySelector('span') : null;
-                  if (span) {
-                    span.textContent = '入力操作';
-                  } else if (buttonEl) {
-                    buttonEl.textContent = '入力操作';
+                  isAcquiringLock = true;
+                  if (buttonEl) buttonEl.disabled = true;
+                  try {
+                    const addRes = (typeof setPinInProgress === 'function')
+                      ? await setPinInProgress(row.rowId, "add")
+                      : { success: false };
+
+                    if (!addRes || addRes.success === false) {
+                      marker.hasAcquiredLock = false;
+                      const errCode = addRes && addRes.code ? String(addRes.code) : '';
+                      if (errCode === 'LOCKED_BY_OTHER') {
+                        marker.isRemoteView = true;
+                        alert("この地区は現在、他の配布員が配布中です。");
+                        if (typeof closeCustomInfoWindow === 'function') {
+                          closeCustomInfoWindow();
+                        }
+                      } else if (errCode === 'ALREADY_COMPLETED') {
+                        alert("この地区は既に今月の配布が完了しています。再操作はできません。");
+                        if (typeof closeCustomInfoWindow === 'function') {
+                          closeCustomInfoWindow();
+                        }
+                      } else {
+                        alert("配布開始の登録に失敗しました。通信環境をご確認のうえ再度お試しください。");
+                      }
+                      return;
+                    }
+
+                    isStarted = true;
+                    marker.hasAcquiredLock = true;
+                    const activeIcon = marker.getIcon();
+                    if (activeIcon) {
+                      marker.setIcon({
+                        ...activeIcon,
+                        fillColor: "#00B7FF"
+                      });
+                    }
+                    if (typeof refreshMainMapPins === 'function') {
+                      refreshMainMapPins();
+                    }
+
+                    const span = buttonEl ? buttonEl.querySelector('span') : null;
+                    if (span) {
+                      span.textContent = '入力操作';
+                    } else if (buttonEl) {
+                      buttonEl.textContent = '入力操作';
+                    }
+                  } finally {
+                    isAcquiringLock = false;
+                    if (buttonEl) buttonEl.disabled = false;
                   }
                   return;
                 }

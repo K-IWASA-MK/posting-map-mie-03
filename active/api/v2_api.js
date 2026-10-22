@@ -993,7 +993,7 @@ function processPostAction(action, postData, e, districtId = "") {
       // 4. Pin Status ドメイン
       try {
         const pinData = typeof PinStatusService !== 'undefined' && PinStatusService.getInstance
-          ? PinStatusService.getInstance().getStatus(districtId)
+          ? PinStatusService.getInstance().getStatus(districtId, "")
           : { success: false, inProgress: [], completed: [] };
         snapshot.domains.pinStatus = pinData;
         if (!pinData.success) {
@@ -1194,7 +1194,7 @@ function processPostAction(action, postData, e, districtId = "") {
         districtId
       );
     case 'getGlobalPinStatus':
-      return PinStatusService.getInstance().getStatus(districtId);
+      return PinStatusService.getInstance().getStatus(districtId, reqLineUserId);
     case 'getBulletinPosts':
       return typeof BulletinService !== 'undefined' && BulletinService.getInstance
         ? BulletinService.getInstance().getPosts(reqLineUserId, districtId)
@@ -1208,7 +1208,7 @@ function processPostAction(action, postData, e, districtId = "") {
         ? BulletinService.getInstance().sendContact(postData, districtId)
         : { success: false, message: 'BulletinService not available' };
     case 'setPinInProgress':
-      return PinStatusService.getInstance().setInProgress(postData, districtId);
+      return PinStatusService.getInstance().setInProgress(postData, districtId, reqLineUserId);
     case 'provisionDistrict':
       const pToken = (postData && (postData.provisioningToken || (postData.options && postData.options.provisioningToken)));
       const pCheck = verifyProvisioningToken(pToken);

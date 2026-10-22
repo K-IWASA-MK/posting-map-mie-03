@@ -1547,10 +1547,10 @@ runTest("Scenario 25: Provisioning Blast Radius 固定 ＆ 月次 rollover 1地�
   });
 
   const kuwanaPin = ssKuwana.getSheetByName("PinStatus2026-09");
-  kuwanaPin.rows = [["rowId", "status"], ["row1", "IN_PROGRESS"], ["row2", "IN_PROGRESS"]];
+  kuwanaPin.rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"], ["row1", "IN_PROGRESS", "U1", "l1", "2026-09-20"], ["row2", "IN_PROGRESS", "U2", "l2", "2026-09-20"]];
 
   const okayamaPin = ssOkayama.getSheetByName("PinStatus2026-09");
-  okayamaPin.rows = [["rowId", "status"], ["rowA", "IN_PROGRESS"], ["rowB", "IN_PROGRESS"]];
+  okayamaPin.rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"], ["rowA", "IN_PROGRESS", "UO1", "lo1", "2026-09-20"], ["rowB", "IN_PROGRESS", "UO2", "lo2", "2026-09-20"]];
   const okayamaPinSnapshot = JSON.parse(JSON.stringify(okayamaPin.rows));
 
   // 1-1. KUWANA のみ Provision 実行 ➔ OKAYAMA の PinStatus は完全不変 (mutation 0) を実証
@@ -1625,10 +1625,10 @@ runTest("Scenario 26: PinStatus cleanup の 1地区 Trigger 実行と他地区�
   const ssOkayama = mockSpreadsheets["ss-okayama-id"];
 
   const pinKuwana = ssKuwana.getSheetByName("PinStatus2026-09");
-  pinKuwana.rows = [["rowId", "status"], ["k1", "IN_PROGRESS"], ["k2", "IN_PROGRESS"]];
+  pinKuwana.rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"], ["k1", "IN_PROGRESS", "U1", "l1", "2026-09-20"], ["k2", "IN_PROGRESS", "U2", "l2", "2026-09-20"]];
 
   const pinOkayama = ssOkayama.getSheetByName("PinStatus2026-09");
-  pinOkayama.rows = [["rowId", "status"], ["o1", "IN_PROGRESS"], ["o2", "IN_PROGRESS"], ["o3", "IN_PROGRESS"]];
+  pinOkayama.rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"], ["o1", "IN_PROGRESS", "UO1", "lo1", "2026-09-20"], ["o2", "IN_PROGRESS", "UO2", "lo2", "2026-09-20"], ["o3", "IN_PROGRESS", "UO3", "lo3", "2026-09-20"]];
 
   const distKuwana = ssKuwana.getSheetByName("配布実績2026-09");
   const distKuwanaRowsBefore = distKuwana ? distKuwana.rows.length : 0;
@@ -1639,7 +1639,7 @@ runTest("Scenario 26: PinStatus cleanup の 1地区 Trigger 実行と他地区�
   cleanupPinStatusDaily();
 
   assert.equal(pinKuwana.rows.length, 1, "KUWANA PinStatus data rows cleared");
-  assert.deepEqual(pinKuwana.rows[0], ["rowId", "status"], "KUWANA PinStatus header preserved");
+  assert.deepEqual(pinKuwana.rows[0], ["rowId", "status", "lineUserId", "lockId", "startedAt"], "KUWANA PinStatus 5-column header preserved");
 
   // 配布実績シートには一切触れていないこと (完全不可侵)
   if (distKuwana) {
@@ -1844,7 +1844,7 @@ runTest("Scenario 33: action=healSchemaHeaders の targetSpreadsheetId バイパ
   (kSS.getSheetByName("名簿2026-10") || kSS.addSheet("名簿2026-10")).rows = [["ID", "名前", "LINE_USER_ID", "登録日時"]];
   (kSS.getSheetByName("保有チラシ枚数2026-10") || kSS.addSheet("保有チラシ枚数2026-10")).rows = [["ID", "担当者ID", "担当者名", "保管場所", "保有枚数", "最終更新日時", "lineUserId"]];
   (kSS.getSheetByName("受渡要請履歴2026-10") || kSS.addSheet("受渡要請履歴2026-10")).rows = [["日時", "要請者", "要請者ID", "保管者", "保管者ID", "連絡方法", "連絡先", "状態", "requestId", "LINE送信状態", "LINE HTTP status", "LINE送信日時", "requesterLineUserId", "holderLineUserId"]];
-  (kSS.getSheetByName("PinStatus2026-10") || kSS.addSheet("PinStatus2026-10")).rows = [["rowId", "status"]];
+  (kSS.getSheetByName("PinStatus2026-10") || kSS.addSheet("PinStatus2026-10")).rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"]];
 
   const kuwanaSys = kSS.getSheetByName("SYSTEM_INFO");
   if (kuwanaSys) {
@@ -1946,6 +1946,212 @@ runTest("Scenario 35: 廃止された親GAS専用管理アクション (switchDi
   }
 
   assert.equal(JSON.stringify(mockScriptProperties), snapProps, "ScriptProperties must have mutation 0");
+});
+
+// -----------------------------------------------------------------------------
+// TEST 36: PinStatus 5列所有権・世代ロック・Dual Auth・GPSService 同一排他ロック内解除 検証
+// -----------------------------------------------------------------------------
+runTest("Scenario 36: PinStatus 5列所有権・世代ロック・Dual Auth・GPSService 同一排他ロック内解除", () => {
+  bindActiveDistrict("ss-kuwana-id", "folder_kuwana_id");
+  const kSS = mockSpreadsheets["ss-kuwana-id"];
+  const kuwanaSys = kSS.getSheetByName("SYSTEM_INFO");
+  kuwanaSys.rows = [
+    ["項目", "内容"],
+    ["地区コード", "KUWANA"],
+    ["運用モード", "SUBSCRIPTION"],
+    ["管理パスワード", "pwd_kuwana"],
+    ["契約終了日", "2026-10-31"]
+  ];
+
+  const staffSheet = kSS.getSheetByName("名簿2026-09") || kSS.addSheet("名簿2026-09");
+  staffSheet.rows = [
+    ["STAFF_ID", "氏名", "LINE_USER_ID", "登録日時"],
+    ["K001", "桑名 太郎", "U_KUWANA_001", "2026/01/01"],
+    ["K002", "桑名 花子", "U_KUWANA_002", "2026/01/01"]
+  ];
+
+  const pinSheet = kSS.getSheetByName("PinStatus2026-09") || kSS.addSheet("PinStatus2026-09");
+  const distSheet = kSS.getSheetByName("配布実績2026-09");
+  distSheet.rows = [
+    ["rowId", "cityName", "townName", "completedAt", "count", "staffId", "staffName", "gpsStatus", "photoStatus", "lat", "lng", "gpsTime", "fileId", "photoUrl", "photoTime", "lineUserId", "requestId"],
+    ["1", "サンプル市A", "中央町1", "2026/09/20 10:00:00", 100, "K001", "桑名 太郎", "OK", "OK", 35.0, 136.6, "2026/09/20 10:00:00", "", "", "", "U_KUWANA_001", "req_done_1"],
+    ["2", "サンプル市A", "中央町2", "", 0, "", "", "", "", "", "", "", "", "", "", "", ""],
+    ["3", "サンプル市A", "中央町3", "", 0, "", "", "", "", "", "", "", "", "", "", "", ""]
+  ];
+
+  // 1. 2列シート時は SCHEMA_NOT_READY で Fail-Closed
+  pinSheet.rows = [["rowId", "status"]];
+  const notReadyRes = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 2,
+        pinAction: "add",
+        lockId: "lock_u1_r2"
+      })
+    }
+  }).text);
+  assert.equal(notReadyRes.success, false);
+  assert.equal(notReadyRes.code, "SCHEMA_NOT_READY");
+
+  // 2. 5列ヘッダー準備
+  pinSheet.rows = [["rowId", "status", "lineUserId", "lockId", "startedAt"]];
+
+  // 3. User1 が rowId=2 でロック取得
+  const addR2 = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 2,
+        pinAction: "add",
+        lockId: "lock_u1_r2"
+      })
+    }
+  }).text);
+  assert.equal(addR2.success, true);
+  assert.equal(addR2.lockId, "lock_u1_r2");
+  assert.equal(pinSheet.rows.length, 2);
+  assert.equal(pinSheet.rows[1][2], "U_KUWANA_001");
+  assert.equal(pinSheet.rows[1][3], "lock_u1_r2");
+
+  // 4. User1 が完了済み rowId=1 へ add 試行 -> ALREADY_COMPLETED で拒絶され、既存の rowId=2 ロックは消えないこと
+  const addCompleted = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 1,
+        pinAction: "add",
+        lockId: "lock_u1_r1"
+      })
+    }
+  }).text);
+  assert.equal(addCompleted.success, false);
+  assert.equal(addCompleted.code, "ALREADY_COMPLETED");
+  assert.equal(pinSheet.rows.length, 2, "Existing lock on rowId=2 must be preserved when ALREADY_COMPLETED fails");
+
+  // 5. User2 が User1 ロック中の rowId=2 へ add 試行 -> LOCKED_BY_OTHER
+  const addLockedByOther = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user2",
+        districtId: "KUWANA",
+        rowId: 2,
+        pinAction: "add",
+        lockId: "lock_u2_r2"
+      })
+    }
+  }).text);
+  assert.equal(addLockedByOther.success, false);
+  assert.equal(addLockedByOther.code, "LOCKED_BY_OTHER");
+
+  // 6. User1 が同一 rowId=2 へ別 lockId で再 add -> 既存 lock_u1_r2 が維持・復元されること
+  const addRestored = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 2,
+        pinAction: "add",
+        lockId: "lock_u1_r2_second"
+      })
+    }
+  }).text);
+  assert.equal(addRestored.success, true);
+  assert.equal(addRestored.restored, true);
+  assert.equal(addRestored.lockId, "lock_u1_r2", "Existing storedLockId must be preserved as canonical");
+
+  // 7. User1 が rowId=3 へ乗り換え -> 1人1ピンにより rowId=2 が消え rowId=3 のみ残ること
+  const addSwitch = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 3,
+        pinAction: "add",
+        lockId: "lock_u1_r3"
+      })
+    }
+  }).text);
+  assert.equal(addSwitch.success, true);
+  assert.equal(pinSheet.rows.length, 2);
+  assert.equal(Number(pinSheet.rows[1][0]), 3);
+  assert.equal(pinSheet.rows[1][3], "lock_u1_r3");
+
+  // 8. getGlobalPinStatus: LINE 認証時は myInProgress を返し、lineUserId 生値は露出しないこと
+  const statusUser1 = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "getGlobalPinStatus",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA"
+      })
+    }
+  }).text);
+  assert.equal(statusUser1.success, true);
+  assert.deepEqual(statusUser1.inProgress, [3]);
+  assert.deepEqual(statusUser1.myInProgress, [{ rowId: 3, lockId: "lock_u1_r3" }]);
+  assert.ok(!JSON.stringify(statusUser1).includes("U_KUWANA_001"), "lineUserId must never be exposed in getGlobalPinStatus response");
+
+  // 9. remove 検証: 他人 (OWNER_MISMATCH) & 旧lockId (LOCK_MISMATCH) は拒絶
+  const remWrongOwner = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user2",
+        districtId: "KUWANA",
+        rowId: 3,
+        pinAction: "remove",
+        lockId: "lock_u1_r3"
+      })
+    }
+  }).text);
+  assert.equal(remWrongOwner.success, false);
+  assert.equal(remWrongOwner.code, "OWNER_MISMATCH");
+
+  const remWrongLock = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "setPinInProgress",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 3,
+        pinAction: "remove",
+        lockId: "stale_lock_id"
+      })
+    }
+  }).text);
+  assert.equal(remWrongLock.success, false);
+  assert.equal(remWrongLock.code, "LOCK_MISMATCH");
+  assert.equal(pinSheet.rows.length, 2, "Row must remain locked after OWNER_MISMATCH and LOCK_MISMATCH");
+
+  // 10. updateRecordWithGPSPhoto 完了保存による同一排他ロック内での PinStatus 自動解除
+  const gpsCompleteRes = JSON.parse(doPost({
+    postData: {
+      contents: JSON.stringify({
+        action: "updateRecordWithGPSPhoto",
+        liffToken: "token_kuwana_user1",
+        districtId: "KUWANA",
+        rowId: 3,
+        lockId: "lock_u1_r3",
+        requestId: "req_complete_r3",
+        count: 150,
+        isDone: true,
+        latitude: 35.06,
+        longitude: 136.68
+      })
+    }
+  }).text);
+  assert.equal(gpsCompleteRes.success, true);
+  assert.equal(pinSheet.rows.length, 1, "PinStatus row for rowId=3 must be deleted inside GPSService completion lock");
 });
 
 console.log('\n================================================================');

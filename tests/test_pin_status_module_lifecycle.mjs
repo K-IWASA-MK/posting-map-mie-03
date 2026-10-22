@@ -26,8 +26,21 @@ function createPinStatusContext(customConfig = {}) {
   const refreshCalls = [];
   let apiHandler = customConfig.apiHandler || (async (action, payload) => ({ success: true, inProgress: [], completed: [] }));
 
+  const storageMap = new Map();
+  const mockLocalStorage = {
+    getItem: (k) => (storageMap.has(k) ? storageMap.get(k) : null),
+    setItem: (k, v) => { storageMap.set(k, String(v)); },
+    removeItem: (k) => { storageMap.delete(k); }
+  };
+
   const sandbox = {
     Date: Date,
+    Math: Math,
+    String: String,
+    Boolean: Boolean,
+    JSON: JSON,
+    Map: Map,
+    Set: Set,
     Promise: Promise,
     Array: Array,
     Number: Number,
@@ -37,6 +50,7 @@ function createPinStatusContext(customConfig = {}) {
     console: console,
     setTimeout: setTimeout,
     clearTimeout: clearTimeout,
+    localStorage: mockLocalStorage,
 
     callApiPost: async (action, payload) => {
       apiCalls.push({ action, payload, time: Date.now() });
@@ -182,15 +196,15 @@ await runGate(5, 'Successful fetch triggers onStatusUpdated hook exactly once', 
 });
 
 // ============================================================================
-// Gate 6: add 操作時のローカル optimistic mutation (即時反映)
+// Gate 6: add 操作時は Backend 確定後にローカル状態が IN_PROGRESS になり、確定前は false であること
 // ============================================================================
-await runGate(6, 'add optimistic local mutation occurs before API completes', async () => {
+await runGate(6, 'add updates local inProgress and myLock only after Backend confirmation', async () => {
   let resolveApi;
   const apiPromise = new Promise(res => { resolveApi = res; });
   const env = createPinStatusContext({
-    apiHandler: async () => {
+    apiHandler: async (action, payload) => {
       await apiPromise;
-      return { success: true };
+      return { success: true, status: 'IN_PROGRESS', rowId: payload.rowId, lockId: payload.lockId };
     }
   });
   const mod = vm.runInContext('PinStatusModule', env.context);
@@ -198,11 +212,15 @@ await runGate(6, 'add optimistic local mutation occurs before API completes', as
   // add 呼び出し（await しない）
   const actionPromise = mod.setInProgress(301, 'add');
 
-  // API 完了前だがローカル状態は即座に true になっていること
-  assert.strictEqual(mod.isInProgress(301), true, 'Optimistic add is synchronous');
+  // Backend 確定前は false（LOCKED_BY_OTHER 等の誤青化防止）
+  assert.strictEqual(mod.isInProgress(301), false, 'Not inProgress before Backend confirms lock');
 
   resolveApi();
-  await actionPromise;
+  const res = await actionPromise;
+  assert.strictEqual(res.success, true);
+  assert.strictEqual(mod.isInProgress(301), true, 'InProgress after Backend confirms lock');
+  assert.strictEqual(mod.isMyInProgress(301), true, 'isMyInProgress is true after add');
+  assert.ok(mod.getMyLockId(301).length > 0, 'lockId is recorded');
 });
 
 // ============================================================================
@@ -299,30 +317,34 @@ await runGate(10, 'In-flight action chain remains serialized', async () => {
 });
 
 // ============================================================================
-// Gate 11: 認証失敗・APIエラー時でも例外がスワローされ、後続チェーンが停止せず、ローカルstateがロールバックされない現行契約の維持
+// Gate 11: 認証失敗・APIエラー時でも例外がスワローされ、後続チェーンが停止せず、add失敗時はローカル変更0であること
 // ============================================================================
-await runGate(11, 'Identity/API failure preserves local state without rollback and keeps chain going', async () => {
+await runGate(11, 'Identity/API failure on add keeps local state clean (0 false-positive lock) and keeps chain going', async () => {
   let failCount = 0;
   const env = createPinStatusContext({
     apiHandler: async (action, payload) => {
       if (payload.rowId === 501) {
         failCount++;
-        throw new Error('AUTH_FAILED');
+        const err = new Error('LOCKED_BY_OTHER');
+        err.code = 'LOCKED_BY_OTHER';
+        throw err;
       }
-      return { success: true };
+      return { success: true, status: 'IN_PROGRESS', rowId: payload.rowId, lockId: payload.lockId };
     }
   });
   const mod = vm.runInContext('PinStatusModule', env.context);
 
   let errorCaptured = null;
   // 501 は失敗するが、例外は swallow されて chain は resolve する
-  await mod.setInProgress(501, 'add', {
+  const res501 = await mod.setInProgress(501, 'add', {
     onError: (err) => { errorCaptured = err; }
   });
 
   assert.ok(errorCaptured, 'Error hook received error');
-  // 重要契約: API失敗時でもローカル状態は rollback されない (現行仕様)
-  assert.strictEqual(mod.isInProgress(501), true, 'No rollback on API failure');
+  assert.strictEqual(res501.success, false);
+  assert.strictEqual(res501.code, 'LOCKED_BY_OTHER');
+  // add 失敗時は自ロックとして誤保持されないこと
+  assert.strictEqual(mod.isMyInProgress(501), false, 'Zero local lock on add failure');
 
   // 後続のアクションが停止せず正常実行されること
   await mod.setInProgress(502, 'add');
@@ -371,9 +393,9 @@ await runGate(14, 'Default / unallocated state evaluation', async () => {
 });
 
 // ============================================================================
-// Gate 15: 【CURRENT RUNTIME conflict precedence】COMPLETED > IN_PROGRESS > UNALLOCATED
+// Gate 15: 【UNIFIED RUNTIME conflict precedence】IN_PROGRESS > COMPLETED > UNALLOCATED
 // ============================================================================
-await runGate(15, 'CURRENT RUNTIME conflict precedence: COMPLETED > IN_PROGRESS > UNALLOCATED', async () => {
+await runGate(15, 'UNIFIED RUNTIME conflict precedence: IN_PROGRESS > COMPLETED > UNALLOCATED', async () => {
   const env = createPinStatusContext({
     apiHandler: async (action) => {
       if (action === 'getGlobalPinStatus') {
@@ -394,29 +416,30 @@ await runGate(15, 'CURRENT RUNTIME conflict precedence: COMPLETED > IN_PROGRESS 
   assert.strictEqual(mod.isCompleted(901), true, '901 is completed');
   assert.strictEqual(mod.isInProgress(901), true, '901 is inProgress');
 
-  // 2. render.js の実Runtime branch ロジックを正確にシミュレーション
+  // 2. render.js の実Runtime branch ロジックを正確にシミュレーション (Binding Rectification 1)
   function resolveMarkerColor(rowId) {
     const isCompleted = mod.isCompleted(rowId);
     const isInProgress = mod.isInProgress(rowId);
-    if (isCompleted) {
-      return '#EA5F08'; // 橙 (COMPLETED)
-    } else if (isInProgress) {
+    if (isInProgress) {
       return '#00B7FF'; // 青 (IN_PROGRESS)
+    } else if (isCompleted) {
+      return '#EA5F08'; // 橙 (COMPLETED)
     }
     return '#22c55e';   // 緑 (UNALLOCATED)
   }
 
-  // 3. conflict 時は COMPLETED が優先され orange であること
-  assert.strictEqual(resolveMarkerColor(901), '#EA5F08', 'Conflict precedence: COMPLETED wins over IN_PROGRESS');
+  // 3. conflict 時は IN_PROGRESS が優先され blue であること
+  assert.strictEqual(resolveMarkerColor(901), '#00B7FF', 'Conflict precedence: IN_PROGRESS wins over COMPLETED');
 
-  // 4. render.js ソースコード上の分岐順序（if (isCompleted) ... else if (isInProgress) ...）を静的検証
+  // 4. render.js ソースコード上の分岐順序（if (isInProgress) ... else if (isCompleted) ...）を静的検証
   const renderJs = fs.readFileSync(path.join(REPO_ROOT, 'active/h-app/render.js'), 'utf8');
   const refreshFnIdx = renderJs.indexOf('window.refreshMainMapPins = function()');
   assert.ok(refreshFnIdx > 0, 'refreshMainMapPins exists');
   const refreshFnBlock = renderJs.substring(refreshFnIdx, renderJs.indexOf('};', refreshFnIdx));
-  const isCompletedBranchIdx = refreshFnBlock.indexOf('if (isCompleted)');
-  const isInProgressBranchIdx = refreshFnBlock.indexOf('else if (isInProgress');
-  assert.ok(isCompletedBranchIdx > 0 && isInProgressBranchIdx > isCompletedBranchIdx, 'isCompleted branch precedes isInProgress branch in render.js');
+  const isInProgressBranchIdx = refreshFnBlock.indexOf('if (isInProgress)');
+  const isCompletedBranchIdx = refreshFnBlock.indexOf('else if (isCompleted)');
+  assert.ok(isInProgressBranchIdx > 0 && isCompletedBranchIdx > isInProgressBranchIdx, 'isInProgress branch precedes isCompleted branch in render.js');
+  assert.ok(!refreshFnBlock.includes('hasAcquiredLock'), 'refreshMainMapPins must not use marker.hasAcquiredLock as color SSOT');
 });
 
 // ============================================================================
@@ -449,7 +472,7 @@ await runGate(17, 'Marker selection add integration', async () => {
 
   // 1. Production code wiring static verification
   const renderJs = fs.readFileSync(path.join(REPO_ROOT, 'active/h-app/render.js'), 'utf8');
-  assert.ok(renderJs.includes('window.setPinInProgress(activeMarker.rowId, "add")') || renderJs.includes('window.setPinInProgress(row.rowId, "add")'), 'render.js contains window.setPinInProgress add on selection');
+  assert.ok(renderJs.includes('setPinInProgress(activeMarker.rowId, "add")') || renderJs.includes('setPinInProgress(row.rowId, "add")'), 'render.js contains setPinInProgress add on selection');
 
   // 2. Dynamic execution
   const setPinInProgress = function(rowId, action) {
@@ -645,25 +668,29 @@ await runGate(25, 'Failed persistence does not become completed', async () => {
 });
 
 // ============================================================================
-// Gate 26: PinStatusModule Public API は厳密に 5 個。getSnapshot / mutable callback / test-only API なし
+// Gate 26: PinStatusModule Public API は厳密に 7 個。getSnapshot / mutable callback / test-only API なし
 // ============================================================================
-await runGate(26, 'Public API has exactly 5 approved methods with no getSnapshot or mutable props', async () => {
+await runGate(26, 'Public API has exactly 7 approved methods with no getSnapshot or mutable props', async () => {
   const env = createPinStatusContext();
   const mod = vm.runInContext('PinStatusModule', env.context);
 
   const keys = Object.keys(mod).sort();
   const approvedKeys = [
     'fetchStatus',
+    'getMyLockId',
     'isCompleted',
     'isInProgress',
+    'isMyInProgress',
     'reflectCompleted',
     'setInProgress'
   ].sort();
 
-  assert.deepStrictEqual(keys, approvedKeys, 'Public API must strictly match approved 5 methods');
+  assert.deepStrictEqual(keys, approvedKeys, 'Public API must strictly match approved 7 methods');
   assert.strictEqual(typeof mod.fetchStatus, 'function');
   assert.strictEqual(typeof mod.setInProgress, 'function');
   assert.strictEqual(typeof mod.isInProgress, 'function');
+  assert.strictEqual(typeof mod.isMyInProgress, 'function');
+  assert.strictEqual(typeof mod.getMyLockId, 'function');
   assert.strictEqual(typeof mod.isCompleted, 'function');
   assert.strictEqual(typeof mod.reflectCompleted, 'function');
 
@@ -730,6 +757,89 @@ await runGate(29, 'reflectCompleted causes zero API calls and only modifies loca
   assert.strictEqual(mod.isCompleted(1901), true, 'Reflected rowId is completed');
 });
 
+// ============================================================================
+// Gate 30: 1人1ピン (新ピン add 成功時にローカルの旧自ロックが自動整理されること)
+// ============================================================================
+await runGate(30, '1-user-1-pin: acquiring lock on new rowId clears previous local lock', async () => {
+  const env = createPinStatusContext({
+    apiHandler: async (action, payload) => ({
+      success: true,
+      status: 'IN_PROGRESS',
+      rowId: payload.rowId,
+      lockId: payload.lockId
+    })
+  });
+  const mod = vm.runInContext('PinStatusModule', env.context);
+
+  await mod.setInProgress(2001, 'add');
+  assert.strictEqual(mod.isMyInProgress(2001), true);
+  assert.strictEqual(mod.isInProgress(2001), true);
+
+  await mod.setInProgress(2002, 'add');
+  assert.strictEqual(mod.isMyInProgress(2001), false, 'Old lock 2001 cleared on switch to 2002');
+  assert.strictEqual(mod.isInProgress(2001), false, 'Old rowId 2001 removed from local inProgress');
+  assert.strictEqual(mod.isMyInProgress(2002), true, 'New lock 2002 active');
+  assert.strictEqual(mod.isInProgress(2002), true, 'New rowId 2002 is inProgress');
+});
+
+// ============================================================================
+// Gate 31: remove 通信失敗時の localStorage 永続化・次回 fetchStatus での再送・LOCK_MISMATCH 終端破棄と force 再同期
+// ============================================================================
+await runGate(31, 'Pending remove persistence, retry on fetchStatus, and LOCK_MISMATCH terminal cleanup + force resync', async () => {
+  let shouldFailNetwork = false;
+  let shouldThrowLockMismatch = false;
+  const env = createPinStatusContext({
+    apiHandler: async (action, payload) => {
+      if (action === 'setPinInProgress' && payload.pinAction === 'add') {
+        return { success: true, status: 'IN_PROGRESS', rowId: payload.rowId, lockId: 'lock_gen_1' };
+      }
+      if (action === 'setPinInProgress' && payload.pinAction === 'remove') {
+        if (shouldFailNetwork) {
+          throw new Error('NETWORK_TIMEOUT');
+        }
+        if (shouldThrowLockMismatch) {
+          const err = new Error('Lock mismatch');
+          err.code = 'LOCK_MISMATCH';
+          throw err;
+        }
+        return { success: true, status: 'REMOVED' };
+      }
+      if (action === 'getGlobalPinStatus') {
+        return {
+          success: true,
+          inProgress: [2101],
+          completed: [],
+          myInProgress: [{ rowId: 2101, lockId: 'lock_gen_2' }]
+        };
+      }
+      return { success: true };
+    }
+  });
+  const mod = vm.runInContext('PinStatusModule', env.context);
+
+  // 1. add で lock_gen_1 を取得
+  await mod.setInProgress(2101, 'add');
+  assert.strictEqual(mod.getMyLockId(2101), 'lock_gen_1');
+
+  // 2. 通信失敗下で remove ➔ ローカルからは即時消え、localStorage に {rowId: 2101, lockId: 'lock_gen_1'} が残る
+  shouldFailNetwork = true;
+  await mod.setInProgress(2101, 'remove');
+  assert.strictEqual(mod.isInProgress(2101), false);
+  const rawPending = env.context.localStorage.getItem('h_app_pending_pin_removes_v1');
+  assert.ok(rawPending && rawPending.includes('lock_gen_1'), 'Pending remove persisted with lock_gen_1');
+
+  // 3. 通信復旧したがサーバー側はすでに新世代 lock_gen_2 に変わっており LOCK_MISMATCH が返る場合
+  shouldFailNetwork = false;
+  shouldThrowLockMismatch = true;
+  await mod.setInProgress(2101, 'remove', { lockId: 'lock_gen_1' });
+
+  // LOCK_MISMATCH は終端として pending remove から破棄され、force fetchStatus で lock_gen_2 の青表示が復元されること
+  const afterPending = JSON.parse(env.context.localStorage.getItem('h_app_pending_pin_removes_v1') || '[]');
+  assert.strictEqual(afterPending.length, 0, 'Pending remove discarded on LOCK_MISMATCH');
+  assert.strictEqual(mod.isInProgress(2101), true, 'Blue status restored via force fetchStatus');
+  assert.strictEqual(mod.getMyLockId(2101), 'lock_gen_2', 'New generation lockId restored');
+});
+
 console.log("\n====================================================");
-console.log(`🎉 ALL 29 PIN STATUS LIFECYCLE GATES PASSED PERFECTLY!`);
+console.log(`🎉 ALL 31 PIN STATUS LIFECYCLE GATES PASSED PERFECTLY!`);
 console.log("====================================================");

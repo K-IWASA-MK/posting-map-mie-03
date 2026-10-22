@@ -325,7 +325,7 @@ function healSchemaHeaders(options, districtId) {
       sheetName: `PinStatus${month}`,
       required: true,
       missingCode: "MISSING_CURRENT_MONTH_SHEET",
-      headers: ["rowId", "status"]
+      headers: ["rowId", "status", "lineUserId", "lockId", "startedAt"]
     },
     // 掲示板系2種 (任意: 不在時はSKIP)
     {

@@ -110,8 +110,8 @@ function updatePinsRadiusOnZoom(mapInstance, layerGroup) {
 }
 
 function getAreaStatusConfig(isCompleted, isInProgress) {
-  if (isCompleted) return AREA_STATUS_CONFIG.COMPLETED;
   if (isInProgress) return AREA_STATUS_CONFIG.IN_PROGRESS;
+  if (isCompleted) return AREA_STATUS_CONFIG.COMPLETED;
   return AREA_STATUS_CONFIG.UNALLOCATED;
 }
 
@@ -1861,7 +1861,13 @@ function renderRightBottomAreaStats(selectedPin) {
   const population = selectedPin.population || Math.round(households * 2.35);
 
   let resultSectionHtml = '';
-  if (isCompleted) {
+  if (isInProgress) {
+    resultSectionHtml = `
+      <div class="area-stats-result pt-2.5 mt-2.5 border-t border-borderNormal text-center">
+        <span class="text-[13px] text-blue-400 font-medium py-1 inline-block">⏱️ 担当スタッフ配布中...</span>
+      </div>
+    `;
+  } else if (isCompleted) {
     const liveRec = (DashboardState.liveRecords || []).find(r => r.rowId === selectedPin.rowId) || null;
     const staffId = (liveRec && liveRec.staffId) ? liveRec.staffId : '--';
     const rosterStaff = staffId !== '--' ? (DashboardState.roster || []).find(rs => rs.id === staffId) : null;
@@ -1889,12 +1895,6 @@ function renderRightBottomAreaStats(selectedPin) {
             <span class="text-textSub font-mono text-xs">${escapeHtml(doneTime)}</span>
           </div>
         </div>
-      </div>
-    `;
-  } else if (isInProgress) {
-    resultSectionHtml = `
-      <div class="area-stats-result pt-2.5 mt-2.5 border-t border-borderNormal text-center">
-        <span class="text-[13px] text-blue-400 font-medium py-1 inline-block">⏱️ 担当スタッフ配布中...</span>
       </div>
     `;
   }
@@ -1969,7 +1969,13 @@ function showAreaDetail(data) {
     const isCompleted = completedList.includes(pin.rowId);
     const isInProgress = inProgressList.includes(pin.rowId);
 
-    if (isCompleted) {
+    if (isInProgress) {
+      basicColEl.classList.remove('col-span-2');
+      resultColEl.classList.remove('hidden');
+      resultColEl.innerHTML = `
+        <div class="text-[11px] text-blue-400 font-medium py-1">⏱️ 配布中...</div>
+      `;
+    } else if (isCompleted) {
       const liveRec = (DashboardState.liveRecords || []).find(r => r.rowId === pin.rowId) || null;
       const staffId = (liveRec && liveRec.staffId) ? liveRec.staffId : '--';
       const rosterStaff = staffId !== '--' ? (DashboardState.roster || []).find(rs => rs.id === staffId) : null;
@@ -1984,12 +1990,6 @@ function showAreaDetail(data) {
         <div class="truncate"><span class="text-textSub">📊 投函:</span> <span class="font-bold text-white font-mono">${doneCountStr}</span></div>
         <div class="truncate" title="${escapeHtml(staffId)}${staffName ? ' ' + escapeHtml(staffName) : ''}"><span class="text-textSub">👤 担当:</span> <span class="text-white">${escapeHtml(staffId)}${staffName ? ' ' + escapeHtml(staffName) : ''}</span></div>
         <div class="truncate text-[9px] text-textSub/70"><span class="text-textSub">完了:</span> <span class="font-mono">${escapeHtml(doneTime)}</span></div>
-      `;
-    } else if (isInProgress) {
-      basicColEl.classList.remove('col-span-2');
-      resultColEl.classList.remove('hidden');
-      resultColEl.innerHTML = `
-        <div class="text-[11px] text-blue-400 font-medium py-1">⏱️ 配布中...</div>
       `;
     } else {
       // 未配布: 左カラムを全幅化し、右カラムは非表示

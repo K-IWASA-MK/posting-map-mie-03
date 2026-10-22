@@ -318,6 +318,7 @@ async function processQueue() {
           clientEventId:  item.clientEventId || item.requestId || '',
           areaName:       item.areaName,
           rowId:          item.rowId,
+          lockId:         item.lockId || '',
           isDone:         item.isDone,
           count:          item.count,
           latitude:       item.latitude   || '',

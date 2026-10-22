@@ -198,9 +198,9 @@ Backend: ペイロード強制上書き (クライアント送信値を破棄)
 |---|---|---|---|
 | **Public (公開)** | `getMapsApiKey`, `verifyManagerPassword`, `getTier1` (および GET `registerOrValidateDevice`, `getDeviceStatus`) | なし (認証不要) | なし |
 | **Dashboard Manager (管理者専用)** | `getDashboardSnapshot`, `getRoster`, `getTransferRequests`, `getSystemInfo`, `logoutManager` | 有効な `dashboardSessionToken` (6桁PIN認証済・地区バインド) | `UNAUTHORIZED` (未認証/期限切れ) / `DISTRICT_MISMATCH` |
-| **Dual-Audience (業務データ読取)** | `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getBulletinPosts` | 有効な `dashboardSessionToken` または 有効な `liffToken` | `UNAUTHORIZED` (未認証アクセス) |
+| **Dual-Audience (業務データ読取)** | `getGlobalPinStatus`, `getSystemSummary`, `getRanking`, `getFlyerStock`, `getLatestDistribution`, `getDeliveryStats`, `getAreaDetails`, `getBulletinPosts` | 有効な `dashboardSessionToken` または 有効な `liffToken` | `UNAUTHORIZED` (未認証アクセス) |
 | **Unregistered Staff** | `getStaffIdentity`, `registerStaff` (名簿照合・初回登録) | 有効な `liffToken` (LINE検証成功) | `UNAUTHORIZED` (無効/期限切れトークン) |
-| **Active Staff (配布員書き込み)** | `submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `requestFlyerTransfer`, `createBulletinPost`, `sendBulletinContact`, `resolveTransferRequest`, `setPinStatus` | 有効な `liffToken` ＋ 名簿登録済み (`found === true`) | `NOT_REGISTERED` (名簿未登録) / `UNAUTHORIZED` |
+| **Active Staff (配布員書き込み)** | `submitDistribution`, `updateRecordWithGPSPhoto`, `updateFlyerStock`, `requestFlyerTransfer`, `createBulletinPost`, `sendBulletinContact`, `resolveTransferRequest`, `setPinInProgress` | 有効な `liffToken` ＋ 名簿登録済み (`found === true`) | `NOT_REGISTERED` (名簿未登録) / `UNAUTHORIZED` |
 
 ### 6.0.1 getMapsApiKey Contract (SEC-007 地区別 Maps API Key 解決契約)
 
@@ -334,6 +334,7 @@ DistributionRecord (配布実績事実 — 実装モデルクラス: Distributio
   "action": "updateRecordWithGPSPhoto",
   "liffToken": "eyJhbGciOi...",
   "requestId": "req_550e8400-e29b-41d4-a716-446655440000",
+  "lockId": "lock_1761139200000_ab12cd34",
   "rowId": 142,
   "count": 350,
   "isDone": true,
@@ -344,6 +345,17 @@ DistributionRecord (配布実績事実 — 実装モデルクラス: Distributio
   "areaName": "サンプル市中央町1丁目"
 }
 ```
+※ `updateRecordWithGPSPhoto` は同一 `LockService.getScriptLock()` 排他区間内で、通常保存成功時だけでなく `duplicate: true` および `alreadyCompleted: true` の受諾分岐においても `PinStatusService.releasePinInExistingLock(rowId, reqLineUserId, lockId, districtId)` を直列呼び出しし、`rowId` + `reqLineUserId` + `lockId`（非空完全一致）の `PinStatus` 行を確実に解除する。`PinStatus` 解除が失敗した場合（5列未満等を含む）は `{ success: false, retryable: true, code: "PIN_RELEASE_FAILED", errorType: "TRANSIENT" }` を返却し、Durable Queue からの再送で回収する。
+
+### (2) リアルタイム作業中状態 API (`getGlobalPinStatus` / `setPinInProgress`)
+- **`getGlobalPinStatus` (POST / Dual-Audience)**:
+  - Hアプリ（LINE認証: `reqLineUserId` あり）からの呼び出しでは `{ success: true, inProgress: number[], completed: number[], myInProgress: [{ rowId, lockId }] }` を返却（`lineUserId` 生値は一切露出しない）。
+  - Dashboard（管理者セッション認証: `reqLineUserId === ""`）からの呼び出しでは `myInProgress: []` を返却。
+- **`setPinInProgress` (POST / Active Staff)**:
+  - 入力: `{ action: "setPinInProgress", pinAction: "add" | "remove", rowId: number, lockId: string, liffToken: "..." }`（所有者 Authority は Backend 検証済み `reqLineUserId` のみ）。
+  - `pinAction: "add"`: 対象 `rowId` の当月完了（`ALREADY_COMPLETED`）および他者ロック（`LOCKED_BY_OTHER`）を先に検査し、通過後に本人が保持する別 `rowId` の既存ロックを全削除（1人1ピン）。同一 `rowId` + 同一 `reqLineUserId` の既存ロックがあれば `storedLockId` を維持して `{ success: true, status: "IN_PROGRESS", rowId, lockId: storedLockId, restored: true }` を返し、なければ新規5列行 `[rowId, "IN_PROGRESS", reqLineUserId, lockId, startedAt]` を追加する。
+  - `pinAction: "remove"`: `rowId` が存在しなければ `{ success: true, status: "ALREADY_REMOVED" }`（冪等成功）。`storedLineUserId !== reqLineUserId` は `OWNER_MISMATCH`、`!storedLockId || !incomingLockId || storedLockId !== incomingLockId` は `LOCK_MISMATCH`（`success: false`）で拒絶し、3条件完全一致時のみ行削除して `{ success: true, status: "REMOVED" }` を返却する。
+  - `PinStatus<Key>` シートが5列未満の場合は自動変更を行わず `SCHEMA_NOT_READY` で Fail-Closed する。
 
 #### レスポンス仕様 (成功時: HTTP 200)
 ```json
@@ -417,7 +429,7 @@ DistributionRecord (配布実績事実 — 実装モデルクラス: Distributio
 | `getSystemSummary` | 全体進捗率、完了町丁目数、総町丁目数、累計配布枚数 | Dual Auth (LIFF / Dashboard Session) | ダッシュボード上部サマリ表示用 |
 | `getLatestDistribution` | 直近の配布実績リスト（最大件数指定、最新20件等） | Dual Auth (LIFF / Dashboard Session) | 時系列での活動事実観測、写真プレビュー |
 | `getRoster` | 全配布員の名簿、当月累計配布枚数、チラシ在庫合計 | 管理者権限 | 人員・在庫の全体状況把握 |
-| `getDashboardSnapshot` / `getAreaDetails` | 全体スナップショットおよびリアルタイム作業中・完了ピン状態（`pinStatus`） | 管理者権限 / Dual Auth | 重複作業の自然防止のための地図表示（※ピン状態更新は `setPinStatus`） |
+| `getDashboardSnapshot` / `getAreaDetails` | 全体スナップショットおよびリアルタイム作業中・完了ピン状態（`pinStatus`） | 管理者権限 / Dual Auth | 重複作業の自然防止のための地図表示（※ピン状態取得は `getGlobalPinStatus`、更新は `setPinInProgress`、状態優先順位は Hアプリ・Dashboard ともに `IN_PROGRESS > COMPLETED > UNALLOCATED`） |
 
 ### (1) Dashboard PIN サーバーサイドセッション契約 (ADR-023)
 - **PIN検証 (`verifyManagerPassword`)**: 管理者が入力した6桁の管理者PINをサーバー側で検証。成功時に暗号学的に安全な `dashboardSessionToken`（UUID v4ベース）を発行。
@@ -505,13 +517,13 @@ Hアプリ端末内における配布実績送信のライフサイクルを有�
 現場配布員の端末操作とシステムライフサイクルの状態遷移契約：
 
 ```text
-Step 1: ピン選択 (Pin Selection) ──► 地図上の町丁目ピンを選択
-Step 2: 活動開始 (Pin Claim) ─────► claimPin により作業中宣言 (他者重複着手防止)
+Step 1: ピン選択 (Pin Selection) ──► 地図上の町丁目ピンを選択して吹き出し表示（Write 0: 見るだけではBackend変更なし）
+Step 2: 活動開始 (Pin Claim) ─────► 「配布開始」押下時に setPinInProgress (pinAction: "add", lockId) で作業中ロック取得 (1人1ピン・他者重複着手防止)
 Step 3: 現地活動 & 証跡取得 ─────► カメラ撮影 (写真) & GPS位置情報測位
-Step 4: ドラフト保存 (READY_TO_SUBMIT) ──► 端末内に未送信 (UNSENT) / キュー (QUEUED) 保持
+Step 4: ドラフト保存 (READY_TO_SUBMIT) ──► 端末内に未送信 (UNSENT) / キュー (QUEUED: lockId 保持) 保持
                                     【絶対不変条件】写真撮影完了だけでCOMPLETEDに先行遷移しない
-Step 5: 送信実行 (SENDING) ──────► 完了報告ボタン押下、updateRecordWithGPSPhoto リクエスト送信
-Step 6: Backend 排他ロック・永続化 ─► 15秒排他ロック下で検証、Drive保存、実績追記、PinStatus解除
+Step 5: 送信実行 (SENDING) ──────► 完了報告ボタン押下、updateRecordWithGPSPhoto (lockId 同梱) リクエスト送信
+Step 6: Backend 排他ロック・永続化 ─► 15秒排他ロック下で検証、Drive保存、実績追記、同一ロック内での PinStatus 直列解除 (releasePinInExistingLock)
 Step 7: 完了確定 (COMPLETED) ────► サーバー success: true かつ accepted !== false の受諾成功を確認して確定 (getRowStatus(rowId) === null によりQueue消滅を検知するが、accepted: false / REJECTED の場合は非COMPLETEDとして未完了へ復帰)
 ```
 
@@ -649,6 +661,11 @@ Step 7: 完了確定 (COMPLETED) ────► サーバー success: true か�
 | エラーコード | HTTP相当 | エラー分類 | retryable | 発生要因・具体例 | 次の状態遷移 (Hアプリ) | クライアントのアクション |
 |---|---|---|---|---|---|---|
 | `LOCK_TIMEOUT` | 503 | TRANSIENT | **true** | 他端末リクエスト競合で15秒間ロック獲得失敗 | `SENDING` → `RETRY_WAIT` | 指数バックオフ待機後に自動再送（最大5回） |
+| `PIN_RELEASE_FAILED` | 503 | TRANSIENT | **true** | 完了保存後の同一ロック内 `PinStatus` 解除失敗（5列未満等） | `SENDING` → `RETRY_WAIT` | 指数バックオフ待機後に自動再送（`duplicate`/`alreadyCompleted` 経路で再解除） |
+| `LOCKED_BY_OTHER` | 409 | PERMANENT | **false** | `setPinInProgress(add)` 時に別ユーザーが作業中ロック保持 | 未着手維持 | **リトライ禁止**。`fetchStatus({ force: true })` で青ピン状態を即時再同期 |
+| `ALREADY_COMPLETED` | 409 | PERMANENT | **false** | `setPinInProgress(add)` 時に当月配布完了済み | 完了表示へ同期 | **リトライ禁止**。`fetchStatus({ force: true })` でオレンジ完了状態を即時再同期 |
+| `OWNER_MISMATCH` / `LOCK_MISMATCH` | 409 | PERMANENT | **false** | `setPinInProgress(remove)` 時に所有者または `lockId` 世代不一致 | pending remove 破棄 | **リトライ禁止**。古い解除再送を破棄し `fetchStatus({ force: true })` で青表示を即時復元 |
+| `SCHEMA_NOT_READY` | 503 | PERMANENT | **false** | `PinStatus<Key>` シートが5列未満（未マイグレーション） | Fail-Closed | **リトライ禁止**。Pre-Deploy Cutover Gate (`healSchemaHeaders`) 実行が必要 |
 | `RATE_LIMIT_EXCEEDED`| 429 | TRANSIENT | **true** | Google 基盤クォータ超過 (UrlFetch等) | `SENDING` → `RETRY_WAIT` | 長期バックオフ（60秒〜）後に自動再送 |
 | `NETWORK_FAILURE` | 0 / timeout | TRANSIENT | **true** | 端末圏外、DNS失敗、AbortController(90秒)到達 | `SENDING` → `RETRY_WAIT` (オフライン時は `QUEUED`) | オンライン復帰イベント検知で自動再送 |
 | `INTERNAL_ERROR` | 500 | TRANSIENT | **true** | GAS 実行時例外、一時的な Google Drive 障害 | `SENDING` → `RETRY_WAIT` | 指数バックオフ待機後に自動再送 |

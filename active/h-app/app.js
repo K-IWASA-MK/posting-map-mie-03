@@ -79,7 +79,11 @@ function removePressed() {
 // Phase 4-B: Global Pin Status Sync (Thin Wiring Wrapper)
 // =====================================
 window.fetchGlobalPinStatus = async function() {
+  const arg0 = arguments.length > 0 ? arguments[0] : false;
+  const force = Boolean(arg0 === true || (arg0 && typeof arg0 === 'object' && arg0.force));
   return PinStatusModule.fetchStatus({
+    force,
+    authorize: () => waitForIdentityVerified(),
     onStatusUpdated: () => {
       if (typeof window.refreshMainMapPins === 'function') {
         window.refreshMainMapPins();
@@ -125,6 +129,11 @@ window.isIdentityVerifiedReady = function() {
 window.setPinInProgress = function(rowId, action) {
   return PinStatusModule.setInProgress(rowId, action, {
     authorize: () => waitForIdentityVerified(),
+    onStatusUpdated: () => {
+      if (typeof window.refreshMainMapPins === 'function') {
+        window.refreshMainMapPins();
+      }
+    },
     onError: (err) => {
       logDebug(`[setPinInProgress] Error/Blocked: ${err.message}`);
     }
@@ -219,7 +228,7 @@ async function startApp() {
       }
     },
     onAcceptedAfterDequeue(item, res) {
-      // 1. window.setPinInProgress(item.rowId, "remove") - Current Runtime同様、awaitしない
+      // 1. window.setPinInProgress(item.rowId, "remove") - 既存 Single-Fire 契約維持 (await しない)
       if (typeof window.setPinInProgress === 'function') {
         window.setPinInProgress(item.rowId, "remove");
       }
@@ -364,6 +373,7 @@ async function loadData(skipSync = false) {
   // 待機中キューのピン状態復元（強制終了・クラッシュ復旧）
   if (typeof window.getSyncQueueRowIds === 'function') {
     try {
+      const queueItems = (typeof getQueue === 'function') ? await getQueue() : [];
       const queueRowIds = await window.getSyncQueueRowIds();
       if (queueRowIds && queueRowIds.length > 0 && Array.isArray(allPoints)) {
         const restoredEntries = await Promise.all(
@@ -371,7 +381,13 @@ async function loadData(skipSync = false) {
             const syncStatus = (typeof window.getRowStatus === 'function')
               ? (await window.getRowStatus(Number(rid))) || 'pending'
               : 'pending';
-            return { rowId: rid, syncStatus };
+            const foundItem = Array.isArray(queueItems)
+              ? queueItems.find(q => Number(q.rowId) === Number(rid))
+              : null;
+            const lockId = (foundItem && foundItem.lockId)
+              ? String(foundItem.lockId)
+              : (typeof PinStatusModule !== 'undefined' && typeof PinStatusModule.getMyLockId === 'function' ? PinStatusModule.getMyLockId(rid) : '');
+            return { rowId: rid, syncStatus, lockId };
           })
         );
         ActivityModule.restorePendingState(allPoints, restoredEntries);
@@ -492,11 +508,15 @@ function pressNum(key) {
     const timeStr = `${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     // ActivityModule へ下書き開始ワークフローを委譲 (Composition Root 配線)
+    const activeLockId = (typeof PinStatusModule !== 'undefined' && typeof PinStatusModule.getMyLockId === 'function')
+      ? PinStatusModule.getMyLockId(rowId)
+      : '';
     ActivityModule.startDraftWorkflow(p, {
       valNum,
       staffName,
       staffId,
       timeStr,
+      lockId: activeLockId,
       cameraPromise,
       gpsPromise
     }, {
@@ -645,9 +665,13 @@ async function submitMissionComplete(areaName, rowId) {
     }
   };
 
+  const currentLockId = (p && p.lockId) ||
+    ((typeof PinStatusModule !== 'undefined' && typeof PinStatusModule.getMyLockId === 'function') ? PinStatusModule.getMyLockId(rowId) : '');
+
   const submitResult = await ActivityModule.submitActivity(p, {
     areaName,
-    rowId
+    rowId,
+    lockId: currentLockId
   }, hooks);
 
   if (submitResult && submitResult.reason === 'FAILED_PERMANENT' && typeof rerenderDetailModalIfOpen === 'function') {

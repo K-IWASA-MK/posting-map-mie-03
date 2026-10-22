@@ -78,8 +78,9 @@ test('2. 識別子境界: 原本 clientEventId 定義を保護し、requestId �
   assert.ok(activityJs.includes('const clientEventId = requestId;'), 'clientEventId が requestId に対応付けられていること');
   assert.ok(activityJs.includes('clientEventId,'), 'enqueue に clientEventId が渡されていること');
 
-  // db.js の payload に clientEventId が含められていること
+    // db.js の payload に clientEventId および lockId が含められていること
   assert.ok(dbJs.includes('clientEventId:') && dbJs.includes('item.clientEventId || item.requestId'), 'API送信 payload に clientEventId が含まれていること');
+  assert.ok(dbJs.includes('lockId:') && dbJs.includes("item.lockId || ''"), 'API送信 payload に lockId が含まれていること');
 });
 
 // ----------------------------------------------------------------------------
