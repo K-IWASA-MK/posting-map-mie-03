@@ -1065,6 +1065,90 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.ok(!liveFeedHtml.includes('A地区5丁目'), "LIVEフィードに5件目以降は含まれないこと (slice(0, 4) 維持)");
 
   console.log("  ✅ UI TEST 7 PASS: PDF/CSV 25/25 records, unique rowId completedAreas (A=15, B=10 + string normalization), full-population GPS/Photo, and LIVE slice(0,4) verified");
+
+  // -------------------------------------------------------------
+  // [UI TEST 8] UNIVERSAL-MUNICIPALITY-EXACT-MATCH-001
+  // 包含関係にある自治体名 (例: '北区' / '堺市北区') における
+  // Map Pin・Area KPI・配布実績KPI・在庫KPI の非混入および ALL 全件合算検証
+  // -------------------------------------------------------------
+  console.log("\n▶ [UI TEST 8] Substring Municipality Exact-Match Isolation ('北区' vs '堺市北区') & ALL Aggregation");
+
+  const subCityShort = '北区';
+  const subCityLong = '堺市北区';
+  const substringPins = [
+    { rowId: 101, cityName: subCityShort, townName: '北一丁目', fullName: `${subCityShort} 北一丁目`, lat: 34.70, lng: 135.50, households: 100, population: 200 },
+    { rowId: 102, cityName: subCityShort, townName: '北二丁目', fullName: `${subCityShort} 北二丁目`, lat: 34.71, lng: 135.51, households: 150, population: 300 },
+    { rowId: 201, cityName: subCityLong, townName: '中百舌鳥一丁', fullName: `${subCityLong} 中百舌鳥一丁`, lat: 34.55, lng: 135.50, households: 200, population: 450 },
+    { rowId: 202, cityName: subCityLong, townName: '中百舌鳥二丁', fullName: `${subCityLong} 中百舌鳥二丁`, lat: 34.56, lng: 135.51, households: 220, population: 500 },
+    { rowId: 203, cityName: subCityLong, townName: '中百舌鳥三丁', fullName: `${subCityLong} 中百舌鳥三丁`, lat: 34.57, lng: 135.52, households: 180, population: 400 }
+  ];
+
+  Object.assign(sandbox.window.DashboardState, {
+    cities: [subCityShort, subCityLong],
+    masterPins: substringPins,
+    masterLoadStatus: 'LOADED',
+    globalPinStatus: {
+      completed: [101, 201, 202],
+      inProgress: [102]
+    },
+    liveRecords: [
+      { rowId: 101, cityName: subCityShort, townName: '北一丁目', count: 300, staffId: 'S1', staffName: '担当1' },
+      { rowId: 201, cityName: subCityLong, townName: '中百舌鳥一丁', count: 700, staffId: 'S2', staffName: '担当2' },
+      { rowId: 202, cityName: subCityLong, townName: '中百舌鳥二丁', count: 500, staffId: 'S2', staffName: '担当2' }
+    ],
+    ranking: [
+      { rank: 1, staffId: 'S2', name: '担当2', count: 1200 },
+      { rank: 2, staffId: 'S1', name: '担当1', count: 300 }
+    ],
+    stocks: [
+      { staffId: 'S1', staffName: '担当1', location: subCityShort, count: 400 },
+      { staffId: 'S2', staffName: '担当2', location: subCityLong, count: 900 }
+    ],
+    selectedTownId: 'ALL',
+    selectedPin: null
+  });
+
+  // 1) '北区' 選択時: '堺市北区' が混入しないこと
+  lastCreatedMarkers = [];
+  sandbox.onCitySelected(subCityShort);
+  assert.equal(lastCreatedMarkers.length, 2, "『北区』選択時、Map Pin は『北区』の 2 件のみ描画され『堺市北区』が混入しないこと");
+  assert.equal(getEl('fact-total-areas').textContent, '2', "『北区』選択時、総エリア数 KPI は 2 であること");
+  assert.equal(getEl('fact-done-areas').textContent, '1', "『北区』選択時、完了エリア数 KPI は 1 であること");
+  assert.equal(getEl('fact-inprogress-areas').textContent, '1', "『北区』選択時、配布中エリア数 KPI は 1 であること");
+  assert.equal(getEl('fact-unallocated-areas').textContent, '0', "『北区』選択時、未着手エリア数 KPI は 0 であること");
+  assert.equal(getEl('fact-progress-badge').textContent, '50%', "『北区』選択時、進捗率 KPI は 50% であること");
+  assert.equal(getEl('fact-total-records').textContent, '300', "『北区』選択時、配布実績枚数 KPI は 300 枚であり『堺市北区』(1,200)が混入しないこと");
+  assert.equal(getEl('mobile-fact-total-records').textContent, '300', "『北区』選択時、Mobile 配布実績枚数 KPI も 300 枚であること");
+  assert.equal(getEl('fact-total-stocks').textContent, '400', "『北区』選択時、保有チラシ在庫 KPI は 400 枚であり『堺市北区』(900)が混入しないこと");
+  assert.equal(getEl('mobile-fact-total-stocks').textContent, '400', "『北区』選択時、Mobile 保有チラシ在庫 KPI も 400 枚であること");
+
+  // 2) '堺市北区' 選択時: '北区' が混入しないこと
+  lastCreatedMarkers = [];
+  sandbox.onCitySelected(subCityLong);
+  assert.equal(lastCreatedMarkers.length, 3, "『堺市北区』選択時、Map Pin は『堺市北区』の 3 件のみ描画され『北区』が混入しないこと");
+  assert.equal(getEl('fact-total-areas').textContent, '3', "『堺市北区』選択時、総エリア数 KPI は 3 であること");
+  assert.equal(getEl('fact-done-areas').textContent, '2', "『堺市北区』選択時、完了エリア数 KPI は 2 であること");
+  assert.equal(getEl('fact-inprogress-areas').textContent, '0', "『堺市北区』選択時、配布中エリア数 KPI は 0 であること");
+  assert.equal(getEl('fact-unallocated-areas').textContent, '1', "『堺市北区』選択時、未着手エリア数 KPI は 1 であること");
+  assert.equal(getEl('fact-progress-badge').textContent, '67%', "『堺市北区』選択時、進捗率 KPI は 67% であること");
+  assert.equal(getEl('fact-total-records').textContent, '1,200', "『堺市北区』選択時、配布実績枚数 KPI は 1,200 枚であり『北区』(300)が混入しないこと");
+  assert.equal(getEl('mobile-fact-total-records').textContent, '1,200', "『堺市北区』選択時、Mobile 配布実績枚数 KPI も 1,200 枚であること");
+  assert.equal(getEl('fact-total-stocks').textContent, '900', "『堺市北区』選択時、保有チラシ在庫 KPI は 900 枚であり『北区』(400)が混入しないこと");
+  assert.equal(getEl('mobile-fact-total-stocks').textContent, '900', "『堺市北区』選択時、Mobile 保有チラシ在庫 KPI も 900 枚であること");
+
+  // 3) 'ALL' (全域) 選択時: 従来どおり全自治体が合算されること
+  lastCreatedMarkers = [];
+  sandbox.onCitySelected('ALL');
+  assert.equal(lastCreatedMarkers.length, 5, "『ALL』選択時、Map Pin は全 5 件が描画されること");
+  assert.equal(getEl('fact-total-areas').textContent, '5', "『ALL』選択時、総エリア数 KPI は全件合算の 5 であること");
+  assert.equal(getEl('fact-done-areas').textContent, '3', "『ALL』選択時、完了エリア数 KPI は全件合算の 3 であること");
+  assert.equal(getEl('fact-inprogress-areas').textContent, '1', "『ALL』選択時、配布中エリア数 KPI は全件合算の 1 であること");
+  assert.equal(getEl('fact-unallocated-areas').textContent, '1', "『ALL』選択時、未着手エリア数 KPI は全件合算の 1 であること");
+  assert.equal(getEl('fact-progress-badge').textContent, '60%', "『ALL』選択時、進捗率 KPI は 60% であること");
+  assert.equal(getEl('fact-total-records').textContent, '1,500', "『ALL』選択時、配布実績枚数 KPI は全件合算の 1,500 枚であること");
+  assert.equal(getEl('fact-total-stocks').textContent, '1,300', "『ALL』選択時、保有チラシ在庫 KPI は全件合算の 1,300 枚であること");
+
+  console.log("  ✅ UI TEST 8 PASS: '北区' vs '堺市北区' exact-match isolation on Map Pin / Area KPI / Records KPI / Stocks KPI & ALL aggregation verified");
 }
 
 console.log("\n====================================================");
