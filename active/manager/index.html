@@ -550,6 +550,20 @@
       }
     }
 
+    /* Standalone (Home Screen) Mobile Sheet: align sheet top edge directly below Standalone Header */
+    @media (max-width: 1023px) and (display-mode: standalone) {
+      #mobile-area-sheet {
+        height: calc(100vh - 3rem - env(safe-area-inset-top, 0px) - 44px);
+        height: calc(100dvh - 3rem - env(safe-area-inset-top, 0px) - 44px);
+      }
+    }
+    @media (max-width: 1023px) {
+      html.is-standalone #mobile-area-sheet {
+        height: calc(100vh - 3rem - env(safe-area-inset-top, 0px) - 44px);
+        height: calc(100dvh - 3rem - env(safe-area-inset-top, 0px) - 44px);
+      }
+    }
+
     /* Landscape OR Short-Height Mobile Sheet (almost full height with safe-area-inset-top protection) */
     @media (max-width: 1023px) and (orientation: landscape),
            (max-width: 1023px) and (max-height: 500px) {
