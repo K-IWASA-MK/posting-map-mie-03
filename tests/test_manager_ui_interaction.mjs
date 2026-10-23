@@ -856,7 +856,20 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "Gate 19a: Mobile町丁目選択で selectedPin が更新");
   assert.equal(getEl('mobile-city-selector-current').textContent, `${cityA} / A町一丁目`, "Gate 19b: 複数自治体の町丁目選択時は Header が『市町村A / A町一丁目』");
   assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 19c: Mobile町丁目選択で所属自治体(市町村A: 64.07%)の投票率に連動");
+  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityA} 投票率 64.07%`, "Gate 19c-2: スマホ吹き出し内に所属自治体投票率『🗳 市町村A 投票率 64.07%』が表示");
   assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 19d: 町丁目選択で Modal が CLOSE");
+
+  // 同一自治体内の別町丁目選択では同じ自治体投票率を維持し、データ欠損自治体では偽フォールバックせず -- を表示
+  sandbox.selectTownArea(2); // rowId 2 (cityA: A町二丁目)
+  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityA} 投票率 64.07%`, "Gate 19d-2: 同一自治体の別町丁目選択でも所属自治体(市町村A: 64.07%)の投票率を維持");
+  sandbox.selectTownArea(5); // rowId 5 (cityC: データ欠損)
+  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityC} 投票率 --`, "Gate 19d-3: 投票率データ欠損自治体の町丁目選択時は偽フォールバックせず『🗳 市町村C 投票率 --』を表示");
+  assert.match(
+    managerHtmlSrc,
+    /<div id="selected-area-turnout" class="mt-1\.5 text-\[11px\] font-mono text-textSub leading-snug lg:hidden"><\/div>/,
+    "Gate 19d-4: #selected-area-turnout は truncate を使わず leading-snug lg:hidden で定義されること"
+  );
+  sandbox.selectCity(cityA);
 
   sandbox.openMobileAreaModal();
   const mCityAAllBtn = mobileList.children[0]; // 市町村A 全域
