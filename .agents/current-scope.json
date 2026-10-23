@@ -1,5 +1,5 @@
 {
-  "mission": "DASHBOARD-AREA-MOBILE-001",
+  "mission": "DASHBOARD-MOBILE-DETAIL-TURNOUT-001",
   "files": [
     ".agents/current-scope.json",
     "active/manager/index.html",
