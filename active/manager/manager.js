@@ -34,6 +34,7 @@ const DashboardState = {
   selectedCity: 'ALL',
   selectedTownId: 'ALL',
   desktopAreaSelectorView: 'CITIES',
+  mobileAreaSelectorView: 'CITIES',
   currentFocus: 'areas',
   domainState: {
     ranking: 'IDLE',
@@ -357,6 +358,9 @@ async function startDashboardLifecycle() {
   });
 
   window.addEventListener('resize', () => {
+    if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+      closeMobileAreaModal();
+    }
     if (DashboardState.map) DashboardState.map.invalidateSize();
   });
 }
@@ -621,6 +625,10 @@ if (typeof window !== 'undefined') {
   window.closeAreaDetail = closeAreaDetail;
   window.AREA_STATUS_CONFIG = AREA_STATUS_CONFIG;
   window.toggleCityDropdown = toggleCityDropdown;
+  window.openMobileAreaModal = openMobileAreaModal;
+  window.closeMobileAreaModal = closeMobileAreaModal;
+  window.backToMobileMunicipalityList = backToMobileMunicipalityList;
+  window.renderMobileAreaSelector = renderMobileAreaSelector;
   window.selectCity = selectCity;
   window.onCitySelected = onCitySelected;
   window.selectTownArea = selectTownArea;
@@ -631,28 +639,14 @@ if (typeof window !== 'undefined') {
   window.getMunicipalityTurnout = getMunicipalityTurnout;
 }
 
-function toggleCityDropdown(event, isMobile) {
+function toggleCityDropdown(event) {
   if (event) event.stopPropagation();
-  const suffix = isMobile ? 'mobile-city-selector' : 'city-selector';
-  const listEl = document.getElementById(`${suffix}-list`);
-  const triggerEl = document.getElementById(`${suffix}-trigger`);
+  const listEl = document.getElementById('city-selector-list');
+  const triggerEl = document.getElementById('city-selector-trigger');
   if (!listEl) return;
 
   const isHidden = listEl.classList.contains('hidden');
   if (isHidden) {
-    if (isMobile) {
-      const kpiBar = document.getElementById('mobile-situation-bar');
-      if (kpiBar && triggerEl) {
-        const kpiRect = kpiBar.getBoundingClientRect();
-        const triggerRect = triggerEl.getBoundingClientRect();
-        listEl.style.position = 'fixed';
-        listEl.style.top = `${kpiRect.top}px`;
-        listEl.style.height = `${kpiRect.height}px`;
-        listEl.style.maxHeight = `${kpiRect.height}px`;
-        listEl.style.left = `${triggerRect.left}px`;
-        listEl.style.width = `${triggerRect.width}px`;
-      }
-    }
     listEl.classList.remove('hidden');
     if (triggerEl) triggerEl.setAttribute('aria-expanded', 'true');
   } else {
@@ -661,9 +655,9 @@ function toggleCityDropdown(event, isMobile) {
   }
 }
 
-// ドロップダウン外部クリック時に自動で閉じる
+// ドロップダウン外部クリック時に自動で閉じる (PC専用)
 document.addEventListener('click', (e) => {
-  ['city-selector', 'mobile-city-selector'].forEach(suffix => {
+  ['city-selector'].forEach(suffix => {
     const listEl = document.getElementById(`${suffix}-list`);
     const triggerEl = document.getElementById(`${suffix}-trigger`);
     if (listEl && !listEl.classList.contains('hidden')) {
@@ -690,10 +684,17 @@ function selectCity(cityName) {
   if (currentLabelEl) currentLabelEl.textContent = labelText;
 
   const mobileLabelEl = document.getElementById('mobile-city-selector-current');
-  if (mobileLabelEl) mobileLabelEl.textContent = labelText;
-
-  const mobileList = document.getElementById('mobile-city-selector-list');
-  if (mobileList) mobileList.classList.add('hidden');
+  if (mobileLabelEl) {
+    const cities = (Array.isArray(DashboardState.cities) && DashboardState.cities.length > 0)
+      ? DashboardState.cities
+      : Array.from(new Set((DashboardState.masterPins || []).map(p => p.cityName).filter(Boolean)));
+    const isMultiMunicipality = cities.length > 1;
+    if (!isMultiMunicipality || cityName === 'ALL') {
+      mobileLabelEl.textContent = '全域';
+    } else {
+      mobileLabelEl.textContent = `${cityName} / 全域`;
+    }
+  }
 
   updateCitySelectorHighlight(cityName);
   onCitySelected(cityName);
@@ -958,49 +959,186 @@ function renderDesktopAreaSelector(pins) {
 }
 
 /**
- * エリア選択リストの動的生成 (Desktop: 単一自治体1層 / 複数自治体2層、Mobile: 既存フラット維持)
+ * モバイル2段階 Bottom Sheet Modal の開閉・STEP遷移・描画
+ * (OPEN時およびModal内STEP遷移時のみ描画を実行)
  */
-function populateAreaSelector(pins) {
-  renderDesktopAreaSelector(pins);
+function openMobileAreaModal(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const modalEl = document.getElementById('mobile-area-modal');
+  const triggerEl = document.getElementById('mobile-city-selector-trigger');
+  if (!modalEl) return;
 
-  const mobileListEl = document.getElementById('mobile-city-selector-list');
-  if (!mobileListEl) return;
+  const pinList = Array.isArray(DashboardState.masterPins) ? DashboardState.masterPins : [];
+  const cities = (Array.isArray(DashboardState.cities) && DashboardState.cities.length > 0)
+    ? DashboardState.cities
+    : Array.from(new Set(pinList.map(p => p.cityName).filter(Boolean)));
 
-  const currentSelected = DashboardState.selectedTownId || 'ALL';
-  mobileListEl.innerHTML = '';
+  if (cities.length <= 1) {
+    DashboardState.mobileAreaSelectorView = 'TOWNS';
+  } else if (DashboardState.selectedCity && DashboardState.selectedCity !== 'ALL') {
+    DashboardState.mobileAreaSelectorView = 'TOWNS';
+  } else {
+    DashboardState.mobileAreaSelectorView = 'CITIES';
+  }
 
-  // 1. 「全域」ボタン
-  const allBtn = document.createElement('button');
-  allBtn.type = 'button';
-  allBtn.setAttribute('data-town-id', 'ALL');
-  allBtn.onclick = (e) => {
+  renderMobileAreaSelector(pinList);
+  modalEl.classList.remove('hidden');
+  if (triggerEl) triggerEl.setAttribute('aria-expanded', 'true');
+}
+
+function closeMobileAreaModal(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  const modalEl = document.getElementById('mobile-area-modal');
+  const triggerEl = document.getElementById('mobile-city-selector-trigger');
+  if (modalEl) modalEl.classList.add('hidden');
+  if (triggerEl) triggerEl.setAttribute('aria-expanded', 'false');
+}
+
+function backToMobileMunicipalityList(event) {
+  if (event && typeof event.stopPropagation === 'function') {
+    event.stopPropagation();
+  }
+  DashboardState.mobileAreaSelectorView = 'CITIES';
+  renderMobileAreaSelector(DashboardState.masterPins);
+}
+
+function renderMobileAreaSelector(pins) {
+  const listEl = document.getElementById('mobile-area-selector-list');
+  if (!listEl) return;
+
+  const backBtnEl = document.getElementById('mobile-area-modal-back');
+  const titleEl = document.getElementById('mobile-area-modal-title');
+  const pinList = Array.isArray(pins) ? pins : (DashboardState.masterPins || []);
+  const cities = (Array.isArray(DashboardState.cities) && DashboardState.cities.length > 0)
+    ? DashboardState.cities
+    : Array.from(new Set(pinList.map(p => p.cityName).filter(Boolean)));
+
+  const isMultiMunicipality = cities.length > 1;
+  const currentSelectedCity = DashboardState.selectedCity || 'ALL';
+  const currentSelectedTown = DashboardState.selectedTownId || 'ALL';
+
+  const activeItemClass = 'w-full min-h-[44px] text-left px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between gap-2 bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer';
+  const normalItemClass = 'w-full min-h-[44px] text-left px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between gap-2 text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
+
+  if (!isMultiMunicipality) {
+    if (backBtnEl) backBtnEl.classList.add('hidden');
+    if (titleEl) titleEl.textContent = cities[0] || 'エリア選択';
+    listEl.innerHTML = '';
+
+    const isAllSelected = currentSelectedTown === 'ALL';
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.setAttribute('data-town-id', 'ALL');
+    allBtn.onclick = (e) => {
+      e.stopPropagation();
+      selectTownArea('ALL');
+      closeMobileAreaModal();
+    };
+    allBtn.innerHTML = `<span class="town-check w-4 text-center text-xs font-bold flex-shrink-0">${isAllSelected ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 font-semibold text-xs">全域</span>`;
+    allBtn.className = isAllSelected ? activeItemClass : normalItemClass;
+    listEl.appendChild(allBtn);
+
+    pinList.forEach(pin => {
+      const isSelected = String(currentSelectedTown) === String(pin.rowId);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-town-id', String(pin.rowId));
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        selectTownArea(pin.rowId);
+        closeMobileAreaModal();
+      };
+      btn.innerHTML = `<span class="town-check w-4 text-center text-xs font-bold flex-shrink-0">${isSelected ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 text-xs">${escapeHtml(pin.townName)}</span>`;
+      btn.className = isSelected ? activeItemClass : normalItemClass;
+      listEl.appendChild(btn);
+    });
+    return;
+  }
+
+  const viewMode = (DashboardState.mobileAreaSelectorView === 'TOWNS' && currentSelectedCity !== 'ALL')
+    ? 'TOWNS'
+    : 'CITIES';
+  DashboardState.mobileAreaSelectorView = viewMode;
+
+  if (viewMode === 'CITIES') {
+    if (backBtnEl) backBtnEl.classList.add('hidden');
+    if (titleEl) titleEl.textContent = 'エリア選択（市町村）';
+    listEl.innerHTML = '';
+
+    const isAllCity = currentSelectedCity === 'ALL';
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button';
+    allBtn.setAttribute('data-city-val', 'ALL');
+    allBtn.onclick = (e) => {
+      e.stopPropagation();
+      selectCity('ALL');
+      closeMobileAreaModal();
+    };
+    allBtn.innerHTML = `<span class="city-check w-4 text-center text-xs font-bold flex-shrink-0">${isAllCity ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 font-semibold text-xs">全域（すべて表示）</span>`;
+    allBtn.className = isAllCity ? activeItemClass : normalItemClass;
+    listEl.appendChild(allBtn);
+
+    cities.forEach(cityName => {
+      const isSelected = currentSelectedCity === cityName;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-city-val', cityName);
+      btn.onclick = (e) => {
+        e.stopPropagation();
+        selectCity(cityName);
+        DashboardState.mobileAreaSelectorView = 'TOWNS';
+        renderMobileAreaSelector(DashboardState.masterPins);
+      };
+      btn.innerHTML = `<span class="city-check w-4 text-center text-xs font-bold flex-shrink-0">${isSelected ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 text-xs">${escapeHtml(cityName)}</span><span class="text-textSub text-sm font-bold flex-shrink-0">›</span>`;
+      btn.className = isSelected ? activeItemClass : normalItemClass;
+      listEl.appendChild(btn);
+    });
+    return;
+  }
+
+  const cityPins = pinList.filter(p => p.cityName === currentSelectedCity);
+  if (backBtnEl) backBtnEl.classList.remove('hidden');
+  if (titleEl) titleEl.textContent = currentSelectedCity;
+  listEl.innerHTML = '';
+
+  const isCityAllSelected = currentSelectedTown === 'ALL';
+  const cityAllBtn = document.createElement('button');
+  cityAllBtn.type = 'button';
+  cityAllBtn.setAttribute('data-town-id', 'ALL');
+  cityAllBtn.onclick = (e) => {
     e.stopPropagation();
-    selectTownArea('ALL');
+    selectCity(currentSelectedCity);
+    closeMobileAreaModal();
   };
-  allBtn.innerHTML = `<span class="truncate font-semibold text-xs">全域</span><span class="town-check text-[11px] font-bold">${currentSelected === 'ALL' ? '✓' : ''}</span>`;
-  allBtn.className = currentSelected === 'ALL'
-    ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
-    : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
-  mobileListEl.appendChild(allBtn);
+  cityAllBtn.innerHTML = `<span class="town-check w-4 text-center text-xs font-bold flex-shrink-0">${isCityAllSelected ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 font-semibold text-xs">${escapeHtml(currentSelectedCity)} 全域</span>`;
+  cityAllBtn.className = isCityAllSelected ? activeItemClass : normalItemClass;
+  listEl.appendChild(cityAllBtn);
 
-  if (!pins || pins.length === 0) return;
-
-  // 2. 各町丁目ボタン
-  pins.forEach(pin => {
+  cityPins.forEach(pin => {
+    const isSelected = String(currentSelectedTown) === String(pin.rowId);
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.setAttribute('data-town-id', String(pin.rowId));
     btn.onclick = (e) => {
       e.stopPropagation();
       selectTownArea(pin.rowId);
+      closeMobileAreaModal();
     };
-    const isSelected = String(currentSelected) === String(pin.rowId);
-    btn.innerHTML = `<span class="truncate text-xs">${escapeHtml(pin.townName)}</span><span class="town-check text-[11px] font-bold">${isSelected ? '✓' : ''}</span>`;
-    btn.className = isSelected
-      ? 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-between bg-brand/20 text-brand border border-brand/40 shadow-sm cursor-pointer'
-      : 'w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-between text-textSub hover:text-white hover:bg-white/5 border border-transparent cursor-pointer';
-    mobileListEl.appendChild(btn);
+    btn.innerHTML = `<span class="town-check w-4 text-center text-xs font-bold flex-shrink-0">${isSelected ? '✓' : ''}</span><span class="mobile-area-item-label flex-1 min-w-0 text-xs">${escapeHtml(pin.townName)}</span>`;
+    btn.className = isSelected ? activeItemClass : normalItemClass;
+    listEl.appendChild(btn);
   });
+}
+
+/**
+ * エリア選択リストの動的生成 (Desktop: 単一自治体1層 / 複数自治体2層)
+ */
+function populateAreaSelector(pins) {
+  renderDesktopAreaSelector(pins);
 }
 
 /**
@@ -1009,11 +1147,6 @@ function populateAreaSelector(pins) {
 function selectTownArea(target) {
   // モバイルラベルの更新
   const mobileLabelEl = document.getElementById('mobile-city-selector-current');
-  // モバイルドロップダウンを閉じる
-  const mobileList = document.getElementById('mobile-city-selector-list');
-  if (mobileList) mobileList.classList.add('hidden');
-  const mobileTrigger = document.getElementById('mobile-city-selector-trigger');
-  if (mobileTrigger) mobileTrigger.setAttribute('aria-expanded', 'false');
 
   if (target === 'ALL') {
     DashboardState.selectedPin = null;
@@ -1048,7 +1181,15 @@ function selectTownArea(target) {
   DashboardState.selectedTownId = target;
   DashboardState.selectedPin = pin;
 
-  if (mobileLabelEl) mobileLabelEl.textContent = pin.townName;
+  if (mobileLabelEl) {
+    const cities = (Array.isArray(DashboardState.cities) && DashboardState.cities.length > 0)
+      ? DashboardState.cities
+      : Array.from(new Set((DashboardState.masterPins || []).map(p => p.cityName).filter(Boolean)));
+    const isMultiMunicipality = cities.length > 1;
+    mobileLabelEl.textContent = (isMultiMunicipality && pin.cityName)
+      ? `${pin.cityName} / ${pin.townName}`
+      : pin.townName;
+  }
   updateAreaSelectorHighlight(target);
 
   const completedList = (DashboardState.globalPinStatus && DashboardState.globalPinStatus.completed) || [];
@@ -1077,7 +1218,7 @@ function selectTownArea(target) {
 }
 
 function updateAreaSelectorHighlight(selectedTownId) {
-  ['area-selector-list', 'mobile-city-selector-list'].forEach(listId => {
+  ['area-selector-list'].forEach(listId => {
     const listEl = document.getElementById(listId);
     if (!listEl) return;
 
