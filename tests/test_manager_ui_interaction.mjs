@@ -856,18 +856,30 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "Gate 19a: Mobile町丁目選択で selectedPin が更新");
   assert.equal(getEl('mobile-city-selector-current').textContent, `${cityA} / A町一丁目`, "Gate 19b: 複数自治体の町丁目選択時は Header が『市町村A / A町一丁目』");
   assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 19c: Mobile町丁目選択で所属自治体(市町村A: 64.07%)の投票率に連動");
-  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityA} 投票率 64.07%`, "Gate 19c-2: スマホ吹き出し内に所属自治体投票率『🗳 市町村A 投票率 64.07%』が表示");
+  assert.equal(getEl('selected-area-turnout').textContent, '', "Gate 19c-2: 親 #selected-area-turnout の textContent は直接書き換えない");
+  assert.equal(getEl('selected-area-turnout-city').textContent, cityA, "Gate 19c-3: スマホ吹き出し内 #selected-area-turnout-city に所属自治体『市町村A』が表示");
+  assert.equal(getEl('selected-area-turnout-val').textContent, '64.07%', "Gate 19c-4: スマホ吹き出し内 #selected-area-turnout-val に投票率『64.07%』が表示");
   assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 19d: 町丁目選択で Modal が CLOSE");
 
-  // 同一自治体内の別町丁目選択では同じ自治体投票率を維持し、データ欠損自治体では偽フォールバックせず -- を表示
+  // 同一自治体内の別町丁目選択では同じ自治体投票率を維持し、別自治体・データ欠損自治体で正しく連動
   sandbox.selectTownArea(2); // rowId 2 (cityA: A町二丁目)
-  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityA} 投票率 64.07%`, "Gate 19d-2: 同一自治体の別町丁目選択でも所属自治体(市町村A: 64.07%)の投票率を維持");
+  assert.equal(getEl('selected-area-turnout-city').textContent, cityA, "Gate 19d-2a: 同一自治体の別町丁目選択でも所属自治体名を維持");
+  assert.equal(getEl('selected-area-turnout-val').textContent, '64.07%', "Gate 19d-2b: 同一自治体の別町丁目選択でも所属自治体(64.07%)の投票率を維持");
+  sandbox.selectTownArea(3); // rowId 3 (cityB: B町本町 58.25%)
+  assert.equal(getEl('selected-area-turnout-city').textContent, cityB, "Gate 19d-2c: 別自治体の町丁目選択時は所属自治体『市町村B』へ連動");
+  assert.equal(getEl('selected-area-turnout-val').textContent, '58.25%', "Gate 19d-2d: 別自治体の町丁目選択時は所属自治体(58.25%)の投票率へ連動");
   sandbox.selectTownArea(5); // rowId 5 (cityC: データ欠損)
-  assert.equal(getEl('selected-area-turnout').textContent, `🗳 ${cityC} 投票率 --`, "Gate 19d-3: 投票率データ欠損自治体の町丁目選択時は偽フォールバックせず『🗳 市町村C 投票率 --』を表示");
+  assert.equal(getEl('selected-area-turnout-city').textContent, cityC, "Gate 19d-3a: 投票率データ欠損自治体の町丁目選択時は自治体名『市町村C』を表示");
+  assert.equal(getEl('selected-area-turnout-val').textContent, '--', "Gate 19d-3b: 投票率データ欠損自治体の町丁目選択時は偽フォールバックせず『--』を表示");
+  assert.doesNotMatch(
+    managerHtmlSrc,
+    /<div id="selected-area-turnout" class="mt-1\.5/,
+    "Gate 19d-4a: 独立1行の投票率要素 (mt-1.5) が廃止されていること"
+  );
   assert.match(
     managerHtmlSrc,
-    /<div id="selected-area-turnout" class="mt-1\.5 text-\[11px\] font-mono text-textSub leading-snug lg:hidden"><\/div>/,
-    "Gate 19d-4: #selected-area-turnout は truncate を使わず leading-snug lg:hidden で定義されること"
+    /<span class="flex-shrink-0 whitespace-nowrap">状態:\s*<span id="selected-area-status"[^>]*>--<\/span><\/span>\s*<div id="selected-area-turnout" class="min-w-0 flex items-center gap-1 font-mono text-\[11px\] text-textSub lg:hidden">\s*<span class="flex-shrink-0">🗳<\/span>\s*<span id="selected-area-turnout-city" class="min-w-0 truncate"><\/span>\s*<span id="selected-area-turnout-val" class="flex-shrink-0 font-bold text-white"><\/span>\s*<\/div>/,
+    "Gate 19d-4b: 状態行の右側へ投票率が統合され、自治体名(min-w-0 truncate)と数値(flex-shrink-0)が分離定義されていること"
   );
   sandbox.selectCity(cityA);
 
