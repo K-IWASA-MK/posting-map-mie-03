@@ -839,6 +839,11 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
     /#main-view-areas\s*\{\s*isolation:\s*isolate;\s*z-index:\s*0;\s*\}/,
     "Gate 18t: Mobile時に #main-view-areas が isolation: isolate; z-index: 0; で独立スタッキングコンテキスト化されていること"
   );
+  assert.match(
+    managerHtmlSrc,
+    /html\.is-standalone\s+#mobile-area-sheet\s*\{[\s\S]*?height:\s*calc\(100dvh\s*-\s*3rem\s*-\s*env\(safe-area-inset-top,\s*0px\)\s*-\s*44px\);/,
+    "Gate 18u: Standalone表示時は #mobile-area-sheet が Header直下までの高さに拡張されること"
+  );
 
   // Gate 19: Mobile STEP 2 town selection & Municipality-All selection
   sandbox.selectCity('ALL');
