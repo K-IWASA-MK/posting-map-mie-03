@@ -833,6 +833,13 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 18s: 1024px跨ぎ時も選択SSOT (selectedCity) は維持");
   mockWindow.innerWidth = 390;
 
+  const managerHtmlSrc = fs.readFileSync(path.resolve('./active/manager/index.html'), 'utf-8');
+  assert.match(
+    managerHtmlSrc,
+    /#main-view-areas\s*\{\s*isolation:\s*isolate;\s*z-index:\s*0;\s*\}/,
+    "Gate 18t: Mobile時に #main-view-areas が isolation: isolate; z-index: 0; で独立スタッキングコンテキスト化されていること"
+  );
+
   // Gate 19: Mobile STEP 2 town selection & Municipality-All selection
   sandbox.selectCity('ALL');
   assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Mobile 全域選択で全域投票率(58.80%)");
