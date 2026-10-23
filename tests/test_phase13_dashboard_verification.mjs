@@ -26,6 +26,7 @@ const rootDir = process.cwd();
 const designContractPath = path.join(rootDir, 'docs/architecture/01_DESIGN_CONTRACT.md');
 const apiContractPath = path.join(rootDir, 'docs/api/API_CONTRACT.md');
 const managerJsPath = path.join(rootDir, 'active/manager/manager.js');
+const mailJsPath = path.join(rootDir, 'active/manager/modules/mail.js');
 const managerHtmlPath = path.join(rootDir, 'active/manager/index.html');
 const v2ApiPath = path.join(rootDir, 'active/api/v2_api.js');
 const pinStatusServicePath = path.join(rootDir, 'active/business/pin/pin_status_service.js');
@@ -35,6 +36,7 @@ const masterCsvPath = path.join(rootDir, 'data/address_master.csv');
 const designContract = fs.readFileSync(designContractPath, 'utf8');
 const apiContract = fs.readFileSync(apiContractPath, 'utf8');
 const managerJs = fs.readFileSync(managerJsPath, 'utf8');
+const mailJs = fs.readFileSync(mailJsPath, 'utf8');
 const managerHtml = fs.readFileSync(managerHtmlPath, 'utf8');
 const v2ApiJs = fs.readFileSync(v2ApiPath, 'utf8');
 const pinStatusServiceJs = fs.readFileSync(pinStatusServicePath, 'utf8');
@@ -184,7 +186,7 @@ test('7. Universal 原則 & GAP-13-01 是正: 地区固有値ハードコード�
   const muniNames = muniLines.map(l => l.split(',')[0].trim()).filter(Boolean);
 
   // active/manager 配下に地区固有値のハードコードがないこと
-  const managerFiles = [managerJs, managerHtml];
+  const managerFiles = [managerJs, managerHtml, mailJs];
   for (const content of managerFiles) {
     if (districtId) {
       assert.ok(!content.includes(districtId), `地区ID (${districtId}) が manager にハードコードされていないこと`);
@@ -224,7 +226,7 @@ test('8. スコープ除外の整合性: 除外対象機能が既存コードを
   // 既存コードを壊さずに温存していることの確認
   assert.ok(managerJs.includes('renderMainStageStocks'), 'stocks ビューが温存されていること');
   assert.ok(managerJs.includes('renderMainStageRequests'), 'requests ビューが温存されていること');
-  assert.ok(managerJs.includes('renderMainStageMail'), 'mail ビューが温存されていること');
+  assert.ok(mailJs.includes('renderMainStageMail'), 'mail ビューが温存されていること');
   assert.ok(managerJs.includes('renderMainStageMobile'), 'mobile ビューが温存されていること');
   assert.ok(managerJs.includes('renderMainStageBulletin'), 'bulletin ビューが温存されていること');
 

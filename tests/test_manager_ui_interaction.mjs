@@ -68,8 +68,9 @@ const mockLayer = {
   addTo: () => mockLayer
 };
 
-// Node VM 内で report-export.js → manager.js を評価
+// Node VM 内で report-export.js → mail.js → manager.js を評価
 const reportExportCode = fs.readFileSync(path.join(process.cwd(), "active/manager/modules/report-export.js"), 'utf8');
+const mailCode = fs.readFileSync(path.join(process.cwd(), "active/manager/modules/mail.js"), 'utf8');
 const managerCode = fs.readFileSync(path.join(process.cwd(), "active/manager/manager.js"), 'utf8');
 
 let mockApiResponseHandler = null;
@@ -127,8 +128,9 @@ vm.createContext(sandbox);
 sandbox.setSyncStatus = (status) => {};
 sandbox.showManagerPinGate = () => {};
 
-// report-export.js → manager.js をサンドボックスに順番に読み込む
+// report-export.js → mail.js → manager.js をサンドボックスに順番に読み込む
 vm.runInContext(reportExportCode, sandbox);
+vm.runInContext(mailCode, sandbox);
 vm.runInContext(managerCode, sandbox);
 
 // -------------------------------------------------------------
