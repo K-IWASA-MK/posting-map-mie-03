@@ -2072,7 +2072,8 @@ function showAreaDetail(data) {
   const detailEl = document.getElementById('map-area-detail');
   const nameEl = document.getElementById('selected-area-name');
   const statusEl = document.getElementById('selected-area-status');
-  const turnoutEl = document.getElementById('selected-area-turnout');
+  const turnoutCityEl = document.getElementById('selected-area-turnout-city');
+  const turnoutValEl = document.getElementById('selected-area-turnout-val');
   const householdsEl = document.getElementById('selected-area-households');
   const metaEl = document.getElementById('selected-area-meta');
 
@@ -2083,7 +2084,7 @@ function showAreaDetail(data) {
     statusEl.textContent = cfg.statusText;
     statusEl.style.color = cfg.color;
   }
-  if (turnoutEl) {
+  if (turnoutCityEl || turnoutValEl) {
     const targetCity = DashboardState.selectedPin?.cityName || (
       DashboardState.selectedCity && DashboardState.selectedCity !== 'ALL'
         ? DashboardState.selectedCity
@@ -2091,7 +2092,8 @@ function showAreaDetail(data) {
     );
     const turnoutInfo = getMunicipalityTurnout(DashboardState.electionTurnout, targetCity);
     const turnoutVal = turnoutInfo.turnout === '--' ? '--' : `${turnoutInfo.turnout}%`;
-    turnoutEl.textContent = `🗳 ${turnoutInfo.name} 投票率 ${turnoutVal}`;
+    if (turnoutCityEl) turnoutCityEl.textContent = turnoutInfo.name;
+    if (turnoutValEl) turnoutValEl.textContent = turnoutVal;
   }
   if (householdsEl) {
     if (data.households !== undefined && data.households !== null) {
