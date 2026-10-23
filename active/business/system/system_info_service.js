@@ -91,7 +91,32 @@
       if (!inputPassword || typeof inputPassword !== 'string' || !inputPassword.trim()) {
         return { success: false, message: '認証コードを入力してください' };
       }
+      if (typeof LockService === 'undefined' || typeof LockService.getScriptLock !== 'function' ||
+          typeof PropertiesService === 'undefined' || typeof PropertiesService.getScriptProperties !== 'function') {
+        return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証保護サービスが利用できません' };
+      }
+      let lock = null;
+      let lockAcquired = false;
       try {
+        lock = LockService.getScriptLock();
+        if (!lock || typeof lock.waitLock !== 'function') {
+          return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証ロックを取得できません' };
+        }
+        const waitRes = lock.waitLock(10000);
+        if (waitRes === false) {
+          return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証処理が混雑しています。しばらく待ってから再試行してください' };
+        }
+        lockAcquired = true;
+      } catch (lockErr) {
+        return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証ロックの取得に失敗しました' };
+      }
+
+      try {
+        const props = PropertiesService.getScriptProperties();
+        if (!props || typeof props.getProperty !== 'function' || typeof props.setProperty !== 'function') {
+          return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証状態ストレージが利用できません' };
+        }
+
         const ss = this.getSS(districtId);
         const districtName = ss.getName();
         const sheet = ss.getSheetByName('SYSTEM_INFO');
@@ -99,23 +124,71 @@
           return { success: false, message: 'SYSTEM_INFO が初期化されていません' };
         }
         let storedPassword = '';
+        let sheetDistrictCode = '';
         const lastRow = sheet.getLastRow();
         if (lastRow > 1) {
           const data = sheet.getRange(1, 1, lastRow, 2).getValues();
           for (let i = 0; i < data.length; i++) {
             const row = data[i];
-            if (row[0] === 'Manager認証パスワード') {
+            const key = String(row[0] || '').trim();
+            if (key === 'Manager認証パスワード') {
               storedPassword = String(row[1] || '').trim();
-              break;
+            } else if (key === '地区コード') {
+              sheetDistrictCode = String(row[1] || '').trim();
             }
           }
         }
+
+        const cleanDistrictId = String(districtId || sheetDistrictCode || this.getConfigProperty('DISTRICT_ID') || '').trim().toUpperCase();
+        if (!cleanDistrictId) {
+          return { success: false, code: 'MISSING_DISTRICT_ID', message: '地区識別子が特定できません' };
+        }
+        const guardKey = `PIN_AUTH_GUARD_${cleanDistrictId}`;
+        const now = Date.now();
+        const WINDOW_MS = 15 * 60 * 1000;
+
+        let guardState = { failCount: 0, lastFailedAt: 0, cooldownUntil: 0 };
+        const rawState = props.getProperty(guardKey);
+        if (rawState) {
+          try {
+            const parsed = JSON.parse(rawState);
+            if (parsed && typeof parsed === 'object') {
+              guardState = {
+                failCount: Number(parsed.failCount) || 0,
+                lastFailedAt: Number(parsed.lastFailedAt) || 0,
+                cooldownUntil: Number(parsed.cooldownUntil) || 0
+              };
+            }
+          } catch (parseErr) {
+            return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証保護状態の検証に失敗しました' };
+          }
+        }
+
+        if (guardState.cooldownUntil > now) {
+          const retryAfterSeconds = Math.max(1, Math.ceil((guardState.cooldownUntil - now) / 1000));
+          return {
+            success: false,
+            code: 'PIN_COOLDOWN',
+            retryAfterSeconds: retryAfterSeconds,
+            message: `試行回数が上限を超えました。${retryAfterSeconds}秒後に再試行してください`
+          };
+        }
+
         if (!storedPassword) {
-          storedPassword = this.generateRandomPin();
-          sheet.appendRow(['Manager認証パスワード', storedPassword]);
+          return {
+            success: false,
+            code: 'PIN_NOT_CONFIGURED',
+            message: 'Manager認証パスワードが設定されていません'
+          };
         }
 
         if (inputPassword.trim() === storedPassword) {
+          if (rawState) {
+            props.setProperty(guardKey, '');
+            if (typeof props.deleteProperty === 'function') {
+              props.deleteProperty(guardKey);
+            }
+          }
           const session = (typeof createDashboardSession === 'function')
             ? createDashboardSession(districtName)
             : { token: 'pms_dash_' + Date.now(), expiresAt: Date.now() + 21600000, districtId: districtName };
@@ -126,10 +199,35 @@
             expiresAt: session.expiresAt
           };
         } else {
+          const isWindowExpired = !guardState.lastFailedAt || (now - guardState.lastFailedAt > WINDOW_MS);
+          const baseFailCount = isWindowExpired ? 0 : guardState.failCount;
+          const nextFailCount = baseFailCount + 1;
+          let cooldownMs = 0;
+          if (nextFailCount === 4) {
+            cooldownMs = 5000;
+          } else if (nextFailCount === 5) {
+            cooldownMs = 15000;
+          } else if (nextFailCount === 6) {
+            cooldownMs = 30000;
+          } else if (nextFailCount >= 7) {
+            cooldownMs = 60000;
+          }
+          const nextState = {
+            failCount: nextFailCount,
+            lastFailedAt: now,
+            cooldownUntil: cooldownMs > 0 ? (now + cooldownMs) : 0
+          };
+          props.setProperty(guardKey, JSON.stringify(nextState));
           return { success: false, code: "UNAUTHORIZED", message: '認証コードが正しくありません' };
         }
       } catch (err) {
-        return { success: false, message: '認証処理中にエラーが発生しました: ' + err.message };
+        return { success: false, code: 'AUTH_GUARD_UNAVAILABLE', message: '認証処理中にエラーが発生しました: ' + err.message };
+      } finally {
+        if (lockAcquired && lock && typeof lock.releaseLock === 'function') {
+          try {
+            lock.releaseLock();
+          } catch (releaseErr) {}
+        }
       }
     }
 

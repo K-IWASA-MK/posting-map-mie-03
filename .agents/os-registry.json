@@ -106,7 +106,7 @@
         },
         {
           "path": "active/api/v2_api.js",
-          "sha256": "84958cbc111273ed936ad2c12f27fb9a4cf69922ca4a407467e6ccc6d27d94c4"
+          "sha256": "7bcbcf2bf034551a27a4f96bad31261f862447d2d4e8de5432402345705879d4"
         }
       ],
       "evidenceSources": [
@@ -243,7 +243,7 @@
         },
         {
           "path": "active/api/v2_api.js",
-          "sha256": "84958cbc111273ed936ad2c12f27fb9a4cf69922ca4a407467e6ccc6d27d94c4"
+          "sha256": "7bcbcf2bf034551a27a4f96bad31261f862447d2d4e8de5432402345705879d4"
         }
       ],
       "evidenceSources": [

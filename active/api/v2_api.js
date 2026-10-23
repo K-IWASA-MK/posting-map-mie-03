@@ -1100,19 +1100,6 @@ function processPostAction(action, postData, e, districtId = "") {
         return { success: false, error: err.toString() };
       }
 
-    case 'getEvidence':
-      try {
-        const rosterSheet = getMonthlySheet('staff', districtId);
-        const rosterLastRow = rosterSheet ? rosterSheet.getLastRow() : 0;
-        return {
-          success: true,
-          rosterLatest: rosterLastRow > 0 ? rosterSheet.getRange(rosterLastRow, 1, 1, rosterSheet.getLastColumn()).getValues()[0] : null,
-          traceLatest: null
-        };
-      } catch (err) {
-        return { success: false, error: err.toString() };
-      }
-
     case 'getRanking': {
       const rankPayload = DistributionService.getInstance().getRankingPayload(reqLineUserId, districtId);
       return { success: true, mySummary: rankPayload.mySummary, ranking: rankPayload.ranking };
