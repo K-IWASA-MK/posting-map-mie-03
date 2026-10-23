@@ -1447,7 +1447,7 @@ function renderPinsOnMap(mapInstance, layerGroup, pins) {
   const inProgressList = DashboardState.globalPinStatus.inProgress || [];
 
   pins.forEach(pin => {
-    const matchCity = isAll || pin.cityName.includes(selectedCity) || selectedCity.includes(pin.cityName);
+    const matchCity = isAll || pin.cityName === selectedCity;
     if (!matchCity) return;
 
     const isCompleted = completedList.includes(pin.rowId);
@@ -1556,7 +1556,7 @@ function renderCurrentView() {
     let progAreas = DashboardState.masterPins.filter(p => inProgressList.includes(p.rowId)).length;
 
     if (!isAll && DashboardState.masterPins.length > 0) {
-      const cityPins = DashboardState.masterPins.filter(p => p.cityName.includes(selected) || selected.includes(p.cityName));
+      const cityPins = DashboardState.masterPins.filter(p => p.cityName === selected);
       totalAreas = cityPins.length;
       doneAreas = cityPins.filter(p => completedList.includes(p.rowId)).length;
       progAreas = cityPins.filter(p => inProgressList.includes(p.rowId)).length;
@@ -1599,7 +1599,7 @@ function renderCurrentView() {
   if (isAll) {
     totalDelivered = (DashboardState.ranking || []).reduce((acc, item) => acc + (Number(item.count) || 0), 0);
   } else {
-    const matchedLive = (DashboardState.liveRecords || []).filter(r => (r.cityName && r.cityName.includes(selected)) || (selected && selected.includes(r.cityName)));
+    const matchedLive = (DashboardState.liveRecords || []).filter(r => r.cityName === selected);
     totalDelivered = matchedLive.reduce((acc, r) => acc + (Number(r.count) || 0), 0);
   }
   const deliveredStr = totalDelivered.toLocaleString();
@@ -1654,7 +1654,7 @@ function renderStockFacts(stocks, selectedCity) {
     const loc = s.location || 'その他拠点';
     const count = Number(s.count) || 0;
     
-    if (selectedCity === 'ALL' || loc.includes(selectedCity) || selectedCity.includes(loc)) {
+    if (selectedCity === 'ALL' || loc === selectedCity) {
       totalStock += count;
     }
   });
