@@ -1053,7 +1053,7 @@
   <script>
     (function() {
       var t = Date.now();
-      ['modules/report-export.js', 'manager.js'].forEach(function(src) {
+      ['modules/report-export.js', 'modules/mail.js', 'manager.js'].forEach(function(src) {
         var s = document.createElement('script');
         s.async = false;
         s.src = src + '?_t=' + t;
