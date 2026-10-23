@@ -513,13 +513,29 @@
       }
 
       /* 6. Mobile Area Selection Bottom Sheet (Portrait fixed responsive height) */
+      #mobile-area-modal {
+        z-index: 45;
+      }
       #mobile-area-sheet {
         height: min(70vh, 520px);
         height: min(70dvh, 520px);
       }
+      #mobile-area-sheet > div:first-child {
+        min-height: 48px;
+      }
+      #mobile-area-modal-back {
+        min-height: 44px;
+      }
+      #mobile-area-modal-close {
+        min-width: 44px;
+        min-height: 44px;
+      }
       #mobile-area-selector-list {
         overscroll-behavior: contain;
         padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+      }
+      #mobile-area-selector-list > button {
+        min-height: 44px;
       }
       .mobile-area-item-label {
         display: -webkit-box;
