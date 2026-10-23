@@ -8,7 +8,9 @@ console.log("🖥️ STEP 4 MANAGER UI INTERACTION & RENDERING RIGOROUS TEST");
 console.log("====================================================");
 
 // ブラウザ環境モックの構築
+const windowEventListeners = {};
 const mockWindow = {
+  innerWidth: 390,
   location: { search: "" },
   PMS_CLIENT_CONFIG: {
     districtId: "KUWANA",
@@ -19,7 +21,10 @@ const mockWindow = {
       electionHistoryFilename: "election_history.json"
     }
   },
-  addEventListener: () => {},
+  addEventListener: (evt, fn) => {
+    if (!windowEventListeners[evt]) windowEventListeners[evt] = [];
+    windowEventListeners[evt].push(fn);
+  },
   removeEventListener: () => {}
 };
 const createMockElement = () => ({
@@ -642,7 +647,8 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   sandbox.renderCurrentView();
 
   const pcList = getEl('area-selector-list');
-  const mobileList = getEl('mobile-city-selector-list');
+  const mobileList = getEl('mobile-area-selector-list');
+  getEl('mobile-area-modal').classList.add('hidden');
 
   // Gate 3 & 4: Desktop initial view is Layer 1 (municipalities only, 0 towns in Desktop DOM)
   assert.equal(sandbox.window.DashboardState.desktopAreaSelectorView, 'CITIES', "Gate 3a: 複数自治体モードの初期状態は CITIES");
@@ -789,17 +795,80 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   console.log("  ✅ Gates 12-17 PASS: Turnout history, diff, no-false-fallback (--), 30s sync preservation, and Close recovery verified");
 
   // --- [Mobile Contract: Gates 18, 19, 20, 21] ---
-  // Gate 18: Mobile UI list remains flat (全域 + all 5 towns) with zero 2-layer mutation
-  assert.equal(mobileList.children.length, 6, "Gate 18a: Mobileドロップダウンは『全域 + 全5町丁目』の既存フラット構造を完全維持");
-  assert.equal(mobileList.querySelectorAll('button[data-town-id]').length, 6, "Gate 18b: Mobileの全ボタンが既存の data-town-id 契約を維持");
+  // Gate 18: Mobile 2-Step Bottom Sheet Modal (STEP 1 -> STEP 2 -> Back -> Re-open -> 1024px Breakpoint Close)
+  assert.equal(mobileList.children.length, 0, "Gate 18a: populateAreaSelector 時点では Mobile Modal リストを常時描画しない");
+  sandbox.selectCity('ALL');
+  assert.equal(getEl('mobile-city-selector-current').textContent, '全域', "Gate 18b: 全域時の Mobile Header ラベルは『全域』");
 
-  // Gate 19: Mobile town selection updates turnout to pin.cityName
-  sandbox.selectTownArea('ALL');
+  sandbox.openMobileAreaModal();
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), false, "Gate 18c: openMobileAreaModal() で Modal が OPEN");
+  assert.equal(sandbox.window.DashboardState.mobileAreaSelectorView, 'CITIES', "Gate 18d: selectedCity==='ALL' のとき STEP 1 (CITIES) で開く");
+  assert.equal(mobileList.children.length, 4, "Gate 18e: STEP 1 は『全域（すべて表示） + 3市町村』の4件");
+  assert.equal(mobileList.querySelectorAll('button[data-town-id]').length, 0, "Gate 18f: STEP 1 には町丁目ボタンを含まない");
+
+  const mCityBBtn = mobileList.children.find(b => b.getAttribute('data-city-val') === cityB);
+  assert.ok(mCityBBtn, "STEP 1 に市町村Bボタンが存在");
+  mCityBBtn.onclick({ stopPropagation: () => {} });
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 18g: STEP 1 自治体タップで selectedCity が市町村Bへ即時更新");
+  assert.equal(getEl('mobile-city-selector-current').textContent, `${cityB} / 全域`, "Gate 18h: 複数自治体の自治体選択時は Mobile Header が『市町村B / 全域』");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('58.25'), "Gate 18i: 背面投票率が市町村B(58.25%)へ即時反映");
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), false, "Gate 18j: STEP 1 自治体タップ時は Modal OPEN を維持");
+  assert.equal(sandbox.window.DashboardState.mobileAreaSelectorView, 'TOWNS', "Gate 18k: STEP 2 (TOWNS) へ遷移");
+  assert.equal(mobileList.querySelectorAll('button[data-town-id]').length, 3, "Gate 18l: STEP 2 は『市町村B 全域 + 2町丁目』の3件");
+
+  sandbox.backToMobileMunicipalityList({ stopPropagation: () => {} });
+  assert.equal(sandbox.window.DashboardState.mobileAreaSelectorView, 'CITIES', "Gate 18m: ‹ 市町村 で Modal 表示のみ STEP 1 へ戻る");
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 18n: ‹ 市町村 で selectedCity は不変");
+  const mBackCityB = mobileList.children.find(b => b.getAttribute('data-city-val') === cityB);
+  assert.ok(mBackCityB && mBackCityB.innerHTML.includes('✓'), "Gate 18o: STEP 1 に戻った際、現在選択中の市町村Bに ✓ が表示");
+
+  sandbox.closeMobileAreaModal();
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 18p: closeMobileAreaModal() で Modal が CLOSE");
+  sandbox.openMobileAreaModal();
+  assert.equal(sandbox.window.DashboardState.mobileAreaSelectorView, 'TOWNS', "Gate 18q: selectedCity !== 'ALL' での再Open時はその自治体の STEP 2 で開く");
+
+  mockWindow.innerWidth = 1024;
+  (windowEventListeners['resize'] || []).forEach(fn => fn());
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 18r: 1024px以上へ跨いだ時点で Modal UI 状態は必ず CLOSED へ戻る");
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityB, "Gate 18s: 1024px跨ぎ時も選択SSOT (selectedCity) は維持");
+  mockWindow.innerWidth = 390;
+
+  // Gate 19: Mobile STEP 2 town selection & Municipality-All selection
+  sandbox.selectCity('ALL');
   assert.ok(getEl('right-slot-top').innerHTML.includes('58.80'), "Mobile 全域選択で全域投票率(58.80%)");
+  sandbox.openMobileAreaModal();
+  const mCityABtn = mobileList.children.find(b => b.getAttribute('data-city-val') === cityA);
+  mCityABtn.onclick({ stopPropagation: () => {} });
   const mobileTown1Btn = mobileList.children[1]; // rowId 1 (cityA: 64.07%)
   mobileTown1Btn.onclick({ stopPropagation: () => {} });
   assert.equal(sandbox.window.DashboardState.selectedPin.rowId, 1, "Gate 19a: Mobile町丁目選択で selectedPin が更新");
-  assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 19b: Mobile町丁目選択で所属自治体(市町村A: 64.07%)の投票率に連動");
+  assert.equal(getEl('mobile-city-selector-current').textContent, `${cityA} / A町一丁目`, "Gate 19b: 複数自治体の町丁目選択時は Header が『市町村A / A町一丁目』");
+  assert.ok(getEl('right-slot-top').innerHTML.includes('64.07'), "Gate 19c: Mobile町丁目選択で所属自治体(市町村A: 64.07%)の投票率に連動");
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 19d: 町丁目選択で Modal が CLOSE");
+
+  sandbox.openMobileAreaModal();
+  const mCityAAllBtn = mobileList.children[0]; // 市町村A 全域
+  mCityAAllBtn.onclick({ stopPropagation: () => {} });
+  assert.equal(sandbox.window.DashboardState.selectedCity, cityA, "Gate 19e: STEP 2『市町村A 全域』選択で selectedCity は市町村Aを維持 (ALLに戻らない)");
+  assert.equal(sandbox.window.DashboardState.selectedTownId, 'ALL', "Gate 19f: STEP 2『市町村A 全域』選択で selectedTownId が ALL にリセット");
+  assert.equal(sandbox.window.DashboardState.selectedPin, null, "Gate 19g: STEP 2『市町村A 全域』選択で selectedPin が null にリセット");
+  assert.equal(getEl('mobile-city-selector-current').textContent, `${cityA} / 全域`, "Gate 19h: Header が『市町村A / 全域』に更新");
+  assert.equal(getEl('mobile-area-modal').classList.contains('hidden'), true, "Gate 19i: STEP 2『市町村A 全域』選択で Modal が CLOSE");
+
+  // Single-municipality Mobile contract check (direct town list, no back button, Header '全域' / townName)
+  sandbox.window.DashboardState.cities = [cityA];
+  sandbox.window.DashboardState.masterPins = singlePins;
+  sandbox.selectCity(cityA);
+  assert.equal(getEl('mobile-city-selector-current').textContent, '全域', "Gate 19j: 単一自治体時は selectCity(cityName) が呼ばれても Mobile Header は『全域』を維持");
+  sandbox.openMobileAreaModal();
+  assert.equal(getEl('mobile-area-modal-back').classList.contains('hidden'), true, "Gate 19k: 単一自治体時は戻るボタンが非表示");
+  assert.equal(mobileList.querySelectorAll('button[data-town-id]').length, 3, "Gate 19l: 単一自治体時は最初から『全域 + 2町丁目』の町名一覧");
+  mobileList.children[1].onclick({ stopPropagation: () => {} });
+  assert.equal(getEl('mobile-city-selector-current').textContent, 'A町一丁目', "Gate 19m: 単一自治体時の町丁目選択は町丁目名のみを表示");
+  mobileList.children[0].onclick({ stopPropagation: () => {} });
+  assert.equal(getEl('mobile-city-selector-current').textContent, '全域', "Gate 19n: 単一自治体時の全域選択は『全域』を表示");
+  sandbox.window.DashboardState.cities = [cityA, cityB, cityC];
+  sandbox.window.DashboardState.masterPins = samplePins;
 
   // Gate 20 & 21: Mobile MAP Pin click & Mobile Close recovery
   lastCreatedMarkers = [];
