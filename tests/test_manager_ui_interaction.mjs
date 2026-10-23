@@ -881,6 +881,11 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
     /<span class="flex-shrink-0 whitespace-nowrap">状態:\s*<span id="selected-area-status"[^>]*>--<\/span><\/span>\s*<div id="selected-area-turnout" class="min-w-0 flex items-center gap-1 font-mono text-\[11px\] text-textSub lg:hidden">\s*<span class="flex-shrink-0">🗳<\/span>\s*<span id="selected-area-turnout-city" class="min-w-0 truncate"><\/span>\s*<span id="selected-area-turnout-val" class="flex-shrink-0 font-bold text-white"><\/span>\s*<\/div>/,
     "Gate 19d-4b: 状態行の右側へ投票率が統合され、自治体名(min-w-0 truncate)と数値(flex-shrink-0)が分離定義されていること"
   );
+  assert.match(
+    managerHtmlSrc,
+    /#map-area-detail\s*\{\s*left:\s*50%;\s*top:\s*50%;\s*bottom:\s*auto;\s*transform:\s*translate\(-50%,\s*-50%\);\s*\}/,
+    "Gate 19d-4c: スマホ表示 (<1024px) では #map-area-detail が Map 中央固定 (left: 50%; top: 50%; bottom: auto; transform: translate(-50%, -50%)) であること"
+  );
   sandbox.selectCity(cityA);
 
   sandbox.openMobileAreaModal();
