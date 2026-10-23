@@ -1,11 +1,9 @@
 {
-  "mission": "MANAGER-JS-SEPARATION-001 / Phase 2 (mail.js Physical Script Split)",
+  "mission": "DASHBOARD-AREA-MOBILE-001",
   "files": [
     ".agents/current-scope.json",
-    "active/manager/modules/mail.js",
-    "active/manager/manager.js",
     "active/manager/index.html",
-    "tests/test_manager_ui_interaction.mjs",
-    "tests/test_phase13_dashboard_verification.mjs"
+    "active/manager/manager.js",
+    "tests/test_manager_ui_interaction.mjs"
   ]
 }
