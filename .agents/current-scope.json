@@ -1,11 +1,8 @@
 {
-  "mission": "SECURITY-HARDENING-EVIDENCE-PIN-001",
+  "mission": "UNIVERSAL-MUNICIPALITY-EXACT-MATCH-001",
   "files": [
     ".agents/current-scope.json",
-    "active/api/v2_api.js",
-    "active/business/system/system_info_service.js",
-    ".agents/os-registry.json",
-    "tests/test_sec_evidence_pin_hardening.mjs",
-    "tests/run_all_tests.mjs"
+    "active/manager/manager.js",
+    "tests/test_manager_ui_interaction.mjs"
   ]
 }
