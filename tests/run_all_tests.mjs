@@ -56,7 +56,8 @@ const testSuites = [
   'test_cleanup_gate.mjs',
   'test_auditor_gate.mjs',
   'test_district_app_deployment_skill.mjs',
-  'test_secret_leak_guard.mjs'
+  'test_secret_leak_guard.mjs',
+  'test_sec_evidence_pin_hardening.mjs'
 ];
 
 const isCiMode = process.argv.includes('--ci');
