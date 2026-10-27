@@ -23,6 +23,7 @@ import csv
 import argparse
 import tempfile
 import shutil
+import unicodedata
 
 import json
 from collections import defaultdict
@@ -33,6 +34,27 @@ CHOME_NUM_MAP = {
     "十一丁目": "11", "十二丁目": "12", "十三丁目": "13", "十四丁目": "14", "十五丁目": "15",
     "十六丁目": "16", "十七丁目": "17", "十八丁目": "18", "十九丁目": "19", "二十丁目": "20"
 }
+
+SMALL_KANA_MAP = str.maketrans({
+    'ァ': 'ア', 'ィ': 'イ', 'ゥ': 'ウ', 'ェ': 'エ', 'ォ': 'オ',
+    'ッ': 'ツ', 'ャ': 'ヤ', 'ュ': 'ユ', 'ョ': 'ヨ', 'ヮ': 'ワ',
+    'ヵ': 'カ', 'ヶ': 'ケ', 'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う',
+    'ぇ': 'え', 'ぉ': 'お', 'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ',
+    'ょ': 'よ', 'ゎ': 'わ', 'ゕ': 'か', 'ゖ': 'け'
+})
+
+
+def to_seion(kana):
+    """
+    Authority v3.2 §2.4.4 Seion normalization for Japanese 50-on sort key:
+    Strips dakuten/handakuten (U+3099, U+309A) via NFD decomposition and normalizes small kana to large kana.
+    """
+    if not kana:
+        return ""
+    decomposed = unicodedata.normalize("NFD", str(kana))
+    stripped = "".join(ch for ch in decomposed if ch not in ("\u3099", "\u309a"))
+    recomposed = unicodedata.normalize("NFC", stripped)
+    return recomposed.translate(SMALL_KANA_MAP)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Universal Address Master Sorter adhering to DISTRICT_DATA_ACQUISITION_RULE.md §4.4")
@@ -122,6 +144,7 @@ def load_abr_readings(abr_paths):
     Separates exact raw name match from normalized candidates to prevent cross-town overwrite.
     """
     city_readings = {}
+    city_codes = {}
     exact_town_readings = defaultdict(list)
     normalized_candidates = defaultdict(list)
 
@@ -133,6 +156,9 @@ def load_abr_readings(abr_paths):
         with open(path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for r in reader:
+                lg_code_raw = (r.get("lg_code") or r.get("全国地方公共団体コード") or r.get("市区町村コード") or "").strip()
+                lg_code_5 = lg_code_raw[:5] if len(lg_code_raw) >= 5 else lg_code_raw
+                abr_town_code = (r.get("machiaza_id") or r.get("町字ID") or r.get("大字町丁目コード") or "").strip()
                 city = r.get("city_name") or r.get("city") or r.get("市区町村名") or ""
                 ward = r.get("ward_name") or r.get("ward") or r.get("区名") or ""
                 m_type = (r.get("machiaza_type") or r.get("町字区分コード") or "1").strip()
@@ -153,6 +179,8 @@ def load_abr_readings(abr_paths):
 
                 if full_city_name and full_city_kana:
                     city_readings[full_city_name] = full_city_kana
+                if full_city_name and lg_code_5 and full_city_name not in city_codes:
+                    city_codes[full_city_name] = lg_code_5
 
                 if m_type == "2" or (not m_type and chome_name):  # 丁目
                     full_town = f"{oaza_cho}{chome_name}".strip()
@@ -185,7 +213,9 @@ def load_abr_readings(abr_paths):
                     "base_kana": base_kana,
                     "chome_number": num,
                     "full_town": full_town,
-                    "base_town": base_town
+                    "base_town": base_town,
+                    "city_code": lg_code_5,
+                    "town_code": abr_town_code
                 }
 
                 # 1. Exact raw name registration (collect without overwriting)
@@ -197,22 +227,25 @@ def load_abr_readings(abr_paths):
                     normalized_candidates[(full_city_name, clean_base)].append(entry)
 
     print(f"[ABR Loader] Loaded readings: {len(city_readings)} cities/wards, {len(exact_town_readings)} exact towns, and {len(normalized_candidates)} normalized keys.")
-    return city_readings, exact_town_readings, normalized_candidates
+    return city_readings, exact_town_readings, normalized_candidates, city_codes
 
-def resolve_sort_key_universal(row, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations):
+def resolve_sort_key_universal(row, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations, city_codes=None):
     """
-    Derive deterministic sort key adhering to DISTRICT_DATA_ACQUISITION_RULE.md §4.4, §4.5, §4.8.
+    Derive deterministic sort key adhering to Authority v3.2 §2.4.4, §6, §7.2:
     Keys:
-      1. city_kana (50-on order)
-      2. base_kana (50-on order)
-      3. chome_num (numeric 00..99)
+      1. (city_kana, city_code) (50-on order + 5-digit JIS code tie-breaker)
+      2. (to_seion(base_kana), base_kana) (50-on seion primary + dakuon/small-kana tie-breaker)
+      3. int(chome_num) (numeric 0..99)
       4. official_town_name (preserved parent town tie-breaker)
-      5. split_idx (0 for unsplit, 1..K for split areas)
-      6. row_id (preserved tie-breaker)
+      5. parent_town_code (official town code tie-breaker)
+      6. split_idx (0 for unsplit, 1..K for split areas)
+      7. row_id (preserved tie-breaker)
     """
     city_name = (row.get("city_name") or "").strip()
     town_name = (row.get("town_name") or "").strip()
     row_id = int(row.get("rowId") or 0)
+    city_code = str(row.get("city_code") or "").strip()
+    town_code = str(row.get("town_code") or row.get("parent_town_code") or "").strip()
 
     split_match = re.search(r"\s*\((\d+)\)$", town_name)
     if split_match:
@@ -222,13 +255,17 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
         split_idx = 0
         base_town_for_lookup = town_name
 
-    # 1. City kana resolution
+    # 1. City kana & city_code resolution
     city_kana = city_readings.get(city_name)
     if not city_kana:
         for cname, ckana in city_readings.items():
             if cname == city_name or re.sub(r"^.+?郡", "", cname) == city_name:
                 city_kana = ckana
+                if not city_code and city_codes and cname in city_codes:
+                    city_code = city_codes[cname]
                 break
+    elif not city_code and city_codes and city_name in city_codes:
+        city_code = city_codes[city_name]
 
     if not city_kana:
         raise ValueError(f"FATAL: Unresolved city reading in official ABR data for city_name='{city_name}'")
@@ -250,15 +287,25 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
         else:
             raw_town = base_town_for_lookup
 
-        city_code = prov_rec.get('city_code', '')
-        town_code = prov_rec.get('town_code') or prov_rec.get('parent_town_code') or ''
+        city_code = str(prov_rec.get('city_code') or city_code).strip()
+        town_code = str(prov_rec.get('town_code') or prov_rec.get('parent_town_code') or town_code).strip()
         comp_key = f"{city_code}:{town_code}"
         reconciled = reconciliations.get(comp_key)
         if reconciled and reconciled.get('reconciled_reading'):
             town_kana = reconciled['reconciled_reading'].strip()
             chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", base_town_for_lookup)
             chome_num = CHOME_NUM_MAP.get(chome_match.group(1), "00") if chome_match else "00"
-            return (city_kana, town_kana, chome_num, base_town_for_lookup, split_idx, row_id)
+            return (
+                city_kana,
+                city_code,
+                to_seion(town_kana),
+                town_kana,
+                int(chome_num),
+                base_town_for_lookup,
+                town_code,
+                split_idx,
+                row_id
+            )
     else:
         raw_town = base_town_for_lookup
 
@@ -306,6 +353,10 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
         raise ValueError(f"FATAL: Unresolved ABR reading for town_name='{town_name}' (base='{base_town_for_lookup}') in city_name='{city_name}'")
 
     base_kana = town_entry["base_kana"]
+    if not city_code and town_entry.get("city_code"):
+        city_code = str(town_entry["city_code"]).strip()
+    if not town_code and town_entry.get("town_code"):
+        town_code = str(town_entry["town_code"]).strip()
     chome_num = CHOME_NUM_MAP.get(chome_part, "00")
     if chome_num == "00" and town_entry.get("chome_number"):
         try:
@@ -313,12 +364,22 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
         except:
             pass
 
-    return (city_kana, base_kana, chome_num, base_town_for_lookup, split_idx, row_id)
+    return (
+        city_kana,
+        city_code,
+        to_seion(base_kana),
+        base_kana,
+        int(chome_num),
+        base_town_for_lookup,
+        town_code,
+        split_idx,
+        row_id
+    )
 
 def main():
     args = parse_args()
     print("=" * 70)
-    print("UNIVERSAL ADDRESS MASTER SORTER (DISTRICT_DATA_ACQUISITION_RULE.md §4.4)")
+    print("UNIVERSAL ADDRESS MASTER SORTER (DISTRICT_DATA_ACQUISITION_RULE.md v3.2 §2.4.4)")
     print(f"Input:  {args.input}")
     print(f"Output: {args.output}")
     print("=" * 70)
@@ -329,7 +390,7 @@ def main():
     if os.path.exists(args.output):
         sys.exit(f"FATAL HARD STOP: Output file already exists (overwrite strictly prohibited): {args.output}")
 
-    city_readings, exact_town_readings, normalized_candidates = load_abr_readings(args.abr_file)
+    city_readings, exact_town_readings, normalized_candidates, city_codes = load_abr_readings(args.abr_file)
     provenance_map = load_provenance_data(args.provenance)
     reconciliations = load_reading_reconciliations(args.reading_reconciliation)
 
@@ -344,14 +405,14 @@ def main():
     # Test and resolve sort keys for all rows (HARD STOP on any failure)
     for idx, r in enumerate(original_rows):
         try:
-            resolve_sort_key_universal(r, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations)
+            resolve_sort_key_universal(r, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations, city_codes)
         except Exception as err:
             sys.exit(f"FAIL [Universal Reading Check] at row {idx+1} (rowId={r.get('rowId')}): {err}")
 
     print("PASS [Universal Reading Check]: All records successfully resolved sort keys via official ABR data.")
 
     # Sort execution
-    sorted_rows = sorted(original_rows, key=lambda r: resolve_sort_key_universal(r, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations))
+    sorted_rows = sorted(original_rows, key=lambda r: resolve_sort_key_universal(r, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations, city_codes))
 
     # Verification: row count preservation and rowId sequence
     assert len(sorted_rows) == original_count, "Record count mismatch after sort"

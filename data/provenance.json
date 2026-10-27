@@ -1,5 +1,5 @@
 {
-  "contract_version": "3.1",
+  "contract_version": "3.2",
   "total_parent_towns": 821,
   "total_records": 865,
   "total_households": 202278,
@@ -9706,6 +9706,54 @@
       "rowId": 198,
       "skeleton_rowId": 184,
       "city_code": "24205",
+      "town_code": "242050036000",
+      "parent_town_code": "242050036000",
+      "raw_town_name": "大字地蔵",
+      "resolved_reading": "オオアザジゾウ",
+      "city_name": "桑名市",
+      "official_town_name": "地蔵",
+      "display_town_name": "地蔵",
+      "town_name": "地蔵",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 192,
+      "population": 484,
+      "e_stat_code": "242051490",
+      "latitude": 35.056891,
+      "longitude": 136.707597,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242051490"
+      ],
+      "basic_unit_codes": [
+        "2420504391",
+        "2420504401",
+        "242050441101",
+        "242050441102"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 192,
+        "p_parent_a": 484,
+        "h_parent_b": 192,
+        "p_parent_b": 484,
+        "d1_medoid_avg_m": 276.958,
+        "major_residential_islands": 0,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 199,
+      "skeleton_rowId": 185,
+      "city_code": "24205",
       "town_code": "242050037000",
       "parent_town_code": "242050037000",
       "raw_town_name": "大字志知",
@@ -9758,8 +9806,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 199,
-      "skeleton_rowId": 185,
+      "rowId": 200,
+      "skeleton_rowId": 186,
       "city_code": "24205",
       "town_code": "242050038000",
       "parent_town_code": "242050038000",
@@ -9817,8 +9865,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 200,
-      "skeleton_rowId": 186,
+      "rowId": 201,
+      "skeleton_rowId": 187,
       "city_code": "24205",
       "town_code": "242050039000",
       "parent_town_code": "242050039000",
@@ -9894,8 +9942,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 201,
-      "skeleton_rowId": 186,
+      "rowId": 202,
+      "skeleton_rowId": 187,
       "city_code": "24205",
       "town_code": "242050039000",
       "parent_town_code": "242050039000",
@@ -9971,193 +10019,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 202,
-      "skeleton_rowId": 187,
-      "city_code": "24205",
-      "town_code": "242050036000",
-      "parent_town_code": "242050036000",
-      "raw_town_name": "大字地蔵",
-      "resolved_reading": "オオアザジゾウ",
-      "city_name": "桑名市",
-      "official_town_name": "地蔵",
-      "display_town_name": "地蔵",
-      "town_name": "地蔵",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 192,
-      "population": 484,
-      "e_stat_code": "242051490",
-      "latitude": 35.056891,
-      "longitude": 136.707597,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242051490"
-      ],
-      "basic_unit_codes": [
-        "2420504391",
-        "2420504401",
-        "242050441101",
-        "242050441102"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 192,
-        "p_parent_a": 484,
-        "h_parent_b": 192,
-        "p_parent_b": 484,
-        "d1_medoid_avg_m": 276.958,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
       "rowId": 203,
       "skeleton_rowId": 188,
-      "city_code": "24205",
-      "town_code": "242050041000",
-      "parent_town_code": "242050041000",
-      "raw_town_name": "大字太平町",
-      "resolved_reading": "オオアザタイヘイチョウ",
-      "city_name": "桑名市",
-      "official_town_name": "太平町",
-      "display_town_name": "太平町",
-      "town_name": "太平町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 24,
-      "population": 73,
-      "e_stat_code": "242051530",
-      "latitude": 35.032363,
-      "longitude": 136.706152,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242051530"
-      ],
-      "basic_unit_codes": [
-        "2420504591"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 24,
-        "p_parent_a": 73,
-        "h_parent_b": 24,
-        "p_parent_b": 73,
-        "d1_medoid_avg_m": 0.0,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 204,
-      "skeleton_rowId": 189,
-      "city_code": "24205",
-      "town_code": "242050042000",
-      "parent_town_code": "242050042000",
-      "raw_town_name": "大字立田町",
-      "resolved_reading": "オオアザタツタチョウ",
-      "city_name": "桑名市",
-      "official_town_name": "立田町",
-      "display_town_name": "立田町",
-      "town_name": "立田町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 108,
-      "population": 278,
-      "e_stat_code": "242051520",
-      "latitude": 35.040558,
-      "longitude": 136.704264,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242051520"
-      ],
-      "basic_unit_codes": [
-        "2420504511",
-        "2420504521"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 108,
-        "p_parent_a": 278,
-        "h_parent_b": 108,
-        "p_parent_b": 278,
-        "d1_medoid_avg_m": 319.164,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 205,
-      "skeleton_rowId": 190,
-      "city_code": "24205",
-      "town_code": "242050043000",
-      "parent_town_code": "242050043000",
-      "raw_town_name": "大字太夫",
-      "resolved_reading": "オオアザタユウ",
-      "city_name": "桑名市",
-      "official_town_name": "太夫",
-      "display_town_name": "太夫",
-      "town_name": "太夫",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 100,
-      "population": 272,
-      "e_stat_code": "242050890",
-      "latitude": 35.06343,
-      "longitude": 136.667926,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242050890"
-      ],
-      "basic_unit_codes": [
-        "242050296101",
-        "242050296102"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 100,
-        "p_parent_a": 272,
-        "h_parent_b": 100,
-        "p_parent_b": 272,
-        "d1_medoid_avg_m": 85.207,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 206,
-      "skeleton_rowId": 191,
       "city_code": "24205",
       "town_code": "242050040000",
       "parent_town_code": "242050040000",
@@ -10212,6 +10075,143 @@
         "p_parent_b": 1093,
         "d1_medoid_avg_m": 275.357,
         "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 204,
+      "skeleton_rowId": 189,
+      "city_code": "24205",
+      "town_code": "242050041000",
+      "parent_town_code": "242050041000",
+      "raw_town_name": "大字太平町",
+      "resolved_reading": "オオアザタイヘイチョウ",
+      "city_name": "桑名市",
+      "official_town_name": "太平町",
+      "display_town_name": "太平町",
+      "town_name": "太平町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 24,
+      "population": 73,
+      "e_stat_code": "242051530",
+      "latitude": 35.032363,
+      "longitude": 136.706152,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242051530"
+      ],
+      "basic_unit_codes": [
+        "2420504591"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 24,
+        "p_parent_a": 73,
+        "h_parent_b": 24,
+        "p_parent_b": 73,
+        "d1_medoid_avg_m": 0.0,
+        "major_residential_islands": 0,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 205,
+      "skeleton_rowId": 190,
+      "city_code": "24205",
+      "town_code": "242050042000",
+      "parent_town_code": "242050042000",
+      "raw_town_name": "大字立田町",
+      "resolved_reading": "オオアザタツタチョウ",
+      "city_name": "桑名市",
+      "official_town_name": "立田町",
+      "display_town_name": "立田町",
+      "town_name": "立田町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 108,
+      "population": 278,
+      "e_stat_code": "242051520",
+      "latitude": 35.040558,
+      "longitude": 136.704264,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242051520"
+      ],
+      "basic_unit_codes": [
+        "2420504511",
+        "2420504521"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 108,
+        "p_parent_a": 278,
+        "h_parent_b": 108,
+        "p_parent_b": 278,
+        "d1_medoid_avg_m": 319.164,
+        "major_residential_islands": 0,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 206,
+      "skeleton_rowId": 191,
+      "city_code": "24205",
+      "town_code": "242050043000",
+      "parent_town_code": "242050043000",
+      "raw_town_name": "大字太夫",
+      "resolved_reading": "オオアザタユウ",
+      "city_name": "桑名市",
+      "official_town_name": "太夫",
+      "display_town_name": "太夫",
+      "town_name": "太夫",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 100,
+      "population": 272,
+      "e_stat_code": "242050890",
+      "latitude": 35.06343,
+      "longitude": 136.667926,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242050890"
+      ],
+      "basic_unit_codes": [
+        "242050296101",
+        "242050296102"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 100,
+        "p_parent_a": 272,
+        "h_parent_b": 100,
+        "p_parent_b": 272,
+        "d1_medoid_avg_m": 85.207,
+        "major_residential_islands": 0,
         "pattern_decision": "H_LE_800_PATTERN_A"
       },
       "estat_reconciliation_evidence": null
@@ -15284,6 +15284,55 @@
       "rowId": 307,
       "skeleton_rowId": 285,
       "city_code": "24205",
+      "town_code": "242050108000",
+      "parent_town_code": "242050108000",
+      "raw_town_name": "大央町",
+      "resolved_reading": "ダイオウチョウ",
+      "city_name": "桑名市",
+      "official_town_name": "大央町",
+      "display_town_name": "大央町",
+      "town_name": "大央町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 62,
+      "population": 279,
+      "e_stat_code": "242050710",
+      "latitude": 35.061401,
+      "longitude": 136.689922,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242050710"
+      ],
+      "basic_unit_codes": [
+        "242050417101",
+        "2420504184",
+        "2420510434"
+      ],
+      "zero_household_area_codes": [
+        "242050417102"
+      ],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": true,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 62,
+        "p_parent_a": 279,
+        "h_parent_b": 62,
+        "p_parent_b": 279,
+        "d1_medoid_avg_m": 3.259,
+        "major_residential_islands": 0,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 308,
+      "skeleton_rowId": 286,
+      "city_code": "24205",
       "town_code": "242050109000",
       "parent_town_code": "242050109000",
       "raw_town_name": "太一丸",
@@ -15328,8 +15377,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 308,
-      "skeleton_rowId": 286,
+      "rowId": 309,
+      "skeleton_rowId": 287,
       "city_code": "24205",
       "town_code": "242050110001",
       "parent_town_code": "242050110001",
@@ -15374,8 +15423,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 309,
-      "skeleton_rowId": 287,
+      "rowId": 310,
+      "skeleton_rowId": 288,
       "city_code": "24205",
       "town_code": "242050110002",
       "parent_town_code": "242050110002",
@@ -15419,8 +15468,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 310,
-      "skeleton_rowId": 288,
+      "rowId": 311,
+      "skeleton_rowId": 289,
       "city_code": "24205",
       "town_code": "242050110003",
       "parent_town_code": "242050110003",
@@ -15465,8 +15514,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 311,
-      "skeleton_rowId": 289,
+      "rowId": 312,
+      "skeleton_rowId": 290,
       "city_code": "24205",
       "town_code": "242050110004",
       "parent_town_code": "242050110004",
@@ -15511,8 +15560,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 312,
-      "skeleton_rowId": 290,
+      "rowId": 313,
+      "skeleton_rowId": 291,
       "city_code": "24205",
       "town_code": "242050110005",
       "parent_town_code": "242050110005",
@@ -15558,8 +15607,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 313,
-      "skeleton_rowId": 291,
+      "rowId": 314,
+      "skeleton_rowId": 292,
       "city_code": "24205",
       "town_code": "242050110006",
       "parent_town_code": "242050110006",
@@ -15604,8 +15653,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 314,
-      "skeleton_rowId": 292,
+      "rowId": 315,
+      "skeleton_rowId": 293,
       "city_code": "24205",
       "town_code": "242050111001",
       "parent_town_code": "242050111001",
@@ -15651,8 +15700,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 315,
-      "skeleton_rowId": 293,
+      "rowId": 316,
+      "skeleton_rowId": 294,
       "city_code": "24205",
       "town_code": "242050111002",
       "parent_town_code": "242050111002",
@@ -15698,8 +15747,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 316,
-      "skeleton_rowId": 294,
+      "rowId": 317,
+      "skeleton_rowId": 295,
       "city_code": "24205",
       "town_code": "242050112000",
       "parent_town_code": "242050112000",
@@ -15744,8 +15793,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 317,
-      "skeleton_rowId": 295,
+      "rowId": 318,
+      "skeleton_rowId": 296,
       "city_code": "24205",
       "town_code": "242050113000",
       "parent_town_code": "242050113000",
@@ -15790,8 +15839,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 318,
-      "skeleton_rowId": 296,
+      "rowId": 319,
+      "skeleton_rowId": 297,
       "city_code": "24205",
       "town_code": "242050114000",
       "parent_town_code": "242050114000",
@@ -15851,8 +15900,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 319,
-      "skeleton_rowId": 297,
+      "rowId": 320,
+      "skeleton_rowId": 298,
       "city_code": "24205",
       "town_code": "242050115000",
       "parent_town_code": "242050115000",
@@ -15907,8 +15956,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 320,
-      "skeleton_rowId": 298,
+      "rowId": 321,
+      "skeleton_rowId": 299,
       "city_code": "24205",
       "town_code": "242050116000",
       "parent_town_code": "242050116000",
@@ -15952,8 +16001,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 321,
-      "skeleton_rowId": 299,
+      "rowId": 322,
+      "skeleton_rowId": 300,
       "city_code": "24205",
       "town_code": "242050117000",
       "parent_town_code": "242050117000",
@@ -15997,8 +16046,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 322,
-      "skeleton_rowId": 300,
+      "rowId": 323,
+      "skeleton_rowId": 301,
       "city_code": "24205",
       "town_code": "242050118000",
       "parent_town_code": "242050118000",
@@ -16045,8 +16094,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 323,
-      "skeleton_rowId": 301,
+      "rowId": 324,
+      "skeleton_rowId": 302,
       "city_code": "24205",
       "town_code": "242050119000",
       "parent_town_code": "242050119000",
@@ -16092,8 +16141,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 324,
-      "skeleton_rowId": 302,
+      "rowId": 325,
+      "skeleton_rowId": 303,
       "city_code": "24205",
       "town_code": "242050120000",
       "parent_town_code": "242050120000",
@@ -16140,8 +16189,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 325,
-      "skeleton_rowId": 303,
+      "rowId": 326,
+      "skeleton_rowId": 304,
       "city_code": "24205",
       "town_code": "242050121001",
       "parent_town_code": "242050121001",
@@ -16186,8 +16235,8 @@
       }
     },
     {
-      "rowId": 326,
-      "skeleton_rowId": 304,
+      "rowId": 327,
+      "skeleton_rowId": 305,
       "city_code": "24205",
       "town_code": "242050121002",
       "parent_town_code": "242050121002",
@@ -16232,8 +16281,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 327,
-      "skeleton_rowId": 305,
+      "rowId": 328,
+      "skeleton_rowId": 306,
       "city_code": "24205",
       "town_code": "242050122000",
       "parent_town_code": "242050122000",
@@ -16278,8 +16327,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 328,
-      "skeleton_rowId": 306,
+      "rowId": 329,
+      "skeleton_rowId": 307,
       "city_code": "24205",
       "town_code": "242050123000",
       "parent_town_code": "242050123000",
@@ -16328,8 +16377,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 329,
-      "skeleton_rowId": 307,
+      "rowId": 330,
+      "skeleton_rowId": 308,
       "city_code": "24205",
       "town_code": "242050124000",
       "parent_town_code": "242050124000",
@@ -16373,8 +16422,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 330,
-      "skeleton_rowId": 308,
+      "rowId": 331,
+      "skeleton_rowId": 309,
       "city_code": "24205",
       "town_code": "242050125000",
       "parent_town_code": "242050125000",
@@ -16419,8 +16468,8 @@
       }
     },
     {
-      "rowId": 331,
-      "skeleton_rowId": 309,
+      "rowId": 332,
+      "skeleton_rowId": 310,
       "city_code": "24205",
       "town_code": "242050126000",
       "parent_town_code": "242050126000",
@@ -16465,8 +16514,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 332,
-      "skeleton_rowId": 310,
+      "rowId": 333,
+      "skeleton_rowId": 311,
       "city_code": "24205",
       "town_code": "242050127000",
       "parent_town_code": "242050127000",
@@ -16511,8 +16560,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 333,
-      "skeleton_rowId": 311,
+      "rowId": 334,
+      "skeleton_rowId": 312,
       "city_code": "24205",
       "town_code": "242050128000",
       "parent_town_code": "242050128000",
@@ -16557,8 +16606,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 334,
-      "skeleton_rowId": 312,
+      "rowId": 335,
+      "skeleton_rowId": 313,
       "city_code": "24205",
       "town_code": "242050129000",
       "parent_town_code": "242050129000",
@@ -16605,8 +16654,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 335,
-      "skeleton_rowId": 313,
+      "rowId": 336,
+      "skeleton_rowId": 314,
       "city_code": "24205",
       "town_code": "242050130000",
       "parent_town_code": "242050130000",
@@ -16655,8 +16704,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 336,
-      "skeleton_rowId": 314,
+      "rowId": 337,
+      "skeleton_rowId": 315,
       "city_code": "24205",
       "town_code": "242050131000",
       "parent_town_code": "242050131000",
@@ -16700,8 +16749,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 337,
-      "skeleton_rowId": 315,
+      "rowId": 338,
+      "skeleton_rowId": 316,
       "city_code": "24205",
       "town_code": "242050132000",
       "parent_town_code": "242050132000",
@@ -16753,8 +16802,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 338,
-      "skeleton_rowId": 316,
+      "rowId": 339,
+      "skeleton_rowId": 317,
       "city_code": "24205",
       "town_code": "242050133000",
       "parent_town_code": "242050133000",
@@ -16792,55 +16841,6 @@
         "h_parent_b": 12,
         "p_parent_b": 26,
         "d1_medoid_avg_m": 0.0,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 339,
-      "skeleton_rowId": 317,
-      "city_code": "24205",
-      "town_code": "242050108000",
-      "parent_town_code": "242050108000",
-      "raw_town_name": "大央町",
-      "resolved_reading": "ダイオウチョウ",
-      "city_name": "桑名市",
-      "official_town_name": "大央町",
-      "display_town_name": "大央町",
-      "town_name": "大央町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 62,
-      "population": 279,
-      "e_stat_code": "242050710",
-      "latitude": 35.061401,
-      "longitude": 136.689922,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242050710"
-      ],
-      "basic_unit_codes": [
-        "242050417101",
-        "2420504184",
-        "2420510434"
-      ],
-      "zero_household_area_codes": [
-        "242050417102"
-      ],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": true,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 62,
-        "p_parent_a": 279,
-        "h_parent_b": 62,
-        "p_parent_b": 279,
-        "d1_medoid_avg_m": 3.259,
         "major_residential_islands": 0,
         "pattern_decision": "H_LE_800_PATTERN_A"
       },
@@ -17778,52 +17778,6 @@
       "rowId": 359,
       "skeleton_rowId": 337,
       "city_code": "24205",
-      "town_code": "242050181000",
-      "parent_town_code": "242050181000",
-      "raw_town_name": "中山町",
-      "resolved_reading": "ナカヤマチョウ",
-      "city_name": "桑名市",
-      "official_town_name": "中山町",
-      "display_town_name": "中山町",
-      "town_name": "中山町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 103,
-      "population": 253,
-      "e_stat_code": "242051250",
-      "latitude": 35.067324,
-      "longitude": 136.624536,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242051250"
-      ],
-      "basic_unit_codes": [
-        "2420505501",
-        "2420505511"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 103,
-        "p_parent_a": 253,
-        "h_parent_b": 103,
-        "p_parent_b": 253,
-        "d1_medoid_avg_m": 88.997,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 360,
-      "skeleton_rowId": 338,
-      "city_code": "24205",
       "town_code": "242050141000",
       "parent_town_code": "242050141000",
       "raw_town_name": "長島町赤地",
@@ -17866,8 +17820,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 361,
-      "skeleton_rowId": 339,
+      "rowId": 360,
+      "skeleton_rowId": 338,
       "city_code": "24205",
       "town_code": "242050142000",
       "parent_town_code": "242050142000",
@@ -17915,8 +17869,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 362,
-      "skeleton_rowId": 340,
+      "rowId": 361,
+      "skeleton_rowId": 339,
       "city_code": "24205",
       "town_code": "242050143000",
       "parent_town_code": "242050143000",
@@ -17957,8 +17911,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 363,
-      "skeleton_rowId": 341,
+      "rowId": 362,
+      "skeleton_rowId": 340,
       "city_code": "24205",
       "town_code": "242050144000",
       "parent_town_code": "242050144000",
@@ -18015,8 +17969,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 364,
-      "skeleton_rowId": 342,
+      "rowId": 363,
+      "skeleton_rowId": 341,
       "city_code": "24205",
       "town_code": "242050145000",
       "parent_town_code": "242050145000",
@@ -18062,8 +18016,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 365,
-      "skeleton_rowId": 343,
+      "rowId": 364,
+      "skeleton_rowId": 342,
       "city_code": "24205",
       "town_code": "242050146000",
       "parent_town_code": "242050146000",
@@ -18125,8 +18079,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 366,
-      "skeleton_rowId": 344,
+      "rowId": 365,
+      "skeleton_rowId": 343,
       "city_code": "24205",
       "town_code": "242050147000",
       "parent_town_code": "242050147000",
@@ -18170,8 +18124,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 367,
-      "skeleton_rowId": 345,
+      "rowId": 366,
+      "skeleton_rowId": 344,
       "city_code": "24205",
       "town_code": "242050148000",
       "parent_town_code": "242050148000",
@@ -18215,8 +18169,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 368,
-      "skeleton_rowId": 346,
+      "rowId": 367,
+      "skeleton_rowId": 345,
       "city_code": "24205",
       "town_code": "242050149000",
       "parent_town_code": "242050149000",
@@ -18261,8 +18215,8 @@
       }
     },
     {
-      "rowId": 369,
-      "skeleton_rowId": 347,
+      "rowId": 368,
+      "skeleton_rowId": 346,
       "city_code": "24205",
       "town_code": "242050150000",
       "parent_town_code": "242050150000",
@@ -18306,8 +18260,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 370,
-      "skeleton_rowId": 348,
+      "rowId": 369,
+      "skeleton_rowId": 347,
       "city_code": "24205",
       "town_code": "242050151000",
       "parent_town_code": "242050151000",
@@ -18351,8 +18305,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 371,
-      "skeleton_rowId": 349,
+      "rowId": 370,
+      "skeleton_rowId": 348,
       "city_code": "24205",
       "town_code": "242050152000",
       "parent_town_code": "242050152000",
@@ -18398,8 +18352,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 372,
-      "skeleton_rowId": 350,
+      "rowId": 371,
+      "skeleton_rowId": 349,
       "city_code": "24205",
       "town_code": "242050153000",
       "parent_town_code": "242050153000",
@@ -18443,8 +18397,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 373,
-      "skeleton_rowId": 351,
+      "rowId": 372,
+      "skeleton_rowId": 350,
       "city_code": "24205",
       "town_code": "242050154000",
       "parent_town_code": "242050154000",
@@ -18489,8 +18443,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 374,
-      "skeleton_rowId": 352,
+      "rowId": 373,
+      "skeleton_rowId": 351,
       "city_code": "24205",
       "town_code": "242050155000",
       "parent_town_code": "242050155000",
@@ -18534,8 +18488,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 375,
-      "skeleton_rowId": 353,
+      "rowId": 374,
+      "skeleton_rowId": 352,
       "city_code": "24205",
       "town_code": "242050156000",
       "parent_town_code": "242050156000",
@@ -18579,8 +18533,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 376,
-      "skeleton_rowId": 354,
+      "rowId": 375,
+      "skeleton_rowId": 353,
       "city_code": "24205",
       "town_code": "242050157000",
       "parent_town_code": "242050157000",
@@ -18625,8 +18579,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 377,
-      "skeleton_rowId": 355,
+      "rowId": 376,
+      "skeleton_rowId": 354,
       "city_code": "24205",
       "town_code": "242050158000",
       "parent_town_code": "242050158000",
@@ -18677,8 +18631,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 378,
-      "skeleton_rowId": 356,
+      "rowId": 377,
+      "skeleton_rowId": 355,
       "city_code": "24205",
       "town_code": "242050159000",
       "parent_town_code": "242050159000",
@@ -18723,8 +18677,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 379,
-      "skeleton_rowId": 357,
+      "rowId": 378,
+      "skeleton_rowId": 356,
       "city_code": "24205",
       "town_code": "242050160000",
       "parent_town_code": "242050160000",
@@ -18769,8 +18723,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 380,
-      "skeleton_rowId": 358,
+      "rowId": 379,
+      "skeleton_rowId": 357,
       "city_code": "24205",
       "town_code": "242050161000",
       "parent_town_code": "242050161000",
@@ -18814,8 +18768,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 381,
-      "skeleton_rowId": 359,
+      "rowId": 380,
+      "skeleton_rowId": 358,
       "city_code": "24205",
       "town_code": "242050162000",
       "parent_town_code": "242050162000",
@@ -18859,8 +18813,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 382,
-      "skeleton_rowId": 360,
+      "rowId": 381,
+      "skeleton_rowId": 359,
       "city_code": "24205",
       "town_code": "242050163000",
       "parent_town_code": "242050163000",
@@ -18905,8 +18859,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 383,
-      "skeleton_rowId": 361,
+      "rowId": 382,
+      "skeleton_rowId": 360,
       "city_code": "24205",
       "town_code": "242050164000",
       "parent_town_code": "242050164000",
@@ -18952,8 +18906,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 384,
-      "skeleton_rowId": 362,
+      "rowId": 383,
+      "skeleton_rowId": 361,
       "city_code": "24205",
       "town_code": "242050165000",
       "parent_town_code": "242050165000",
@@ -18999,8 +18953,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 385,
-      "skeleton_rowId": 363,
+      "rowId": 384,
+      "skeleton_rowId": 362,
       "city_code": "24205",
       "town_code": "242050166000",
       "parent_town_code": "242050166000",
@@ -19059,8 +19013,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 386,
-      "skeleton_rowId": 364,
+      "rowId": 385,
+      "skeleton_rowId": 363,
       "city_code": "24205",
       "town_code": "242050167000",
       "parent_town_code": "242050167000",
@@ -19105,8 +19059,8 @@
       }
     },
     {
-      "rowId": 387,
-      "skeleton_rowId": 365,
+      "rowId": 386,
+      "skeleton_rowId": 364,
       "city_code": "24205",
       "town_code": "242050168000",
       "parent_town_code": "242050168000",
@@ -19152,8 +19106,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 388,
-      "skeleton_rowId": 366,
+      "rowId": 387,
+      "skeleton_rowId": 365,
       "city_code": "24205",
       "town_code": "242050169000",
       "parent_town_code": "242050169000",
@@ -19199,8 +19153,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 389,
-      "skeleton_rowId": 367,
+      "rowId": 388,
+      "skeleton_rowId": 366,
       "city_code": "24205",
       "town_code": "242050170000",
       "parent_town_code": "242050170000",
@@ -19245,8 +19199,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 390,
-      "skeleton_rowId": 368,
+      "rowId": 389,
+      "skeleton_rowId": 367,
       "city_code": "24205",
       "town_code": "242050171000",
       "parent_town_code": "242050171000",
@@ -19294,8 +19248,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 391,
-      "skeleton_rowId": 369,
+      "rowId": 390,
+      "skeleton_rowId": 368,
       "city_code": "24205",
       "town_code": "242050172000",
       "parent_town_code": "242050172000",
@@ -19359,8 +19313,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 392,
-      "skeleton_rowId": 370,
+      "rowId": 391,
+      "skeleton_rowId": 369,
       "city_code": "24205",
       "town_code": "242050173000",
       "parent_town_code": "242050173000",
@@ -19410,8 +19364,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 393,
-      "skeleton_rowId": 371,
+      "rowId": 392,
+      "skeleton_rowId": 370,
       "city_code": "24205",
       "town_code": "242050174000",
       "parent_town_code": "242050174000",
@@ -19456,8 +19410,8 @@
       }
     },
     {
-      "rowId": 394,
-      "skeleton_rowId": 372,
+      "rowId": 393,
+      "skeleton_rowId": 371,
       "city_code": "24205",
       "town_code": "242050175000",
       "parent_town_code": "242050175000",
@@ -19505,8 +19459,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 395,
-      "skeleton_rowId": 373,
+      "rowId": 394,
+      "skeleton_rowId": 372,
       "city_code": "24205",
       "town_code": "242050176000",
       "parent_town_code": "242050176000",
@@ -19572,8 +19526,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 396,
-      "skeleton_rowId": 374,
+      "rowId": 395,
+      "skeleton_rowId": 373,
       "city_code": "24205",
       "town_code": "242050177000",
       "parent_town_code": "242050177000",
@@ -19618,8 +19572,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 397,
-      "skeleton_rowId": 375,
+      "rowId": 396,
+      "skeleton_rowId": 374,
       "city_code": "24205",
       "town_code": "242050178000",
       "parent_town_code": "242050178000",
@@ -19663,8 +19617,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 398,
-      "skeleton_rowId": 376,
+      "rowId": 397,
+      "skeleton_rowId": 375,
       "city_code": "24205",
       "town_code": "242050179000",
       "parent_town_code": "242050179000",
@@ -19712,8 +19666,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 399,
-      "skeleton_rowId": 377,
+      "rowId": 398,
+      "skeleton_rowId": 376,
       "city_code": "24205",
       "town_code": "242050180000",
       "parent_town_code": "242050180000",
@@ -19761,6 +19715,52 @@
         "p_parent_b": 524,
         "d1_medoid_avg_m": 219.722,
         "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 399,
+      "skeleton_rowId": 377,
+      "city_code": "24205",
+      "town_code": "242050181000",
+      "parent_town_code": "242050181000",
+      "raw_town_name": "中山町",
+      "resolved_reading": "ナカヤマチョウ",
+      "city_name": "桑名市",
+      "official_town_name": "中山町",
+      "display_town_name": "中山町",
+      "town_name": "中山町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 103,
+      "population": 253,
+      "e_stat_code": "242051250",
+      "latitude": 35.067324,
+      "longitude": 136.624536,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242051250"
+      ],
+      "basic_unit_codes": [
+        "2420505501",
+        "2420505511"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 103,
+        "p_parent_a": 253,
+        "h_parent_b": 103,
+        "p_parent_b": 253,
+        "d1_medoid_avg_m": 88.997,
+        "major_residential_islands": 0,
         "pattern_decision": "H_LE_800_PATTERN_A"
       },
       "estat_reconciliation_evidence": null
@@ -27301,6 +27301,152 @@
       "rowId": 549,
       "skeleton_rowId": 516,
       "city_code": "24202",
+      "town_code": "242020003001",
+      "parent_town_code": "242020003001",
+      "raw_town_name": "あがたが丘一丁目",
+      "resolved_reading": "アガタガオカ",
+      "city_name": "四日市市",
+      "official_town_name": "あがたが丘一丁目",
+      "display_town_name": "あがたが丘一丁目",
+      "town_name": "あがたが丘一丁目",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 204,
+      "population": 470,
+      "e_stat_code": "24202214001",
+      "latitude": 35.021937,
+      "longitude": 136.571276,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "24202214001"
+      ],
+      "basic_unit_codes": [
+        "2420217131",
+        "2420217141",
+        "2420217151",
+        "2420217161"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 204,
+        "p_parent_a": 470,
+        "h_parent_b": 204,
+        "p_parent_b": 470,
+        "d1_medoid_avg_m": 95.554,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 550,
+      "skeleton_rowId": 517,
+      "city_code": "24202",
+      "town_code": "242020003002",
+      "parent_town_code": "242020003002",
+      "raw_town_name": "あがたが丘二丁目",
+      "resolved_reading": "アガタガオカ",
+      "city_name": "四日市市",
+      "official_town_name": "あがたが丘二丁目",
+      "display_town_name": "あがたが丘二丁目",
+      "town_name": "あがたが丘二丁目",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 201,
+      "population": 497,
+      "e_stat_code": "24202214002",
+      "latitude": 35.024614,
+      "longitude": 136.568915,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "24202214002"
+      ],
+      "basic_unit_codes": [
+        "2420217171",
+        "2420217181",
+        "2420217191",
+        "2420217201"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 201,
+        "p_parent_a": 497,
+        "h_parent_b": 201,
+        "p_parent_b": 497,
+        "d1_medoid_avg_m": 87.682,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 551,
+      "skeleton_rowId": 518,
+      "city_code": "24202",
+      "town_code": "242020003003",
+      "parent_town_code": "242020003003",
+      "raw_town_name": "あがたが丘三丁目",
+      "resolved_reading": "アガタガオカ",
+      "city_name": "四日市市",
+      "official_town_name": "あがたが丘三丁目",
+      "display_town_name": "あがたが丘三丁目",
+      "town_name": "あがたが丘三丁目",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 294,
+      "population": 749,
+      "e_stat_code": "24202214003",
+      "latitude": 35.025079,
+      "longitude": 136.566742,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "24202214003"
+      ],
+      "basic_unit_codes": [
+        "2420217211",
+        "2420217221",
+        "2420217231",
+        "2420217241",
+        "2420217251",
+        "2420217261"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 294,
+        "p_parent_a": 749,
+        "h_parent_b": 294,
+        "p_parent_b": 749,
+        "d1_medoid_avg_m": 129.918,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 552,
+      "skeleton_rowId": 519,
+      "city_code": "24202",
       "town_code": "242020004001",
       "parent_town_code": "242020004001",
       "raw_town_name": "あかつき台一丁目",
@@ -27349,8 +27495,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 550,
-      "skeleton_rowId": 517,
+      "rowId": 553,
+      "skeleton_rowId": 520,
       "city_code": "24202",
       "town_code": "242020004002",
       "parent_town_code": "242020004002",
@@ -27398,8 +27544,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 551,
-      "skeleton_rowId": 518,
+      "rowId": 554,
+      "skeleton_rowId": 521,
       "city_code": "24202",
       "town_code": "242020004003",
       "parent_town_code": "242020004003",
@@ -27447,8 +27593,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 552,
-      "skeleton_rowId": 519,
+      "rowId": 555,
+      "skeleton_rowId": 522,
       "city_code": "24202",
       "town_code": "242020004004",
       "parent_town_code": "242020004004",
@@ -27493,8 +27639,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 553,
-      "skeleton_rowId": 520,
+      "rowId": 556,
+      "skeleton_rowId": 523,
       "city_code": "24202",
       "town_code": "242020004005",
       "parent_town_code": "242020004005",
@@ -27540,8 +27686,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 554,
-      "skeleton_rowId": 521,
+      "rowId": 557,
+      "skeleton_rowId": 524,
       "city_code": "24202",
       "town_code": "242020004006",
       "parent_town_code": "242020004006",
@@ -27586,8 +27732,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 555,
-      "skeleton_rowId": 522,
+      "rowId": 558,
+      "skeleton_rowId": 525,
       "city_code": "24202",
       "town_code": "242020005001",
       "parent_town_code": "242020005001",
@@ -27639,8 +27785,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 556,
-      "skeleton_rowId": 523,
+      "rowId": 559,
+      "skeleton_rowId": 526,
       "city_code": "24202",
       "town_code": "242020005002",
       "parent_town_code": "242020005002",
@@ -27702,8 +27848,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 557,
-      "skeleton_rowId": 524,
+      "rowId": 560,
+      "skeleton_rowId": 527,
       "city_code": "24202",
       "town_code": "242020005003",
       "parent_town_code": "242020005003",
@@ -27758,8 +27904,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 558,
-      "skeleton_rowId": 525,
+      "rowId": 561,
+      "skeleton_rowId": 528,
       "city_code": "24202",
       "town_code": "242020006000",
       "parent_town_code": "242020006000",
@@ -27811,8 +27957,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 559,
-      "skeleton_rowId": 526,
+      "rowId": 562,
+      "skeleton_rowId": 529,
       "city_code": "24202",
       "town_code": "242020007000",
       "parent_town_code": "242020007000",
@@ -27859,152 +28005,6 @@
         "h_parent_b": 403,
         "p_parent_b": 776,
         "d1_medoid_avg_m": 112.275,
-        "major_residential_islands": 1,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 560,
-      "skeleton_rowId": 527,
-      "city_code": "24202",
-      "town_code": "242020003001",
-      "parent_town_code": "242020003001",
-      "raw_town_name": "あがたが丘一丁目",
-      "resolved_reading": "アガタガオカ",
-      "city_name": "四日市市",
-      "official_town_name": "あがたが丘一丁目",
-      "display_town_name": "あがたが丘一丁目",
-      "town_name": "あがたが丘一丁目",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 204,
-      "population": 470,
-      "e_stat_code": "24202214001",
-      "latitude": 35.021937,
-      "longitude": 136.571276,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "24202214001"
-      ],
-      "basic_unit_codes": [
-        "2420217131",
-        "2420217141",
-        "2420217151",
-        "2420217161"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 204,
-        "p_parent_a": 470,
-        "h_parent_b": 204,
-        "p_parent_b": 470,
-        "d1_medoid_avg_m": 95.554,
-        "major_residential_islands": 1,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 561,
-      "skeleton_rowId": 528,
-      "city_code": "24202",
-      "town_code": "242020003002",
-      "parent_town_code": "242020003002",
-      "raw_town_name": "あがたが丘二丁目",
-      "resolved_reading": "アガタガオカ",
-      "city_name": "四日市市",
-      "official_town_name": "あがたが丘二丁目",
-      "display_town_name": "あがたが丘二丁目",
-      "town_name": "あがたが丘二丁目",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 201,
-      "population": 497,
-      "e_stat_code": "24202214002",
-      "latitude": 35.024614,
-      "longitude": 136.568915,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "24202214002"
-      ],
-      "basic_unit_codes": [
-        "2420217171",
-        "2420217181",
-        "2420217191",
-        "2420217201"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 201,
-        "p_parent_a": 497,
-        "h_parent_b": 201,
-        "p_parent_b": 497,
-        "d1_medoid_avg_m": 87.682,
-        "major_residential_islands": 1,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 562,
-      "skeleton_rowId": 529,
-      "city_code": "24202",
-      "town_code": "242020003003",
-      "parent_town_code": "242020003003",
-      "raw_town_name": "あがたが丘三丁目",
-      "resolved_reading": "アガタガオカ",
-      "city_name": "四日市市",
-      "official_town_name": "あがたが丘三丁目",
-      "display_town_name": "あがたが丘三丁目",
-      "town_name": "あがたが丘三丁目",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 294,
-      "population": 749,
-      "e_stat_code": "24202214003",
-      "latitude": 35.025079,
-      "longitude": 136.566742,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "24202214003"
-      ],
-      "basic_unit_codes": [
-        "2420217211",
-        "2420217221",
-        "2420217231",
-        "2420217241",
-        "2420217251",
-        "2420217261"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 294,
-        "p_parent_a": 749,
-        "h_parent_b": 294,
-        "p_parent_b": 749,
-        "d1_medoid_avg_m": 129.918,
         "major_residential_islands": 1,
         "pattern_decision": "H_LE_800_PATTERN_A"
       },
@@ -28981,114 +28981,6 @@
       "rowId": 580,
       "skeleton_rowId": 547,
       "city_code": "24202",
-      "town_code": "242020020000",
-      "parent_town_code": "242020020000",
-      "raw_town_name": "生桑町",
-      "resolved_reading": "イクワチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "生桑町",
-      "display_town_name": "生桑町 (1)",
-      "town_name": "生桑町 (1)",
-      "pattern": "B_SPLIT",
-      "split_index": 1,
-      "split_total": 2,
-      "households": 613,
-      "population": 1336,
-      "e_stat_code": "",
-      "latitude": 34.987873,
-      "longitude": 136.600267,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242021970"
-      ],
-      "basic_unit_codes": [
-        "2420216151",
-        "2420216161",
-        "2420216171",
-        "2420216181",
-        "2420216191",
-        "2420216201",
-        "2420216211",
-        "2420216221",
-        "2420216231",
-        "2420216251",
-        "2420216271"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 1187,
-        "p_parent_a": 2718,
-        "h_parent_b": 1187,
-        "p_parent_b": 2718,
-        "d1_medoid_avg_m": 389.953,
-        "major_residential_islands": 1,
-        "pattern_decision": "H_GE_1000_SPLIT_K2"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 581,
-      "skeleton_rowId": 547,
-      "city_code": "24202",
-      "town_code": "242020020000",
-      "parent_town_code": "242020020000",
-      "raw_town_name": "生桑町",
-      "resolved_reading": "イクワチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "生桑町",
-      "display_town_name": "生桑町 (2)",
-      "town_name": "生桑町 (2)",
-      "pattern": "B_SPLIT",
-      "split_index": 2,
-      "split_total": 2,
-      "households": 574,
-      "population": 1382,
-      "e_stat_code": "",
-      "latitude": 34.985881,
-      "longitude": 136.595599,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242021970"
-      ],
-      "basic_unit_codes": [
-        "2420216124",
-        "2420216131",
-        "2420216141",
-        "2420216241",
-        "2420216261",
-        "2420216281",
-        "2420216291",
-        "2420216301",
-        "2420216311"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 1187,
-        "p_parent_a": 2718,
-        "h_parent_b": 1187,
-        "p_parent_b": 2718,
-        "d1_medoid_avg_m": 389.953,
-        "major_residential_islands": 1,
-        "pattern_decision": "H_GE_1000_SPLIT_K2"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 582,
-      "skeleton_rowId": 548,
-      "city_code": "24202",
       "town_code": "242020019001",
       "parent_town_code": "242020019001",
       "raw_town_name": "伊倉一丁目",
@@ -29138,8 +29030,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 583,
-      "skeleton_rowId": 549,
+      "rowId": 581,
+      "skeleton_rowId": 548,
       "city_code": "24202",
       "town_code": "242020019002",
       "parent_town_code": "242020019002",
@@ -29192,8 +29084,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 584,
-      "skeleton_rowId": 550,
+      "rowId": 582,
+      "skeleton_rowId": 549,
       "city_code": "24202",
       "town_code": "242020019003",
       "parent_town_code": "242020019003",
@@ -29243,6 +29135,114 @@
         "d1_medoid_avg_m": 106.553,
         "major_residential_islands": 1,
         "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 583,
+      "skeleton_rowId": 550,
+      "city_code": "24202",
+      "town_code": "242020020000",
+      "parent_town_code": "242020020000",
+      "raw_town_name": "生桑町",
+      "resolved_reading": "イクワチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "生桑町",
+      "display_town_name": "生桑町 (1)",
+      "town_name": "生桑町 (1)",
+      "pattern": "B_SPLIT",
+      "split_index": 1,
+      "split_total": 2,
+      "households": 613,
+      "population": 1336,
+      "e_stat_code": "",
+      "latitude": 34.987873,
+      "longitude": 136.600267,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242021970"
+      ],
+      "basic_unit_codes": [
+        "2420216151",
+        "2420216161",
+        "2420216171",
+        "2420216181",
+        "2420216191",
+        "2420216201",
+        "2420216211",
+        "2420216221",
+        "2420216231",
+        "2420216251",
+        "2420216271"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 1187,
+        "p_parent_a": 2718,
+        "h_parent_b": 1187,
+        "p_parent_b": 2718,
+        "d1_medoid_avg_m": 389.953,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_GE_1000_SPLIT_K2"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 584,
+      "skeleton_rowId": 550,
+      "city_code": "24202",
+      "town_code": "242020020000",
+      "parent_town_code": "242020020000",
+      "raw_town_name": "生桑町",
+      "resolved_reading": "イクワチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "生桑町",
+      "display_town_name": "生桑町 (2)",
+      "town_name": "生桑町 (2)",
+      "pattern": "B_SPLIT",
+      "split_index": 2,
+      "split_total": 2,
+      "households": 574,
+      "population": 1382,
+      "e_stat_code": "",
+      "latitude": 34.985881,
+      "longitude": 136.595599,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242021970"
+      ],
+      "basic_unit_codes": [
+        "2420216124",
+        "2420216131",
+        "2420216141",
+        "2420216241",
+        "2420216261",
+        "2420216281",
+        "2420216291",
+        "2420216301",
+        "2420216311"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 1187,
+        "p_parent_a": 2718,
+        "h_parent_b": 1187,
+        "p_parent_b": 2718,
+        "d1_medoid_avg_m": 389.953,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_GE_1000_SPLIT_K2"
       },
       "estat_reconciliation_evidence": null
     },
@@ -34506,6 +34506,118 @@
       "rowId": 684,
       "skeleton_rowId": 643,
       "city_code": "24202",
+      "town_code": "242020128000",
+      "parent_town_code": "242020128000",
+      "raw_town_name": "十七軒町",
+      "resolved_reading": "ジュウシチケンチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "十七軒町",
+      "display_town_name": "十七軒町",
+      "town_name": "十七軒町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 158,
+      "population": 311,
+      "e_stat_code": "242020420",
+      "latitude": 34.959277,
+      "longitude": 136.623755,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242020420"
+      ],
+      "basic_unit_codes": [
+        "242020262102",
+        "242020262103",
+        "242020262104",
+        "242020262105",
+        "242020262107",
+        "242020262110",
+        "242020262111",
+        "2420202631",
+        "242020264101",
+        "242020264102",
+        "242020264104"
+      ],
+      "zero_household_area_codes": [
+        "242020262101",
+        "242020262106",
+        "242020262108",
+        "242020262109",
+        "242020264103",
+        "242020264105",
+        "242020264106"
+      ],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": true,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 158,
+        "p_parent_a": 311,
+        "h_parent_b": 158,
+        "p_parent_b": 311,
+        "d1_medoid_avg_m": 119.51,
+        "major_residential_islands": 0,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 685,
+      "skeleton_rowId": 644,
+      "city_code": "24202",
+      "town_code": "242020129000",
+      "parent_town_code": "242020129000",
+      "raw_town_name": "十志町",
+      "resolved_reading": "ジュウシチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "十志町",
+      "display_town_name": "十志町",
+      "town_name": "十志町",
+      "pattern": "A_NORMAL",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 301,
+      "population": 597,
+      "e_stat_code": "242022670",
+      "latitude": 35.013339,
+      "longitude": 136.641901,
+      "coordinate_source": "b_series_weighted_medoid",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "242022670"
+      ],
+      "basic_unit_codes": [
+        "2420220281",
+        "2420220291",
+        "242022065102",
+        "2420220661",
+        "2420220671"
+      ],
+      "zero_household_area_codes": [],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 301,
+        "p_parent_a": 597,
+        "h_parent_b": 301,
+        "p_parent_b": 597,
+        "d1_medoid_avg_m": 144.275,
+        "major_residential_islands": 1,
+        "pattern_decision": "H_LE_800_PATTERN_A"
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 686,
+      "skeleton_rowId": 645,
+      "city_code": "24202",
       "town_code": "242020130000",
       "parent_town_code": "242020130000",
       "raw_town_name": "昌栄町",
@@ -34576,8 +34688,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 685,
-      "skeleton_rowId": 644,
+      "rowId": 687,
+      "skeleton_rowId": 646,
       "city_code": "24202",
       "town_code": "242020132001",
       "parent_town_code": "242020132001",
@@ -34639,8 +34751,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 686,
-      "skeleton_rowId": 645,
+      "rowId": 688,
+      "skeleton_rowId": 647,
       "city_code": "24202",
       "town_code": "242020132002",
       "parent_town_code": "242020132002",
@@ -34695,8 +34807,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 687,
-      "skeleton_rowId": 646,
+      "rowId": 689,
+      "skeleton_rowId": 648,
       "city_code": "24202",
       "town_code": "242020132003",
       "parent_town_code": "242020132003",
@@ -34745,8 +34857,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 688,
-      "skeleton_rowId": 647,
+      "rowId": 690,
+      "skeleton_rowId": 649,
       "city_code": "24202",
       "town_code": "242020133000",
       "parent_town_code": "242020133000",
@@ -34803,8 +34915,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 689,
-      "skeleton_rowId": 648,
+      "rowId": 691,
+      "skeleton_rowId": 650,
       "city_code": "24202",
       "town_code": "242020134000",
       "parent_town_code": "242020134000",
@@ -34867,8 +34979,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 690,
-      "skeleton_rowId": 649,
+      "rowId": 692,
+      "skeleton_rowId": 651,
       "city_code": "24202",
       "town_code": "242020135000",
       "parent_town_code": "242020135000",
@@ -34936,8 +35048,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 691,
-      "skeleton_rowId": 650,
+      "rowId": 693,
+      "skeleton_rowId": 652,
       "city_code": "24202",
       "town_code": "242020136000",
       "parent_town_code": "242020136000",
@@ -34991,8 +35103,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 692,
-      "skeleton_rowId": 651,
+      "rowId": 694,
+      "skeleton_rowId": 653,
       "city_code": "24202",
       "town_code": "242020137001",
       "parent_town_code": "242020137001",
@@ -35050,8 +35162,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 693,
-      "skeleton_rowId": 652,
+      "rowId": 695,
+      "skeleton_rowId": 654,
       "city_code": "24202",
       "town_code": "242020137002",
       "parent_town_code": "242020137002",
@@ -35112,8 +35224,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 694,
-      "skeleton_rowId": 653,
+      "rowId": 696,
+      "skeleton_rowId": 655,
       "city_code": "24202",
       "town_code": "242020137003",
       "parent_town_code": "242020137003",
@@ -35177,8 +35289,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 695,
-      "skeleton_rowId": 654,
+      "rowId": 697,
+      "skeleton_rowId": 656,
       "city_code": "24202",
       "town_code": "242020137004",
       "parent_town_code": "242020137004",
@@ -35243,8 +35355,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 696,
-      "skeleton_rowId": 655,
+      "rowId": 698,
+      "skeleton_rowId": 657,
       "city_code": "24202",
       "town_code": "242020137005",
       "parent_town_code": "242020137005",
@@ -35294,8 +35406,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 697,
-      "skeleton_rowId": 656,
+      "rowId": 699,
+      "skeleton_rowId": 658,
       "city_code": "24202",
       "town_code": "242020138000",
       "parent_town_code": "242020138000",
@@ -35341,8 +35453,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 698,
-      "skeleton_rowId": 657,
+      "rowId": 700,
+      "skeleton_rowId": 659,
       "city_code": "24202",
       "town_code": "242020140000",
       "parent_town_code": "242020140000",
@@ -35405,8 +35517,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 699,
-      "skeleton_rowId": 658,
+      "rowId": 701,
+      "skeleton_rowId": 660,
       "city_code": "24202",
       "town_code": "242020139000",
       "parent_town_code": "242020139000",
@@ -35456,118 +35568,6 @@
         "p_parent_b": 281,
         "d1_medoid_avg_m": 70.141,
         "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 700,
-      "skeleton_rowId": 659,
-      "city_code": "24202",
-      "town_code": "242020128000",
-      "parent_town_code": "242020128000",
-      "raw_town_name": "十七軒町",
-      "resolved_reading": "ジュウシチケンチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "十七軒町",
-      "display_town_name": "十七軒町",
-      "town_name": "十七軒町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 158,
-      "population": 311,
-      "e_stat_code": "242020420",
-      "latitude": 34.959277,
-      "longitude": 136.623755,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242020420"
-      ],
-      "basic_unit_codes": [
-        "242020262102",
-        "242020262103",
-        "242020262104",
-        "242020262105",
-        "242020262107",
-        "242020262110",
-        "242020262111",
-        "2420202631",
-        "242020264101",
-        "242020264102",
-        "242020264104"
-      ],
-      "zero_household_area_codes": [
-        "242020262101",
-        "242020262106",
-        "242020262108",
-        "242020262109",
-        "242020264103",
-        "242020264105",
-        "242020264106"
-      ],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": true,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 158,
-        "p_parent_a": 311,
-        "h_parent_b": 158,
-        "p_parent_b": 311,
-        "d1_medoid_avg_m": 119.51,
-        "major_residential_islands": 0,
-        "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 701,
-      "skeleton_rowId": 660,
-      "city_code": "24202",
-      "town_code": "242020129000",
-      "parent_town_code": "242020129000",
-      "raw_town_name": "十志町",
-      "resolved_reading": "ジュウシチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "十志町",
-      "display_town_name": "十志町",
-      "town_name": "十志町",
-      "pattern": "A_NORMAL",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 301,
-      "population": 597,
-      "e_stat_code": "242022670",
-      "latitude": 35.013339,
-      "longitude": 136.641901,
-      "coordinate_source": "b_series_weighted_medoid",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "242022670"
-      ],
-      "basic_unit_codes": [
-        "2420220281",
-        "2420220291",
-        "242022065102",
-        "2420220661",
-        "2420220671"
-      ],
-      "zero_household_area_codes": [],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 301,
-        "p_parent_a": 597,
-        "h_parent_b": 301,
-        "p_parent_b": 597,
-        "d1_medoid_avg_m": 144.275,
-        "major_residential_islands": 1,
         "pattern_decision": "H_LE_800_PATTERN_A"
       },
       "estat_reconciliation_evidence": null
@@ -35982,6 +35982,90 @@
       "rowId": 709,
       "skeleton_rowId": 668,
       "city_code": "24202",
+      "town_code": "242020149001",
+      "parent_town_code": "242020149001",
+      "raw_town_name": "大協町一丁目",
+      "resolved_reading": "ダイキョウチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "大協町一丁目",
+      "display_town_name": "大協町一丁目",
+      "town_name": "大協町一丁目",
+      "pattern": "C_ZERO_OR_UNMATCHED",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 0,
+      "population": 0,
+      "e_stat_code": "24202021001",
+      "latitude": 34.962221,
+      "longitude": 136.642331,
+      "coordinate_source": "official_zero_household_polygon_pos",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "24202021001"
+      ],
+      "basic_unit_codes": [],
+      "zero_household_area_codes": [
+        "2420201463"
+      ],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 0,
+        "p_parent_a": 0,
+        "h_parent_b": 0,
+        "p_parent_b": 0
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 710,
+      "skeleton_rowId": 669,
+      "city_code": "24202",
+      "town_code": "242020149002",
+      "parent_town_code": "242020149002",
+      "raw_town_name": "大協町二丁目",
+      "resolved_reading": "ダイキョウチョウ",
+      "city_name": "四日市市",
+      "official_town_name": "大協町二丁目",
+      "display_town_name": "大協町二丁目",
+      "town_name": "大協町二丁目",
+      "pattern": "C_ZERO_OR_UNMATCHED",
+      "split_index": 1,
+      "split_total": 1,
+      "households": 0,
+      "population": 0,
+      "e_stat_code": "24202021002",
+      "latitude": 34.968892,
+      "longitude": 136.64329,
+      "coordinate_source": "official_zero_household_polygon_pos",
+      "coordinate_validation": "PASS_EVEN_ODD_PIP",
+      "geometry_status": "OFFICIAL_POLYGON",
+      "a_area_codes": [
+        "24202021002"
+      ],
+      "basic_unit_codes": [],
+      "zero_household_area_codes": [
+        "242022552301"
+      ],
+      "single_large_basic_unit": false,
+      "granularity_exception": null,
+      "island_absorption": false,
+      "matching_evidence": {
+        "cardinality": "1:1",
+        "h_parent_a": 0,
+        "p_parent_a": 0,
+        "h_parent_b": 0,
+        "p_parent_b": 0
+      },
+      "estat_reconciliation_evidence": null
+    },
+    {
+      "rowId": 711,
+      "skeleton_rowId": 670,
+      "city_code": "24202",
       "town_code": "242020150000",
       "parent_town_code": "242020150000",
       "raw_town_name": "平町",
@@ -36053,8 +36137,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 710,
-      "skeleton_rowId": 669,
+      "rowId": 712,
+      "skeleton_rowId": 671,
       "city_code": "24202",
       "town_code": "242020152000",
       "parent_town_code": "242020152000",
@@ -36108,8 +36192,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 711,
-      "skeleton_rowId": 670,
+      "rowId": 713,
+      "skeleton_rowId": 672,
       "city_code": "24202",
       "town_code": "242020153000",
       "parent_town_code": "242020153000",
@@ -36162,8 +36246,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 712,
-      "skeleton_rowId": 671,
+      "rowId": 714,
+      "skeleton_rowId": 673,
       "city_code": "24202",
       "town_code": "242020155000",
       "parent_town_code": "242020155000",
@@ -36212,8 +36296,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 713,
-      "skeleton_rowId": 672,
+      "rowId": 715,
+      "skeleton_rowId": 674,
       "city_code": "24202",
       "town_code": "242020156000",
       "parent_town_code": "242020156000",
@@ -36267,8 +36351,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 714,
-      "skeleton_rowId": 673,
+      "rowId": 716,
+      "skeleton_rowId": 675,
       "city_code": "24202",
       "town_code": "242020157001",
       "parent_town_code": "242020157001",
@@ -36317,8 +36401,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 715,
-      "skeleton_rowId": 674,
+      "rowId": 717,
+      "skeleton_rowId": 676,
       "city_code": "24202",
       "town_code": "242020157002",
       "parent_town_code": "242020157002",
@@ -36367,8 +36451,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 716,
-      "skeleton_rowId": 675,
+      "rowId": 718,
+      "skeleton_rowId": 677,
       "city_code": "24202",
       "town_code": "242020282000",
       "parent_town_code": "242020282000",
@@ -36432,8 +36516,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 717,
-      "skeleton_rowId": 676,
+      "rowId": 719,
+      "skeleton_rowId": 678,
       "city_code": "24202",
       "town_code": "242020159000",
       "parent_town_code": "242020159000",
@@ -36479,8 +36563,8 @@
       "estat_reconciliation_evidence": null
     },
     {
-      "rowId": 718,
-      "skeleton_rowId": 677,
+      "rowId": 720,
+      "skeleton_rowId": 679,
       "city_code": "24202",
       "town_code": "242020160000",
       "parent_town_code": "242020160000",
@@ -36533,90 +36617,6 @@
         "d1_medoid_avg_m": 345.602,
         "major_residential_islands": 1,
         "pattern_decision": "H_LE_800_PATTERN_A"
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 719,
-      "skeleton_rowId": 678,
-      "city_code": "24202",
-      "town_code": "242020149001",
-      "parent_town_code": "242020149001",
-      "raw_town_name": "大協町一丁目",
-      "resolved_reading": "ダイキョウチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "大協町一丁目",
-      "display_town_name": "大協町一丁目",
-      "town_name": "大協町一丁目",
-      "pattern": "C_ZERO_OR_UNMATCHED",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 0,
-      "population": 0,
-      "e_stat_code": "24202021001",
-      "latitude": 34.962221,
-      "longitude": 136.642331,
-      "coordinate_source": "official_zero_household_polygon_pos",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "24202021001"
-      ],
-      "basic_unit_codes": [],
-      "zero_household_area_codes": [
-        "2420201463"
-      ],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 0,
-        "p_parent_a": 0,
-        "h_parent_b": 0,
-        "p_parent_b": 0
-      },
-      "estat_reconciliation_evidence": null
-    },
-    {
-      "rowId": 720,
-      "skeleton_rowId": 679,
-      "city_code": "24202",
-      "town_code": "242020149002",
-      "parent_town_code": "242020149002",
-      "raw_town_name": "大協町二丁目",
-      "resolved_reading": "ダイキョウチョウ",
-      "city_name": "四日市市",
-      "official_town_name": "大協町二丁目",
-      "display_town_name": "大協町二丁目",
-      "town_name": "大協町二丁目",
-      "pattern": "C_ZERO_OR_UNMATCHED",
-      "split_index": 1,
-      "split_total": 1,
-      "households": 0,
-      "population": 0,
-      "e_stat_code": "24202021002",
-      "latitude": 34.968892,
-      "longitude": 136.64329,
-      "coordinate_source": "official_zero_household_polygon_pos",
-      "coordinate_validation": "PASS_EVEN_ODD_PIP",
-      "geometry_status": "OFFICIAL_POLYGON",
-      "a_area_codes": [
-        "24202021002"
-      ],
-      "basic_unit_codes": [],
-      "zero_household_area_codes": [
-        "242022552301"
-      ],
-      "single_large_basic_unit": false,
-      "granularity_exception": null,
-      "island_absorption": false,
-      "matching_evidence": {
-        "cardinality": "1:1",
-        "h_parent_a": 0,
-        "p_parent_a": 0,
-        "h_parent_b": 0,
-        "p_parent_b": 0
       },
       "estat_reconciliation_evidence": null
     },

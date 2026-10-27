@@ -2,8 +2,8 @@
 ## DISTRICT_DATA_ACQUISITION_RULE.md
 ### Official Address → Official Statistical Atomic → Distribution Area Builder → Final Master Compiler
 
-- **Version**: 3.1 (FINAL DESIGN CONTRACT — All Open Design Gates CLOSED: `ODG-01`, `ODG-02`, `ODG-03` & `dist_m` Locked)
-- **Status**: OFFICIAL STANDARD (SSOT — Stage 2A.5 Authority Locked)
+- **Version**: 3.2 (FINAL DESIGN CONTRACT — Universal Topology & Feasibility Rectification: Move Type A/B, Minor Island Mode A/B, `K_min` Floor & `>700` Strict Contract)
+- **Status**: OFFICIAL STANDARD (SSOT — Stage 7C Authority v3.2 Locked)
 - **Scope**: Universal POSTING MAP 全国地区マスターデータ生成（`data/address_master.csv`, `data/boundaries.geojson`, `data/municipality_master.csv`, `data/provenance.json`）
 - **関連規程**: `docs/architecture/01_DESIGN_CONTRACT.md` / `docs/architecture/ADDRESS_EXTRACTION_RULE.md` / `docs/data/DATA_DICTIONARY.md` / `docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md` / `.agents/rules/district-data-transition-rule.md` / `.agents/skills/address-master-generation/SKILL.md`
 
@@ -78,6 +78,9 @@ Consumer（H-AppのGoogle Maps検索URL生成処理）は、外部Google Maps検
    - 外部から取得した地区固有の一次原本（ZIP, Shapefile, CSV, PDF等）は、地区専用 Google Drive（`SOURCE_ARCHIVE/` 領域）へ恒久保存する。Gitリポジトリには検証済みの確定実行データ（`data/`）と正式スクリプトのみを配置し、原本バイナリや一時作業物（`scratch/`、`data/raw_reference/` 等）をGit追跡下に残存させてはならない。
 3. **既存稼働地区データの非遡及保護原則（Non-Migration Principle）**:
    - 既に確定・本番稼働している他地区の確定データおよび既存の `rowId` は、本仕様の改定によって無断で再生成・改番・Migrationしてはならない。対象地区のマスター再構築はMASTERの明示承認（Authorization Envelope）がある場合に限り実行する。
+4. **Universal Topology Rectification Rationale（v3.2 改訂の普遍的トポロジー根拠）**:
+   - 実在する住宅地トポロジーは、関節点（Articulation Point）によって拘束された半島状・枝状の有世帯連結構造を含み得る（`real residential topology may contain articulation-constrained branches`）。また、0世帯基本単位区を含む町内全基本単位区グラフ（All-Unit Rook Graph）上でも接触しない完全分離型の小規模住宅島（`< 200` 世帯）が存在し得る。
+   - 本仕様 v3.2 は、特定の地区名・自治体名・町名・件数に依存しない全国共通の普遍的トポロジー規則として、① 関節点における決定論的連結枝一括移動（Move Type B: Deterministic Connected Branch Transfer）、② $H \ge 1000$ における $K_{\min} = \lceil H / 700 \rceil$ 下限維持（$K < K_{\min}$ への減算禁止と解消不能時 `HARD STOP`）、③ 通常の複数 Atomic Unit クラスタに対する `> 700` 例外の不許可（`ATOMIC_UNIT_TOO_LARGE` 限定）、および ④ 小規模住宅島帰属の 2 Mode（Mode A / Mode B）を規定する。
 
 ---
 
@@ -294,12 +297,12 @@ Layer 3 のみがPOSTING MAPの最終配布エリア（行数・分割・統合�
        - **`D1 >= 400.000 m`** $\rightarrow$ **`K=2` 分割候補**
        - **`D1 < 400.000 m`** $\rightarrow$ **`Pattern A / K=1`（分割しない）**
        （※閾値 `400.000 m` は **POSTING MAP Universal Operational Parameter** として全国共通で固定する。地区ごとの閾値変更は禁止し、変更には設計契約の改定を要する。）
-    3. **`K=2` 成立条件（Feasibility Condition）**:
-       Step 1 または Step 2 で `K=2` 分割候補となった親町について、§4.5〜§4.7 により構成された2つのクラスタの有世帯Geometryがそれぞれ実空間上で連結であり、かつ各クラスタの世帯数が原則 **`400 〜 700` 世帯**（Atomic Unit 粒度の制約により不可避な場合のみ既存の `GRANULARITY_EXCEPTION` `200 〜 399` 世帯を適用可。人工按分は禁止）を満たす場合に `Pattern B (K=2)` として確定する。
+    3. **`K=2` 成立条件（Feasibility Condition）と `K=1` フォールバック**:
+       Step 1 または Step 2 で `K=2` 分割候補となった $801 \le H \le 999$ の親町について、§4.5〜§4.7 により構成された2つのクラスタの有世帯Geometryがそれぞれ実空間上で連結であり、かつ各クラスタの世帯数が原則 **`400 〜 700` 世帯**（Atomic Unit 粒度の制約により不可避な場合のみ下限側の `GRANULARITY_EXCEPTION` `200 〜 399` 世帯を適用可。複数 Atomic Unit クラスタの `> 700` 世帯および人工按分は禁止）を満たす場合に `Pattern B (K=2)` として確定する。$801 \le H \le 999$ の親町において `K=2` 候補が当該成立条件を満たせない場合に限り、既存契約どおり `Pattern A (K=1)` へのフォールバックを許可する。
     4. **不採用条件（Pattern Authority への使用禁止）**:
        `H >= 900` 単独条件、有世帯面積閾値、世帯密度閾値、$\rho = D_2 / D_1$ 改善率閾値、および地区固有の条件分岐は Pattern Authority として採用しない（これらを `provenance.json` の診断値・参考指標として記録することは可）。
   - **$H \ge 1000$ の親町**:
-    - 原則として全件 `Pattern B (K >= 2)` として分割する（単一基本単位区のみで $H \ge 1000$ を構成する分割不能ケースを除く：§4.2.2）。
+    - 原則として全件 `Pattern B (K >= K_min)` として分割する（単一基本単位区のみで $H \ge 1000$ を構成する分割不能ケースを除く：§4.2.2）。$H \ge 1000$ の親町では $K < K_{\min} = \lceil H / 700 \rceil$ への減算・フォールバックは一切禁止する。
 
 ### 3. Pattern C — `C_ZERO_OR_UNMATCHED`（0世帯親町・公式統計未対応親町）
 - **対象**:
@@ -324,22 +327,31 @@ Layer 3 のみがPOSTING MAPの最終配布エリア（行数・分割・統合�
 
 親町の公式世帯数合計 $H$ に対し、許容帯から導かれる $K$ の可能範囲 $[K_{\min}, K_{\max}]$ と第一候補 $K_{\text{target}}$ を次式で求める：
 $$K_{\min} = \lceil H / 700 \rceil, \quad K_{\max} = \lfloor H / 400 \rfloor, \quad K_{\text{target}} = \text{round\_half\_up}(H / 550)$$
-1. $K_{\min} \le K_{\max}$ の場合、閉区間 $[K_{\min}, K_{\max}]$ 内の整数であって $K_{\text{target}}$ に最も近い実現可能な整数 $K$ を採用する（同距離の整数が2つある場合は小さい方の整数を優先）。
-2. $K_{\min} > K_{\max}$ の場合（例：$801 \le H \le 1199$ で $K_{\min}=2, K_{\max}=2$ または $K_{\min}=2, K_{\max}=1$ の境界域）、`Pattern B` 対象町では $K = \max(2, K_{\text{target}})$ を初期候補とする。
+1. $K_{\min} \le K_{\max}$ の場合、閉区間 $[K_{\min}, K_{\max}]$ 内の整数であって $K_{\text{target}}$ に最も近い実現可能な整数 $K$ を初期候補として採用する（同距離の整数が2つある場合は小さい方の整数を優先）。
+2. $K_{\min} > K_{\max}$ の場合（例：$801 \le H \le 1199$ で $K_{\min}=2, K_{\max}=2$ または $K_{\min}=2, K_{\max}=1$ の境界域）、`Pattern B` 対象町では $K = \max(K_{\min}, K_{\text{target}})$ を初期候補とする。
+3. **$H \ge 1000$ における $K_{\min}$ 下限絶対維持契約**:
+   - $H \ge 1000$ の親町（単一基本単位区のみで $H \ge 1000$ を構成する `ATOMIC_UNIT_TOO_LARGE` の場合を除く）において、分割数 $K$ を **$K < K_{\min} = \lceil H / 700 \rceil$ へ減算することを絶対禁止**する（鳩の巣原理により $K < K_{\min}$ では必ず $H_k > 700$ のクラスタが発生し、`> 700` 上限契約と矛盾するため）。
 
-### 4.2.2 粒度例外（Atomic Unit Granularity Exceptions）
-B系基本単位区は分割不能な Atomic Unit であるため、以下の例外規則を設ける：
-1. **`200 〜 399` 世帯クラスタの例外許容（`GRANULARITY_EXCEPTION`）**:
-   - 基本単位区の世帯数構成および空間連結性の制約上、すべてのクラスタを `400 〜 700` 世帯に収めることが数学的・幾何学的に不可能な場合に限り、`200 〜 399` 世帯のクラスタを例外許容する。
+### 4.2.2 粒度例外（Atomic Unit Granularity Exceptions）と `< 200` / `> 700` 厳格契約
+B系基本単位区は分割不能な Atomic Unit であるため、以下の例外規則および解消・停止規則を設ける：
+1. **`200 〜 399` 世帯クラスタの例外許容（`GRANULARITY_EXCEPTION` — 下限側限定）**:
+   - 基本単位区の世帯数構成および空間連結性の制約上、すべてのクラスタを `400 〜 700` 世帯に収めることが数学的・幾何学的に不可能な場合に限り、**`200 〜 399` 世帯**のクラスタを例外許容する。
    - この場合、`provenance.json` の当該レコードに `"granularity_exception": "GRANULARITY_EXCEPTION"` を記録する。
-2. **`200` 世帯未満の独立分割クラスタの原則禁止と解消手順**:
-   - `200` 世帯未満の独立分割クラスタは原則禁止とする。発生した場合は以下の順序で決定論的に解消する：
-     1. 実Geometry（0世帯基本単位区を介した町内実トポロジーを含む）上で隣接する他クラスタへ吸収可能か判定し、吸収する。
-     2. 吸収により全クラスタが条件を満たせない場合は、分割数 $K$ を $K \leftarrow K - 1$ に減らして再クラスタリングする（$K=1$ まで減算可能）。
-     3. 上記でも解消不能な異常ケースは推測処理を禁止し **HARD STOP（監査停止対象）** とする。
-3. **単一基本単位区が `700` 世帯超（`ATOMIC_UNIT_TOO_LARGE`）**:
-   - 1つの基本単位区単独で `700` 世帯を超える場合（大規模団地・高層マンション等）、基本単位区の人工分割・世帯数按分は絶対禁止とする。
-   - 当該基本単位区をそのまま1配布エリア（またはその基本単位区を含むクラスタ）として確定し、`provenance.json` に以下を記録する：
+   - **通常の複数 Atomic Unit クラスタにおける `> 700` の不許可**: 複数のB系 Atomic Unit から構成される通常のクラスタ（`len(basic_unit_codes) > 1`）が `700` 世帯を超える（$H_k > 700$）状態を `"GRANULARITY_EXCEPTION"` として許可してはならない。
+2. **`200` 世帯未満の独立分割クラスタの原則禁止と $K$ Feasibility 解消手順**:
+   - `200` 世帯未満の独立分割クラスタは禁止とする。候補分割数 $K$ において `< 200` 世帯クラスタ（または複数 Atomic Unit クラスタの `> 700` 世帯超過）が発生した場合は、以下の順序で決定論的に解消する：
+     1. **実空間帰属および Boundary Swap による解消**:
+        - 独立した小規模住宅島（`< 200` 世帯）については §4.4.3（Mode A / Mode B）に従い実Geometry上で帰属先クラスタへ吸収する。
+        - 主要住宅島内のクラスタ境界については §4.7 の Boundary Swap Level 1（Move Type A: 単一非関節点移動、および Move Type B: Deterministic Connected Branch Transfer）を適用して `< 200` 世帯および `> 700` 世帯の解消を試みる。
+     2. **許容範囲内での $K$ 減算（$K \leftarrow K - 1$）**:
+        - 上記 1 によっても候補 $K$ で全クラスタが成立条件（各クラスタ $\ge 200$ 世帯、かつ単一巨大 Atomic Unit を除き $\le 700$ 世帯）を満たせない場合：
+          - **$H \ge 1000$ の親町**: $K - 1 \ge K_{\min} = \lceil H / 700 \rceil$ を満たす範囲に限り、$K \leftarrow K - 1$ に減らして再クラスタリングする（**$K < K_{\min}$ への減算は絶対禁止**）。
+          - **$801 \le H \le 999$ の親町**: ODG-01 の `K=2` 候補が成立条件を満たせない場合に限り、`Pattern A (K=1)` へのフォールバックを許可する（§4.1.2 Step 3）。
+     3. **Feasible 解不在時の `HARD STOP`**:
+        - $H \ge 1000$ の親町において $K_{\min}$ まで探索しても上記成立条件を満たす合法な分割が存在しない場合、推測処理や $K < K_{\min}$ への不正減算、`> 700` 複数単位クラスタの例外通過を一切禁止し、直ちに **`HARD STOP`（監査停止対象）** とする。
+3. **単一基本単位区が `700` 世帯超（`ATOMIC_UNIT_TOO_LARGE` — 唯一の `> 700` 例外）**:
+   - `Pattern B` において `700` 世帯超（$H_k > 700$）が例外許容されるのは、**1つの分割不能な B系 Atomic Unit（`r2kb` 1 `KEY_CODE`）自体が単独で `700` 世帯を超える場合（大規模団地・高層マンション等）の `ATOMIC_UNIT_TOO_LARGE` に原則限定**する。
+   - この場合、基本単位区の人工分割・世帯数按分は絶対禁止とし、当該単一基本単位区をそのまま単独の1配布エリアとして確定し、`provenance.json` に以下を記録する：
      ```json
      {
        "single_large_basic_unit": true,
@@ -366,10 +378,20 @@ B系基本単位区は分割不能な Atomic Unit であるため、以下の例
 2. **人工ブリッジ（Shortest Bridge）の絶対禁止**:
    - 河川・山林・農地・0世帯区域等で隔てられた複数の有世帯連結成分（住宅島Aと住宅島B）の間へ、**空間的に実際には接していない「最短距離ブリッジ（人工的な有世帯間隣接辺）」を張ることを絶対禁止**する。
    - 住宅島の空間分離そのものを、Pattern判定およびクラスタリングの入力構造として保持する。
-3. **小規模住宅島（`< 200` 世帯）の扱い**:
-   - 単独で `200` 世帯未満の小規模住宅島を独立ピンにしない場合も、有世帯グラフ上で人工的にRook隣接扱いしてはならない。
-   - 当該親町内に実在する **0世帯基本単位区Geometryを介した町内全体トポロジー（All-Unit Rook Graph）** または同一親町内の実空間帰属規則（共有境界長最大 ➔ メートル距離最短 ➔ 最小公式コード昇順）を用いて帰属先クラスタを決定し、最終配布エリアGeometry（MultiPolygon / 0世帯領域を含む連続Polygon）として実Geometry上成立する帰属として扱う。
-   - 小規模住宅島を他クラスタへ統合・吸収した場合は、`provenance.json` に `"island_absorption": true` を記録する。
+3. **小規模住宅島（`< 200` 世帯）の扱い — Minor Residential Island Absorption（Mode A / Mode B）**:
+   - 単独で `200` 世帯未満の小規模住宅島を独立ピンにしてはならず、また有世帯グラフ上で人工的にRook隣接扱い（人工Bridge生成）してはならない。
+   - 当該親町内の0世帯基本単位区（`SETAI == 0`）を含む全B系基本単位区の **町内全体トポロジー（All-Unit Rook Graph）** における実Geometry接続の有無に基づき、以下の **2 Mode（Mode A / Mode B）** で帰属先クラスタを決定論的に一意決定する：
+     1. **Mode A — Real Topological Attachment Exists（All-Unit Rook Graph 上で実トポロジー接続が存在する場合）**:
+        - 0世帯基本単位区を含む **All-Unit Rook Graph** 上で、当該小規模住宅島と実Geometry上で連続・接触する候補クラスタが存在する場合、人工Bridgeを一切使用せず、以下の優先順位で帰属先クラスタを決定する：
+          1. **共有境界長最大**（`shared boundary length max`：All-Unit実Geometry上の共有境界線長が最大）
+          2. **`dist_m` 最短**（`dist_m min`：小規模住宅島と候補クラスタ間の最短メートル距離が最小）
+          3. **最小公式 `KEY_CODE` 昇順**（`min official KEY_CODE`：候補クラスタ内の有世帯基本単位区の最小 `basic_unit_code` 昇順）
+     2. **Mode B — Truly Disconnected Residential Island（All-Unit Rook Graph 上でも実トポロジー接続が存在しない完全分離小規模住宅島の場合）**:
+        - 0世帯基本単位区を含む **All-Unit Rook Graph** 上でも他クラスタと一切線分を共有しない完全分離小規模住宅島（`< 200` 世帯）については、人工的なRook隣接辺（人工Bridge）を一切張らず、同一親町内の候補クラスタに対する **MultiPolygon 帰属** として以下の優先順位で帰属先クラスタを一意に決定する：
+          1. **帰属後世帯数 $H_k' \le 700$ 優先**（`resulting households <= 700 prioritized`：吸収後のクラスタ世帯数が `700` 世帯以下となる候補クラスタを、`> 700` となる候補クラスタより優先）
+          2. **`dist_m` 最短**（`dist_m shortest`：小規模住宅島と候補クラスタ間の最短メートル距離 $\min_{x \in \text{island}, y \in C_k} \text{dist\_m}(x, y)$ が最小）
+          3. **最小公式 `KEY_CODE` 昇順**（`min official KEY_CODE`：候補クラスタ内の有世帯基本単位区の最小 `basic_unit_code` 昇順）
+   - Mode A / Mode B のいずれによって小規模住宅島を他クラスタへ統合・吸収した場合も、`provenance.json` の当該レコードに `"island_absorption": true` を必須記録する。
 
 ---
 
@@ -405,25 +427,42 @@ B系基本単位区は分割不能な Atomic Unit であるため、以下の例
    1. クラスタ番号 $k$ 昇順
    2. 候補基本単位区の `basic_unit_code` 昇順
 
-（独立した小規模住宅島 `< 200` 世帯に属する有世帯基本単位区は、主要住宅島のRegion Growing完了後、§4.4.3 の決定論的帰属規則により最も近接・連続するクラスタへ帰属させ `"island_absorption": true` を記録する。）
+（独立した小規模住宅島 `< 200` 世帯に属する有世帯基本単位区は、主要住宅島のRegion Growing完了後、§4.4.3 の 2 Mode 決定論的帰属規則［Mode A: 実トポロジー接続あり `共有境界長最大 -> dist_m 最短 -> 最小公式 KEY_CODE` / Mode B: 完全分離島 `帰属後世帯数 <= 700 優先 -> dist_m 最短 -> 最小公式 KEY_CODE`］により帰属先クラスタへ統合し、`"island_absorption": true` を記録する。）
 
 ---
 
-## 4.7 Boundary Swap Optimization（境界スワップ局所最適化 — `ODG-03 CLOSED` 6段階辞書順契約）
-Region Growing 完了後、クラスタ境界上の有世帯基本単位区 $b \in C_u$ を隣接クラスタ $C_v$ へ移動させる局所スワップを、改善する移動が存在しなくなるまで決定論的に反復する。
+## 4.7 Boundary Swap Optimization（境界スワップ局所最適化 — `ODG-03 CLOSED` v3.2 Move Type A/B & 6段階辞書順契約）
+Region Growing 完了後、クラスタ境界上の有世帯基本単位区 $b \in C_u$ を起点として隣接クラスタ $C_v$ へ移動させる局所スワップを、改善する移動が存在しなくなるまで決定論的に反復する。
 
-1. **Level 1 — 連結性ハード制約（Feasibility）**:
-   - $C_u \setminus \{b\}$ の有世帯Rook連結成分数が移動前から増加しないこと（関節点 Articulation Point の移動禁止）。
-   - $b$ が移動先クラスタ $C_v$ の有世帯メンバーとRook隣接していること。
-   - $|C_u| \ge 2$ であること（単一要素クラスタの消滅禁止）。
+実在する住宅地トポロジーは関節点（Articulation Point）に拘束された枝構造を含み得る（`real residential topology may contain articulation-constrained branches`）。このため、関節点の無条件移動禁止は採用せず、同時に関節点の無制限単体移動（従属枝の置き去り分断）も禁止し、以下の **許可 Move Type A** および **許可 Move Type B** の2種類の決定論的移動のみを Level 1 合法移動として定義する。
+
+1. **Level 1 — 連結性ハード制約（Feasibility: Permitted Move Type A / Move Type B）**:
+   クラスタ $C_u$ 内の有世帯基本単位区 $b \in C_u$ が、移動先クラスタ $C_v$（$v \neq u$）の有世帯メンバーと実Geometry上でRook隣接しているとき、$b$ が属する $C_u$ 内の有世帯Rook連結成分を $G_{\text{comp}} \subseteq C_u$ とする。以下のいずれか一方を満たす移動集合 $\text{move\_set} \subseteq G_{\text{comp}}$ のみを合法候補とする：
+   - **許可 Move Type A — 単一 Atomic Unit 移動（Non-Articulation Single Unit Move）**:
+     1. $b$ が $G_{\text{comp}}$ の関節点ではなく、$G_{\text{comp}} \setminus \{b\}$ が空でない単一の有世帯Rook連結成分を保つこと（$C_u \setminus \{b\}$ の有世帯Rook連結成分数が移動前から増加しないこと）。
+     2. 移動単位を $\text{move\_set} = \{b\}$、移動元残存集合を $\text{keep}_u = C_u \setminus \{b\}$ とし、$|\text{keep}_u| \ge 1$ であること（クラスタの消滅禁止）。
+     3. $b$ が移動先クラスタ $C_v$ と実Geometry上でRook隣接しており、移動後の $\text{keep}_u$ と $C_v \cup \{b\}$ の双方がAuthority許容トポロジーを満たすこと。
+   - **許可 Move Type B — Deterministic Connected Branch Transfer（関節点付随連結枝の一括決定論的移動）**:
+     $b$ が $G_{\text{comp}}$ の関節点（Articulation Point：$G_{\text{comp}} \setminus \{b\}$ が $m \ge 2$ 個の有世帯Rook連結成分 $B_1, B_2, \dots, B_m$ に分解される点）である場合、以下の7条件をすべて満たす一括移動のみを許可する：
+     1. **連結枝の列挙**: $G_{\text{comp}}$ から関節点 $b$ を除去した際に生じるすべての有世帯Rook連結成分（枝：$B_1, \dots, B_m$, $m \ge 2$）を求める。
+     2. **主枝（Main Branch）の一意決定**: 全枝 $\{B_1, \dots, B_m\}$ の中から、以下の優先順位で移動元クラスタ $C_u$ に残す **Main Branch** $B_{\text{main}}$ を一意に決定する：
+        - 第1優先：枝の合計世帯数 $H(B_r) = \sum_{x \in B_r} \text{SETAI}_x$ が **最大**
+        - 第2優先（Tie-break）：枝内の最小公式コード $\min_{x \in B_r} \text{KEY\_CODE}_x$ が **最小（文字列昇順）**
+     3. **一括移動集合（`move_set`）の確定**: 関節点 $b$ と、$B_{\text{main}}$ 以外のすべての切り離された従属枝を合わせた
+        $$\text{move\_set} = \{b\} \cup \bigcup_{r \neq \text{main}} B_r$$
+        を単一の連結な移動集合とし、移動元クラスタの残存集合を $\text{keep}_u = (C_u \setminus G_{\text{comp}}) \cup B_{\text{main}}$ とする。
+     4. **移動先との実空間Rook隣接**: 移動先クラスタ $C_v$ の有世帯メンバーが、実Geometry上で関節点 $b$ と直接Rook隣接していること。
+     5. **移動後の双方向トポロジー成立**: 移動後の移動元クラスタ $\text{keep}_u$（$|\text{keep}_u| \ge 1$、かつ $B_{\text{main}}$ が単一連結）および移動先クラスタ $C_v \cup \text{move\_set}$（$\text{move\_set}$ が $b$ を介して $C_v$ と単一連結）の双方が、Authorityが許可する連結トポロジーを満たすこと。
+     6. **人工Bridgeの絶対禁止**: 移動判定または移動後の連結性維持のために人工的な隣接辺（人工Bridge）を使用することは絶対禁止とする。
+     7. **`move_set` 内 Atomic Unit の分割禁止**: $\text{move\_set}$ に含まれるいかなる B系 Atomic Unit も分割・世帯数按分してはならない。
 2. **Level 2 〜 Level 5 — 目的関数ベクトル（Lexicographic Objective）の厳密改善条件**:
-   以下の優先順位（辞書順評価、または対応する階層重み $W_{\text{under200}} = 10^9 \gg W_{\text{over700}} = 10^5 \gg W_{\text{under400}} = 10^3 \gg W_{550} = 1.0 \gg W_{\text{comp}} = 0.05$ による合成目的関数 $J$ の厳密減少 $\Delta J < -10^{-9}$）を満たす最良の移動を1ステップにつき1つ適用する：
+   Level 1 を通過した合法移動 $(\text{move\_set}, u \to v)$ のうち、以下の6段階辞書順優先順位（または対応する階層重み $W_{\text{under200}} = 10^9 \gg W_{\text{over700}} = 10^5 \gg W_{\text{under400}} = 10^3 \gg W_{550} = 1.0 \gg W_{\text{comp}} = 0.05$ による合成目的関数 $J$ の厳密減少 $\Delta J < -10^{-9}$）を満たす最良の移動を1ステップにつき1つ適用する：
    - **Level 2（`< 200` 世帯独立クラスタ非生成）**: $\sum_{k=1}^{K} \max(0, 200 - H_k)^2$ の最小化（`200` 世帯未満への転落を絶対阻止）。
    - **Level 3（`> 700` 世帯超過ペナルティ最小化）**: $\sum_{k=1}^{K} \max(0, H_k - 700)^2$ の最小化。
    - **Level 4（中心 `550` 世帯および `400〜700` 帯からの乖離最小化）**: $\sum_{k=1}^{K} \max(0, 400 - H_k)^2$ および $\sum_{k=1}^{K} (H_k - 550)^2$ の最小化。
    - **Level 5（空間コンパクトネス改善）**: 各クラスタの世帯加重メドイドからの距離和 $\sum_{k=1}^{K} \sum_{x \in C_k} \text{SETAI}_x \cdot \text{dist\_m}(p_x, \text{medoid}(C_k))$ の最小化。
 3. **Level 6 — 同点時（Tie-break）**:
-   - 移動対象の `basic_unit_code`（`KEY_CODE`）昇順 $\rightarrow$ 移動先クラスタ番号 $v$ 昇順。
+   - 移動起点 $b$ の `basic_unit_code`（`KEY_CODE`）昇順 $\rightarrow$ 移動先クラスタ番号 $v$ 昇順。
 
 ---
 
@@ -455,7 +494,7 @@ Layer 3（`ODG-01` の $D_1$ 算出、Farthest-First シード選択、Balanced 
 | **4. 基準緯度規則 (`reference latitude rule`)** | 当該正式親町に属する全 $n \ge 1$ 個の正規化後 B系 Atomic Unit（`b_units`：有世帯レコードと0世帯レコードの双方を含む全 `r2kb` `KEY_CODE`）の公式代表点緯度 `float(Y_CODE)` の算術平均をラジアンへ変換した値：<br>$\phi_0 = \text{radians}\!\left(\frac{1}{n}\sum_{i=1}^{n} \text{float}(\text{Y\_CODE}_i)\right)$ |
 | **5. 入力座標丸め規則 (`input coordinate rounding`)** | - **距離・メドイド・$D_1$ 計算**: B系 DBF の公定代表点座標 `float(Y_CODE)`, `float(X_CODE)` を事前丸めなしで IEEE-754 `float64` として直接入力する。<br>- **Polygon トポロジー・Rook隣接判定**: Polygon頂点座標を小数点以下9桁 `(round(lon, 9), round(lat, 9))` に正規化して入力する。 |
 | **6. 出力丸め規則 (`output rounding`)** | - **メドイド距離和 $M(i)$ および $D_1$**: IEEE-754 `float64` のまま計算し、`ODG-01` の閾値判定は `D1 >= 400.000`（`400.0`）で評価する（`provenance.json` 等への診断値記録時は `round(D1, 3)` または `round(D1, 2)` を併記可）。<br>- **最終成果物座標 (`latitude`, `longitude`)**: 小数点以下6桁（CSVは `f"{val:.6f}"`、JSON/GeoJSONは `round(val, 6)`）に固定する。 |
-| **7. 同点時処理 (`tie handling` — 全箇所 `smallest KEY_CODE` 統一)** | - **Medoid (`compute_medoid_and_dist`)**: `minimum weighted distance → smallest KEY_CODE`。有世帯B系 Atomic Unit を `KEY_CODE` 昇順に走査し、加重距離和 `wsum` が `wsum < best_wsum - 1e-9` を満たす場合のみ最良メドイドを更新する（差が $10^{-9}\text{ m}$ 以内の同点時は最小 `KEY_CODE` を維持）。<br>- **Seed 1（最北西シード）**: `north → west → smallest KEY_CODE`（1. `round(lat, 6)` 最大、2. `round(lon, 6)` 最小、3. `KEY_CODE` 最小）。<br>- **Farthest-First Seed $2 \dots K$**: `farthest → north → west → smallest KEY_CODE`（1. `round(d_min, 6)` 最大、2. `round(lat, 6)` 最大、3. `round(lon, 6)` 最小、4. `KEY_CODE` 最小）。※文字列 `KEY_CODE` に単純な符号反転を適用してはならず、明示的 comparator または多段 stable sort で実装する。<br>- **Boundary Swap 最終Tie-break**: `smallest KEY_CODE`（移動対象 `KEY_CODE` 最小 $\rightarrow$ 移動先クラスタ番号最小）。 |
+| **7. 同点時処理 (`tie handling` — 全箇所 `smallest KEY_CODE` 統一)** | - **Medoid (`compute_medoid_and_dist`)**: `minimum weighted distance → smallest KEY_CODE`。有世帯B系 Atomic Unit を `KEY_CODE` 昇順に走査し、加重距離和 `wsum` が `wsum < best_wsum - 1e-9` を満たす場合のみ最良メドイドを更新する（差が $10^{-9}\text{ m}$ 以内の同点時は最小 `KEY_CODE` を維持）。<br>- **Seed 1（最北西シード）**: `north → west → smallest KEY_CODE`（1. `round(lat, 6)` 最大、2. `round(lon, 6)` 最小、3. `KEY_CODE` 最小）。<br>- **Farthest-First Seed $2 \dots K$**: `farthest → north → west → smallest KEY_CODE`（1. `round(d_min, 6)` 最大、2. `round(lat, 6)` 最大、3. `round(lon, 6)` 最小、4. `KEY_CODE` 最小）。※文字列 `KEY_CODE` に単純な符号反転を適用してはならず、明示的 comparator または多段 stable sort で実装する。<br>- **Minor Island Absorption（Mode A / Mode B）**: Mode A は `shared boundary length max → dist_m min → smallest KEY_CODE`、Mode B は `resulting households <= 700 prioritized → dist_m shortest → smallest KEY_CODE`。<br>- **Boundary Swap Move Type B（Main Branch 決定）および Level 6 最終Tie-break**: Main Branch は `branch households max → smallest min(KEY_CODE)`、Level 6 最終Tie-break は `smallest KEY_CODE`（移動起点 `KEY_CODE` 最小 $\rightarrow$ 移動先クラスタ番号最小）。 |
 
 ### リファレンス実装（Python 標準ライブラリ `math` / `functools.cmp_to_key` / stable sort 準拠）
 ```python
@@ -698,14 +737,14 @@ city_name,city_code,total_towns
 | **Gate 1** | **親骨格完全性ゲート**<br>(Parent Skeleton Integrity) | Layer 1 で確定した正式親町集合（Expected Set）のすべてが最終出力で1つ以上の配布エリアへ対応していること。欠落親町 $= 0$、無断改名 $= 0$、不明な追加親町 $= 0$、未解決の名称衝突・読み欠落 $= 0$。（※固定件数のハードコードは禁止） |
 | **Gate 2** | **統計保存則ゲート**<br>(Statistical Conservation) | 公式親町統計が存在するすべての正式親町について、最終配布エリアの合計が公式親町統計と完全一致すること：<br>$\sum_{k \in \text{parent}} \text{final.households}_k == H_{\text{parent}, A}$ かつ $\sum_{k \in \text{parent}} \text{final.population}_k == P_{\text{parent}, A}$（**`diff == 0`**）。均等割り・端数調整・推測補完は即時FAIL。（Pattern C の `1:0` 未対応町は8属性Evidence完全保存を検証） |
 | **Gate 3** | **代表点・Geometry・Master Triad整合ゲート**<br>(Triad & PIP Integrity) | 1. `address_master.csv` 行数 $= \text{boundaries.geojson}$ Feature数 $= \sum \text{municipality\_master.total\_towns} = N$（自治体別内訳も完全一致）<br>2. 全 `rowId` が `1..N` 連続整数で欠番・重複なく1:1対応<br>3. 全有世帯配布エリア（Pattern A/B）の代表点が自身の有世帯実領域Geometry内部（Even-Odd PIP `INSIDE`）に存在すること<br>4. `geometry: null` は `geometry_status == "UNAVAILABLE_OFFICIAL_POLYGON"` の Pattern C 行のみに限定され、人工矩形Polygonが0件であること |
-| **Gate 4** | **粒度・連結性・正本属性ゲート**<br>(Granularity & Connectivity) | 1. Pattern A/B における独立0世帯ピン $= 0$<br>2. 原則禁止の `< 200` 世帯独立分割ピン $= 0$<br>3. `200..399` 世帯または単一B単位 `> 700` 世帯の例外に `provenance.json` の例外コードが100%記録されていること<br>4. Pattern B クラスタが人工Rookブリッジなしで実Geometry連結性を満たし、小住宅島吸収時に `"island_absorption": true` が記録されていること<br>5. `e_stat_code` がA系1:1対応時のみ格納され、統合・分割行で不正格納が0件であること |
+| **Gate 4** | **粒度・連結性・正本属性ゲート**<br>(Granularity & Connectivity) | 1. Pattern A/B における独立0世帯ピン $= 0$<br>2. 原則禁止の `< 200` 世帯独立分割ピン $= 0$<br>3. 下限粒度例外（`200..399` 世帯）に `"GRANULARITY_EXCEPTION"`、単一B単位 `> 700` 世帯に `"ATOMIC_UNIT_TOO_LARGE"`（`single_large_basic_unit: true`）が100%記録されており、**通常の複数B系 Atomic Unit クラスタ（`len(basic_unit_codes) > 1`）における `> 700` 世帯が 0 件**であること（複数単位クラスタの `> 700` を `"GRANULARITY_EXCEPTION"` として通過させることは禁止）<br>4. Pattern B クラスタが人工Rookブリッジなしで実Geometry連結性を満たし、小規模住宅島吸収（§4.4.3 Mode A / Mode B）時に `"island_absorption": true` が記録されていること<br>5. `e_stat_code` がA系1:1対応時のみ格納され、統合・分割行で不正格納が0件であること |
 | **Gate 5** | **決定論的再現性ゲート**<br>(Deterministic Byte Reproducibility) | 同一入力・同一設定から2回独立に生成を実行した際、`address_master.csv`, `boundaries.geojson`, `provenance.json`, `municipality_master.csv` の4ファイルすべてで **バイト単位の差分がゼロ（`byte diff == 0`）** であること、および `sort-address-master.py` 再検証でも順序・内容が不変であること |
 
 ---
 
-# 14. DESIGN GATES STATUS — ALL CLOSED (Stage 2A.5 Authority Locked)
+# 14. DESIGN GATES STATUS — ALL CLOSED (Authority v3.2 Locked)
 
-Stage 1 時点で未確定であった 3 つの設計ゲート（`ODG-01`, `ODG-02`, `ODG-03`）および関連する A系/B系正規化契約は、Stage 2A の実データ完全突合（`UNRESOLVED = 0`）と MASTER / GPT の最終裁定によりすべて **CLOSED（確定ロック）** となった。Stage 2B 以降の実装・検証・Skill化は、以下の確定契約に100%従わなければならない。
+Stage 1 時点で未確定であった 3 つの設計ゲート（`ODG-01`, `ODG-02`, `ODG-03`）、関連する A系/B系正規化契約、および Stage 7C における普遍的トポロジー整合化（Authority v3.2：Move Type A/B、Minor Island Mode A/B、$K_{\min}$ 下限維持、`>700` 厳格契約）は、すべて **CLOSED（確定ロック）** となった。以降の実装・検証・Skill化は、以下の確定契約に100%従わなければならない。
 
 ## ODG-01 — CLOSED: `801 〜 999` 世帯親町の `Pattern A (K=1)` vs `Pattern B (K=2)` 決定論的空間判定式
 - **Status**: **CLOSED（§4.1.2 に正式統合済み）**
@@ -718,7 +757,7 @@ Stage 1 時点で未確定であった 3 つの設計ゲート（`ODG-01`, `ODG-
      - **`D1 >= 400.000 m`** $\rightarrow$ **`K=2` 分割候補**
      - **`D1 < 400.000 m`** $\rightarrow$ **`Pattern A / K=1`**
      とする。`400.000 m` は **POSTING MAP Universal Operational Parameter** として全国共通で固定する。
-  3. **`K=2` 成立条件**: 各クラスタの有世帯Geometryが連結であり、かつ原則 `400 〜 700` 世帯（Atomic Unit 制約により不可避な場合のみ既存の `GRANULARITY_EXCEPTION` を適用可、人工按分禁止）を満たすこと。
+  3. **`K=2` 成立条件と `K=1` フォールバック**: 各クラスタの有世帯Geometryが連結であり、かつ原則 `400 〜 700` 世帯（Atomic Unit 制約により不可避な場合のみ下限側 `200 〜 399` 世帯の `GRANULARITY_EXCEPTION` を適用可。複数 Atomic Unit クラスタの `> 700` 世帯および人工按分は禁止）を満たす場合に `Pattern B (K=2)` として確定する。$801 \le H \le 999$ で `K=2` 候補が成立条件を満たせない場合に限り `Pattern A (K=1)` へのフォールバックを許可する（一方、$H \ge 1000$ では $K < K_{\min} = \lceil H / 700 \rceil$ への減算は絶対禁止とし、$K_{\min}$ まで合法解が存在しない場合は `HARD STOP` とする）。
   4. **不採用条件**: `H >= 900` 単独条件、有世帯面積閾値、世帯密度閾値、$\rho = D_2 / D_1$ 閾値、地区固有条件は Pattern Authority としない（Provenanceへの診断値記録のみ可）。
 
 ---
@@ -732,19 +771,24 @@ Stage 1 時点で未確定であった 3 つの設計ゲート（`ODG-01`, `ODG-
 
 ---
 
-## ODG-03 — CLOSED: Layer 3 空間距離 `dist_m`・Canonical Rook Topology・Boundary Swap 6段階辞書順契約
-- **Status**: **CLOSED（§4.3, §4.7, §4.9 に正式統合済み）**
+## ODG-03 — CLOSED: Layer 3 空間距離 `dist_m`・Canonical Rook Topology・Boundary Swap Move Type A/B & 6段階辞書順契約
+- **Status**: **CLOSED（§4.3, §4.4.3, §4.7, §4.9 に正式統合済み — v3.2 改訂反映）**
 - **確定契約**:
   1. **B系Polygon トポロジーの Canonical 座標精度**: 頂点の経度・緯度を **小数点以下9桁（`round(lon, 9), round(lat, 9)`）** に正規化して比較する（原本ファイルは不変、原本SHA-256・Provenance完全保持）。
   2. **Rook隣接定義**: Canonical 化されたPolygon同士が **長さ $> 0$ の線分を共有する場合のみ Rook隣接** とし、`Point-touch`（共有長 $== 0$）は非隣接とする（`0.10m` / `1.0m` 等の閾値や人工ブリッジは不使用）。
-  3. **Boundary Swap 6段階辞書順契約**:
-     - Level 1: 連結性ハード制約（有世帯Rook連結成分数の非増加、移動先とのRook隣接、$|C_u| \ge 2$）
-     - Level 2: `< 200` 世帯独立クラスタ非生成
-     - Level 3: `> 700` 世帯超過の最小化
-     - Level 4: `550` 世帯中心（および `400〜700` 帯）からの乖離最小化
-     - Level 5: 空間コンパクトネス（世帯加重メドイド距離和）の改善
-     - Level 6: `basic_unit_code`（`KEY_CODE`）昇順 $\rightarrow$ 移動先クラスタ番号昇順による決定論的Tie-break
-  4. **`dist_m` 数理仕様と `smallest KEY_CODE` Tie-break 統一**: §4.9 の7項目仕様（局所正距円筒図法ユークリッド距離、$R = 6378137.0\text{ m}$、$\cos(\phi_0)$ スケール、親町全B系 Atomic Unit `Y_CODE` 算術平均による基準緯度 $\phi_0$、DBF `float64` 入力、IEEE-754 `float64` での $D_1$ 算出と `400.000 m` 判定、および Medoid / Seed 1 / Farthest-First Seed $2\dots K$ / Boundary Swap 全箇所での `smallest KEY_CODE` 最終Tie-break［明示的 comparator または多段 stable sort］）に完全固定する。
+  3. **Minor Residential Island Absorption の 2 Mode 契約（§4.4.3）**:
+     - **Mode A（All-Unit Rook Graph 上で実トポロジー接続あり）**: `1. 共有境界長最大 -> 2. dist_m 最短 -> 3. 最小公式 KEY_CODE`
+     - **Mode B（All-Unit Rook Graph 上でも非接続の完全分離小規模住宅島）**: `1. 帰属後世帯数 <= 700 優先 -> 2. dist_m 最短 -> 3. 最小公式 KEY_CODE`（MultiPolygon帰属、人工Bridge禁止、`"island_absorption": true` 必須記録）
+  4. **Boundary Swap Level 1（Move Type A / Move Type B）および 6段階辞書順契約（§4.7）**:
+     - **Level 1（連結性ハード制約）**:
+       - **Move Type A**: $C_u \setminus \{b\}$ の有世帯Rook連結成分数を増加させない単一非関節点 Atomic Unit $b$ の移動（$|\text{keep}_u| \ge 1$、$b$ が $C_v$ と実空間Rook隣接）。
+       - **Move Type B（Deterministic Connected Branch Transfer）**: $b$ が属する連結成分の関節点である場合、$b$ 除去後の全枝のうち **Main Branch**（1. 合計世帯数最大、2. 最小 `KEY_CODE` 昇順）を $C_u$ に残し、`b + 残り全従属枝` を単一連結 `move_set` として、$b$ に実空間Rook隣接する $C_v$ へ一括移動する（人工Bridge禁止、Atomic Unit 分割禁止、移動後の双方向トポロジー成立必須）。
+     - **Level 2**: `< 200` 世帯独立クラスタ非生成
+     - **Level 3**: `> 700` 世帯超過の最小化
+     - **Level 4**: `550` 世帯中心（および `400〜700` 帯）からの乖離最小化
+     - **Level 5**: 空間コンパクトネス（世帯加重メドイド距離和）の改善
+     - **Level 6**: 移動起点 $b$ の `basic_unit_code`（`KEY_CODE`）昇順 $\rightarrow$ 移動先クラスタ番号 $v$ 昇順による決定論的Tie-break
+  5. **`dist_m` 数理仕様と `smallest KEY_CODE` Tie-break 統一**: §4.9 の7項目仕様（局所正距円筒図法ユークリッド距離、$R = 6378137.0\text{ m}$、$\cos(\phi_0)$ スケール、親町全B系 Atomic Unit `Y_CODE` 算術平均による基準緯度 $\phi_0$、DBF `float64` 入力、IEEE-754 `float64` での $D_1$ 算出と `400.000 m` 判定、および Medoid / Seed 1 / Farthest-First Seed $2\dots K$ / Minor Island Mode A・B / Boundary Swap Move Type A・B 全箇所での `smallest KEY_CODE` 最終Tie-break［明示的 comparator または多段 stable sort］）に完全固定する。
 
 ---
 

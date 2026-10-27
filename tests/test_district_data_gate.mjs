@@ -921,6 +921,149 @@ try:
         res_x5 = bdm.build_distribution_areas_for_parent_town(pt_meta, a_x5, b_x5, {}, [])
         assert len(res_x5) == expected_k, f"For H={h_total} (H/550={h_total/550.0}), expected K={expected_k}, got {len(res_x5)}"
     print("  ✅ 5.23 K_target = round_half_up(H / 550) on exact x.5 boundaries (H=1375->K=3, H=1925->K=4, H=2475->K=5) verified")
+
+    # 24. Authority v3.2 §4.7 Boundary Swap Level 1 Synthetic Tests (Cases A, B, C, D)
+    # Build 5-unit chain: u0 -- u1 -- u2 -- u3 -- u4
+    chain_units = []
+    for idx_c, h_c in enumerate([350, 200, 120, 80, 450]):
+        x0 = round(135.000 + idx_c * 0.002, 6)
+        x1 = round(135.000 + (idx_c + 1) * 0.002, 6)
+        chain_units.append({
+            "key_code": f"9910109000{idx_c+1}",
+            "city_code": "99101",
+            "s_name": "境界町",
+            "kihon1": "0900",
+            "kihon2": "00",
+            "setai": h_c,
+            "jinko": h_c * 2,
+            "x_code": round((x0 + x1) / 2.0, 6),
+            "y_code": 35.001,
+            "rings": [make_rect(x0, 35.000, x1, 35.002)],
+        })
+    lat0_chain = math.radians(35.001)
+    adj_chain, _ = bdm.build_canonical_rook_graph(chain_units, lat0_chain)
+
+    # Case A: Non-articulation single unit move (u3 is leaf of cluster 0 = {0,1,2,3}, adjacent to cluster 1 = {4})
+    ok_a, mtype_a, keep_a, mset_a, reason_a = bdm.propose_boundary_swap_move(
+        {0: {0, 1, 2, 3}, 1: {4}}, 0, 1, 3, chain_units, adj_chain
+    )
+    assert ok_a and mtype_a == "MOVE_TYPE_A" and keep_a == {0, 1, 2} and mset_a == {3} and reason_a == "OK", f"Case A failed: {ok_a}, {mtype_a}, {keep_a}, {mset_a}, {reason_a}"
+
+    # Case B: Articulation point + connected branch transfer (b_idx=2 in cluster 0 = {0,1,2,3} where {3} is detached leaf and {0,1} is main branch, wait: make b_idx=2 adjacent to cluster 1)
+    # Add unit 4 touching unit 2 from the north so unit 2 is articulation point of {0,1,2,3} AND Rook-adjacent to cluster 1 = {4}
+    branch_units = [
+        {"key_code": "99101091001", "setai": 300, "jinko": 600, "x_code": 135.001, "y_code": 35.001, "rings": [make_rect(135.000, 35.000, 135.002, 35.002)]},
+        {"key_code": "99101091002", "setai": 250, "jinko": 500, "x_code": 135.003, "y_code": 35.001, "rings": [make_rect(135.002, 35.000, 135.004, 35.002)]},
+        {"key_code": "99101091003", "setai": 100, "jinko": 200, "x_code": 135.005, "y_code": 35.001, "rings": [make_rect(135.004, 35.000, 135.006, 35.002)]},
+        {"key_code": "99101091004", "setai": 80,  "jinko": 160, "x_code": 135.007, "y_code": 35.001, "rings": [make_rect(135.006, 35.000, 135.008, 35.002)]},
+        {"key_code": "99101091005", "setai": 400, "jinko": 800, "x_code": 135.005, "y_code": 35.003, "rings": [make_rect(135.004, 35.002, 135.006, 35.004)]},
+    ]
+    adj_branch, slen_branch = bdm.build_canonical_rook_graph(branch_units, lat0_chain)
+    # In cluster 0 = {0, 1, 2, 3}, unit 2 is an articulation point separating main_branch={0, 1} (550 HH) from detached branch={3} (80 HH), and unit 2 touches unit 4 (cluster 1) on the north edge!
+    ok_b, mtype_b, keep_b, mset_b, reason_b = bdm.propose_boundary_swap_move(
+        {0: {0, 1, 2, 3}, 1: {4}}, 0, 1, 2, branch_units, adj_branch
+    )
+    assert ok_b and mtype_b == "MOVE_TYPE_B" and keep_b == {0, 1} and mset_b == {2, 3} and reason_b == "OK", f"Case B failed: {ok_b}, {mtype_b}, {keep_b}, {mset_b}, {reason_b}"
+
+    # Case C: Illegal disconnected branch transfer (attempting to move {2, 0} which is disconnected because unit 1 is omitted) -> REJECT
+    ok_c, _, _, _, reason_c = bdm.propose_boundary_swap_move(
+        {0: {0, 1, 2, 3}, 1: {4}}, 0, 1, 2, branch_units, adj_branch, move_set_override={2, 0}
+    )
+    assert not ok_c and reason_c in ("SOURCE_COMPONENT_DISCONNECTED", "DISCONNECTED_MOVE_SET"), f"Case C must reject disconnected branch transfer, got {ok_c}, {reason_c}"
+
+    # Case D: Artificial bridge / Euclidean-only non-Rook adjacency (attempting to move unit 3 to cluster 1={4} when unit 3 does not share a Rook edge with unit 4) -> REJECT
+    ok_d, _, _, _, reason_d = bdm.propose_boundary_swap_move(
+        {0: {0, 1, 2, 3}, 1: {4}}, 0, 1, 3, branch_units, adj_branch
+    )
+    assert not ok_d and reason_d == "NO_ROOK_ADJACENCY_TO_TARGET", f"Case D must reject non-Rook artificial bridge move, got {ok_d}, {reason_d}"
+    print("  ✅ 5.24 Boundary Swap Level 1 (A: Move Type A, B: Move Type B connected branch, C: disconnected branch reject, D: artificial bridge reject) verified")
+
+    # 25. Authority v3.2 §4.2.2 K Feasibility Floor (H >= 1000 K < K_min prohibition & HARD STOP when no K >= K_min is feasible)
+    # Construct a town with H = 1100 across 2 positive B-units of 950 HH and 150 HH:
+    # Since H = 1100 >= 1000 and len(pos_indices) == 2, K_min = ceil(1100/700) = 2.
+    # At K = 2, clusters are {950} and {150}, which fails < 200 (150 < 200)!
+    # Under v3.2, it MUST NOT decrement K to 1 (K < K_min prohibited for multi-unit H >= 1000) and MUST trigger HARD STOP!
+    a_infeas = [{"key_code": "991010920", "city_code": "99101", "s_name": "不可分町", "kihon1": "0920", "kihon2": "00", "setai": 1100, "jinko": 2200, "rings": []}]
+    b_infeas = [
+        {"key_code": "99101092001", "city_code": "99101", "s_name": "不可分町", "kihon1": "0920", "kihon2": "00", "setai": 950, "jinko": 1900, "x_code": 135.001, "y_code": 35.001, "rings": [make_rect(135.000, 35.000, 135.002, 35.002)]},
+        {"key_code": "99101092002", "city_code": "99101", "s_name": "不可分町", "kihon1": "0920", "kihon2": "00", "setai": 150, "jinko": 300,  "x_code": 135.003, "y_code": 35.001, "rings": [make_rect(135.002, 35.000, 135.004, 35.002)]},
+    ]
+    hard_stop_caught = False
+    try:
+        bdm.build_distribution_areas_for_parent_town(pt_meta, a_infeas, b_infeas, {}, [])
+    except SystemExit as e_k:
+        assert "K Feasibility" in str(e_k) and "K < K_min is strictly forbidden" in str(e_k), f"Unexpected SystemExit: {e_k}"
+        hard_stop_caught = True
+    assert hard_stop_caught, "Multi-unit H >= 1000 town with no feasible K >= K_min must trigger HARD STOP (never reduce to K < K_min)"
+    print("  ✅ 5.25 K Feasibility Floor (H >= 1000 K < K_min prohibition & HARD STOP on infeasible K_min) verified")
+
+    # 26. Authority v3.2 §4.2.2 >700 Contract (multi-unit >700 rejected; single atomic unit >700 -> ATOMIC_UNIT_TOO_LARGE)
+    # 26a: Multi-unit >700 in run_clustering_for_k is strictly rejected (returns None)
+    # 3 units of [400, 350, 500] = 1250 HH at K=2 -> any 2-way partition has a multi-unit cluster >= 750 > 700 -> must return None!
+    b_multi700 = [
+        {"key_code": "99101093001", "setai": 400, "jinko": 800,  "x_code": 135.001, "y_code": 35.001, "rings": [make_rect(135.000, 35.000, 135.002, 35.002)]},
+        {"key_code": "99101093002", "setai": 350, "jinko": 700,  "x_code": 135.003, "y_code": 35.001, "rings": [make_rect(135.002, 35.000, 135.004, 35.002)]},
+        {"key_code": "99101093003", "setai": 500, "jinko": 1000, "x_code": 135.005, "y_code": 35.001, "rings": [make_rect(135.004, 35.000, 135.006, 35.002)]},
+    ]
+    adj_m700, slen_m700 = bdm.build_canonical_rook_graph(b_multi700, lat0_chain)
+    res_m700_k2 = bdm.run_clustering_for_k(2, [0, 1, 2], [[0, 1, 2]], b_multi700, adj_m700, slen_m700, lat0_chain)
+    assert res_m700_k2 is None, "Multi-unit cluster > 700 must be rejected by run_clustering_for_k"
+
+    # 26b: Single Atomic Unit > 700 (e.g. 780 HH) + another unit (450 HH) at K=2 -> permitted as ATOMIC_UNIT_TOO_LARGE!
+    a_single700 = [{"key_code": "991010940", "city_code": "99101", "s_name": "単一大型町", "kihon1": "0940", "kihon2": "00", "setai": 1230, "jinko": 2460, "rings": []}]
+    b_single700 = [
+        {"key_code": "99101094001", "city_code": "99101", "s_name": "単一大型町", "kihon1": "0940", "kihon2": "00", "setai": 780, "jinko": 1560, "x_code": 135.001, "y_code": 35.003, "rings": [make_rect(135.000, 35.002, 135.002, 35.004)]},
+        {"key_code": "99101094002", "city_code": "99101", "s_name": "単一大型町", "kihon1": "0940", "kihon2": "00", "setai": 450, "jinko": 900,  "x_code": 135.003, "y_code": 35.001, "rings": [make_rect(135.002, 35.000, 135.004, 35.002)]},
+    ]
+    res_s700 = bdm.build_distribution_areas_for_parent_town(pt_meta, a_single700, b_single700, {}, [])
+    assert len(res_s700) == 2
+    large_area = [a for a in res_s700 if a["households"] == 780][0]
+    normal_area = [a for a in res_s700 if a["households"] == 450][0]
+    assert large_area["single_large_basic_unit"] is True and large_area["granularity_exception"] == "ATOMIC_UNIT_TOO_LARGE"
+    assert normal_area["single_large_basic_unit"] is False and normal_area["granularity_exception"] is None
+    print("  ✅ 5.26 >700 Contract (multi-unit >700 rejected; single atomic unit >700 -> ATOMIC_UNIT_TOO_LARGE) verified")
+
+    # 27. Authority v3.2 §4.4.3 & §4.6 Minor Island Absorption Mode A & Mode B Synthetic Tests
+    # 27a: Mode A shared-boundary precedence (island connected via 0-HH B-unit to cluster 0 with ~540m boundary and cluster 1 with ~220m boundary, even if cluster 1 is closer by representative point)
+    island_mode_a_units = [
+        # Cluster 0 touching 0-HH bridge along full south edge (x: 135.000..135.006, y: 35.000 -> ~540m shared boundary)
+        {"key_code": "99101095001", "setai": 500, "jinko": 1000, "x_code": 135.0005, "y_code": 34.9985, "rings": [make_rect(135.000, 34.998, 135.006, 35.000)]},
+        # 0-HH bridge unit (x: 135.000..135.006, y: 35.000..35.002)
+        {"key_code": "99101095002", "setai": 0,   "jinko": 0,    "x_code": 135.003,  "y_code": 35.001,  "rings": [make_rect(135.000, 35.000, 135.006, 35.002)]},
+        # Cluster 1 touching 0-HH bridge along shorter east edge (x: 135.006, y: 35.000..35.002 -> ~220m shared boundary), but rep point closer to island
+        {"key_code": "99101095003", "setai": 500, "jinko": 1000, "x_code": 135.0055, "y_code": 35.0019, "rings": [make_rect(135.006, 35.000, 135.008, 35.002)]},
+        # Minor island (100 HH) touching 0-HH bridge along north edge (x: 135.000..135.006, y: 35.002..35.004)
+        {"key_code": "99101095004", "setai": 100, "jinko": 200,  "x_code": 135.0055, "y_code": 35.0022, "rings": [make_rect(135.000, 35.002, 135.006, 35.004)]},
+    ]
+    adj_ma, slen_ma = bdm.build_canonical_rook_graph(island_mode_a_units, lat0_chain)
+    best_k_ma, mode_ma, _ = bdm.select_minor_island_target_cluster([3], {0: {0}, 1: {2}}, island_mode_a_units, adj_ma, slen_ma, lat0_chain)
+    assert mode_ma == "MODE_A" and best_k_ma == 0, f"Mode A shared boundary precedence failed: mode={mode_ma}, best_k={best_k_ma}"
+
+    # 27b: Mode B <= 700 precedence (disconnected island of 120 HH; cluster 0 has 620 HH and is closer [620+120=740 > 700], cluster 1 has 500 HH and is farther [500+120=620 <= 700] -> must pick cluster 1)
+    island_mode_b_units = [
+        {"key_code": "99101096001", "setai": 620, "jinko": 1240, "x_code": 135.001, "y_code": 35.001, "rings": [make_rect(135.000, 35.000, 135.002, 35.002)]},
+        {"key_code": "99101096002", "setai": 500, "jinko": 1000, "x_code": 135.020, "y_code": 35.020, "rings": [make_rect(135.019, 35.019, 135.021, 35.021)]},
+        {"key_code": "99101096003", "setai": 120, "jinko": 240,  "x_code": 135.004, "y_code": 35.001, "rings": [make_rect(135.003, 35.000, 135.005, 35.002)]},
+    ]
+    adj_mb, slen_mb = bdm.build_canonical_rook_graph(island_mode_b_units, lat0_chain)
+    best_k_mb1, mode_mb1, _ = bdm.select_minor_island_target_cluster([2], {0: {0}, 1: {1}}, island_mode_b_units, adj_mb, slen_mb, lat0_chain)
+    assert mode_mb1 == "MODE_B" and best_k_mb1 == 1, f"Mode B <=700 precedence failed: mode={mode_mb1}, best_k={best_k_mb1}"
+
+    # 27c: Mode B distance tie-break (both clusters remain <= 700; closer cluster 0 wins)
+    island_mode_b_units[0]["setai"] = 500
+    best_k_mb2, mode_mb2, _ = bdm.select_minor_island_target_cluster([2], {0: {0}, 1: {1}}, island_mode_b_units, adj_mb, slen_mb, lat0_chain)
+    assert mode_mb2 == "MODE_B" and best_k_mb2 == 0, f"Mode B distance precedence failed: mode={mode_mb2}, best_k={best_k_mb2}"
+
+    # 27d: Mode B KEY_CODE tie-break (both clusters <= 700 and equidistant to island; cluster with smaller min(KEY_CODE) wins)
+    island_tie_units = [
+        {"key_code": "99101097009", "setai": 450, "jinko": 900, "x_code": 135.001, "y_code": 35.001, "rings": [make_rect(135.000, 35.000, 135.002, 35.002)]},
+        {"key_code": "99101097002", "setai": 450, "jinko": 900, "x_code": 135.009, "y_code": 35.001, "rings": [make_rect(135.008, 35.000, 135.010, 35.002)]},
+        {"key_code": "99101097005", "setai": 100, "jinko": 200, "x_code": 135.005, "y_code": 35.001, "rings": [make_rect(135.004, 35.000, 135.006, 35.002)]},
+    ]
+    adj_mbt, slen_mbt = bdm.build_canonical_rook_graph(island_tie_units, lat0_chain)
+    best_k_mb3, mode_mb3, _ = bdm.select_minor_island_target_cluster([2], {0: {0}, 1: {1}}, island_tie_units, adj_mbt, slen_mbt, lat0_chain)
+    assert mode_mb3 == "MODE_B" and best_k_mb3 == 1, f"Mode B KEY_CODE tie-break failed: expected cluster 1 (99101097002 < 99101097009), got {best_k_mb3}"
+    print("  ✅ 5.27 Minor Island Absorption (Mode A shared-boundary precedence, Mode B <=700 precedence, distance & KEY_CODE tie-breaks) verified")
 finally:
     shutil.rmtree(tmp_root, ignore_errors=True)
 `;

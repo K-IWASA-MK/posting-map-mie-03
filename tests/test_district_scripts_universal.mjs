@@ -79,12 +79,12 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     const abrCsvPath = path.join(dir, 'abr_town.csv');
     const abrRows = [
       ['全国地方公共団体コード', 'city_name', 'ward_name', 'oaza_cho', 'chome', 'city_kana', 'ward_kana', 'oaza_cho_kana', 'chome_number'],
-      ['242055', '架空市', '', '中央町', '', 'カクウシ', '', 'チュウオウチョウ', ''],
-      ['242055', '架空市', '', '朝日通', '一丁目', 'カクウシ', '', 'アサヒドオリ', '1'],
-      ['242055', '架空市', '', '朝日通', '二丁目', 'カクウシ', '', 'アサヒドオリ', '2'],
-      ['242055', '架空市', '', '緑ヶ丘', '', 'カクウシ', '', 'ミドリガオカ', ''],
-      ['242063', '架空郡テスト町', '', '本町', '', 'テストチョウ', '', 'ホンマチ', ''],
-      ['242071', '見本政令市', 'サンプル区', '駅前通', '', 'ミホンセイレイシ', 'サンプルク', 'エキマエドオリ', ''],
+      ['992055', '架空市', '', '中央町', '', 'カクウシ', '', 'チュウオウチョウ', ''],
+      ['992055', '架空市', '', '朝日通', '一丁目', 'カクウシ', '', 'アサヒドオリ', '1'],
+      ['992055', '架空市', '', '朝日通', '二丁目', 'カクウシ', '', 'アサヒドオリ', '2'],
+      ['992055', '架空市', '', '緑ヶ丘', '', 'カクウシ', '', 'ミドリガオカ', ''],
+      ['992063', '架空郡テスト町', '', '本町', '', 'テストチョウ', '', 'ホンマチ', ''],
+      ['992071', '見本政令市', 'サンプル区', '駅前通', '', 'ミホンセイレイシ', 'サンプルク', 'エキマエドオリ', ''],
     ];
     fs.writeFileSync(abrCsvPath, abrRows.map(r => r.join(',')).join('\n') + '\n', 'utf-8');
 
@@ -420,7 +420,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     try {
       runPython( [
         fetchScript,
-        '--city-code', '24205',
+        '--city-code', '99205',
         '--ref-dir', refDir,
         '--abr-file', mismatchedAbrCsv,
       ], { stdio: 'pipe', encoding: 'utf-8' });
@@ -452,7 +452,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     try {
       runPython( [
         fetchScript,
-        '--city-code', '24205',
+        '--city-code', '99205',
         '--ref-dir', refDir,
         '--abr-file', emptyCodeAbrCsv,
       ], { stdio: 'pipe', encoding: 'utf-8' });
@@ -473,7 +473,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     const missingColAbrCsv = path.join(dir, 'missing_col_abr.csv');
     const rows = [
       ['lg_code', 'city_name', 'oaza_cho', 'oaza_cho_kana'],
-      ['242055', '架空市', '中央町', 'チュウオウチョウ'],
+      ['992055', '架空市', '中央町', 'チュウオウチョウ'],
     ];
     fs.writeFileSync(missingColAbrCsv, rows.map(r => r.join(',')).join('\n') + '\n', 'utf-8');
 
@@ -483,7 +483,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     try {
       runPython( [
         fetchScript,
-        '--city-code', '24205',
+        '--city-code', '99205',
         '--ref-dir', refDir,
         '--abr-file', missingColAbrCsv,
       ], { stdio: 'pipe', encoding: 'utf-8' });
@@ -499,7 +499,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
   it('Abnormal Case 7: fetch-district-raw-data strictly prevents overwriting existing files', () => {
     const { dir, abrCsvPath } = setupFictitiousFixtures('fetch_overwrite');
     const refDir = path.join(dir, 'existing_ref_cache');
-    const cityDir = path.join(refDir, '24205');
+    const cityDir = path.join(refDir, '99205');
     fs.mkdirSync(cityDir, { recursive: true });
     const existingRefCsv = path.join(cityDir, 'reference_points.csv');
     fs.writeFileSync(existingRefCsv, 'PRE_EXISTING_REF_DATA\n', 'utf-8');
@@ -510,7 +510,7 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     try {
       runPython( [
         fetchScript,
-        '--city-code', '24205',
+        '--city-code', '99205',
         '--ref-dir', refDir,
         '--abr-file', abrCsvPath,
       ], { stdio: 'pipe', encoding: 'utf-8' });
@@ -599,9 +599,9 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     const abrEnCsv = path.join(dir, 'abr_official_en.csv');
     const enRows = [
       ['lg_code', 'city', 'city_kana', 'oaza_cho', 'oaza_cho_kana'],
-      ['242055', '架空市', 'カクウシ', '中央町', 'チュウオウチョウ'],
-      ['242055', '架空市', 'カクウシ', '朝日通一丁目', 'アサヒドオリイッテョウメ'],
-      ['242063', 'テスト町', 'テストチョウ', '本町', 'ホンマチ'],
+      ['992055', '架空市', 'カクウシ', '中央町', 'チュウオウチョウ'],
+      ['992055', '架空市', 'カクウシ', '朝日通一丁目', 'アサヒドオリイッテョウメ'],
+      ['992063', 'テスト町', 'テストチョウ', '本町', 'ホンマチ'],
     ];
     fs.writeFileSync(abrEnCsv, enRows.map(r => r.join(',')).join('\n') + '\n', 'utf-8');
 
@@ -609,8 +609,8 @@ describe('Universal District Generation Scripts Gate (Phase 1)', () => {
     const abrJaCsv = path.join(dir, 'abr_official_ja.csv');
     const jaRows = [
       ['全国地方公共団体コード', '市区町村名', '市区町村名_カナ', '町字名', '町字名_カナ'],
-      ['242055', '架空市', 'カクウシ', '中央町', 'チュウオウチョウ'],
-      ['242055', '架空市', 'カクウシ', '朝日通一丁目', 'アサヒドオリイッテョウメ'],
+      ['992055', '架空市', 'カクウシ', '中央町', 'チュウオウチョウ'],
+      ['992055', '架空市', 'カクウシ', '朝日通一丁目', 'アサヒドオリイッテョウメ'],
     ];
     fs.writeFileSync(abrJaCsv, jaRows.map(r => r.join(',')).join('\n') + '\n', 'utf-8');
 
@@ -621,12 +621,12 @@ from importlib.machinery import SourceFileLoader
 fetch_mod = SourceFileLoader('fetch_raw', '${fetchScript}').load_module()
 
 # Test EN
-rep_en = fetch_mod.verify_abr_master('24205', abr_files=['${abrEnCsv}'])
+rep_en = fetch_mod.verify_abr_master('99205', abr_files=['${abrEnCsv}'])
 assert len(rep_en) == 1
 assert rep_en[0]['matched_municipality_records'] == 2, f"Expected 2 matches, got {rep_en[0]['matched_municipality_records']}"
 
 # Test JA
-rep_ja = fetch_mod.verify_abr_master('24205', abr_files=['${abrJaCsv}'])
+rep_ja = fetch_mod.verify_abr_master('99205', abr_files=['${abrJaCsv}'])
 assert len(rep_ja) == 1
 assert rep_ja[0]['matched_municipality_records'] == 2, f"Expected 2 matches, got {rep_ja[0]['matched_municipality_records']}"
 
@@ -1091,6 +1091,127 @@ print("XML_CITATION_CREATION_DATE_VERIFIED")
         '--output-dir', path.join(TEST_TMP_DIR, 'dummy')
       ], { stdio: 'pipe' });
     }, /invalid choice|FATAL HARD STOP/);
+  });
+
+  it('Authority v3.2 §2.4.4 6-Stage sort_key: city_code tie, to_seion ordering, parent_town_code tie, and deterministic rerun', () => {
+    const dir = path.join(TEST_TMP_DIR, 'v32_sort_key_synthetic');
+    fs.mkdirSync(dir, { recursive: true });
+
+    const buildScript = path.join(REPO_ROOT, 'scripts', 'build-district-master.py');
+    const sortScript = path.join(REPO_ROOT, 'scripts', 'sort-address-master.py');
+    const mlitCsv = path.join(dir, 'mlit.csv');
+    const abrCsv = path.join(dir, 'abr.csv');
+    const out1Csv = path.join(dir, 'out1.csv');
+    const prov1Json = path.join(dir, 'prov1.json');
+    const out2Csv = path.join(dir, 'out2.csv');
+    const prov2Json = path.join(dir, 'prov2.json');
+    const sortedCsv = path.join(dir, 'sorted.csv');
+
+    // Construct synthetic records testing:
+    // 1. city_code tie-breaker: two cities with identical reading "ドウオンシ" (city_code 99102 vs 99101 -> 99101 must come first)
+    // 2. to_seion ordering:
+    //    - "ガッコウマチ" (seion "カツコウマチ") vs "カヅマチ" (seion "カツマチ", raw "カヅマチ") vs "カツマチ" (seion "カツマチ", raw "カツマチ") ->
+    //      "カツコウマチ" ("ガッコウマチ") < ("カツマチ", "カツマチ") < ("カツマチ", "カヅマチ")
+    // 3. parent_town_code tie-breaker: identical reading "ドウメイチョウ" and identical clean name via Plan A kept raw names or same reading/name tie broken by town_code
+    const mlitRows = [
+      ['都道府県コード', '市区町村コード', '市区町村名', '大字町丁目コード', '大字町丁目名', '緯度', '経度'],
+      ['99', '99102', '同音東市', '99102000100', '本町', '35.001', '135.001'],
+      ['99', '99101', '同音西市', '99101000300', 'カヅ町', '35.002', '135.002'],
+      ['99', '99101', '同音西市', '99101000200', 'カツ町', '35.003', '135.003'],
+      ['99', '99101', '同音西市', '99101000100', '学校町', '35.004', '135.004'],
+      ['99', '99101', '同音西市', '99101000900', '大字同名町', '35.005', '135.005'],
+      ['99', '99101', '同音西市', '99101000800', '同名町', '35.006', '135.006']
+    ];
+    fs.writeFileSync(mlitCsv, mlitRows.map(r => r.join(',')).join('\n') + '\n');
+
+    const abrRows = [
+      ['lg_code', 'city', 'city_kana', 'machiaza_id', 'machiaza_type', 'oaza_cho', 'oaza_cho_kana'],
+      ['991021', '同音東市', 'ドウオンシ', '0001000', '1', '本町', 'ホンマチ'],
+      ['991011', '同音西市', 'ドウオンシ', '0003000', '1', 'カヅ町', 'カヅマチ'],
+      ['991011', '同音西市', 'ドウオンシ', '0002000', '1', 'カツ町', 'カツマチ'],
+      ['991011', '同音西市', 'ドウオンシ', '0001000', '1', '学校町', 'ガッコウマチ'],
+      ['991011', '同音西市', 'ドウオンシ', '0009000', '1', '大字同名町', 'ドウメイチョウ'],
+      ['991011', '同音西市', 'ドウオンシ', '0008000', '1', '同名町', 'ドウメイチョウ']
+    ];
+    fs.writeFileSync(abrCsv, abrRows.map(r => r.join(',')).join('\n') + '\n');
+
+    runPython([
+      buildScript, '--phase1-only',
+      '--ref-csv', mlitCsv, '--abr-file', abrCsv,
+      '--out-csv', out1Csv, '--provenance-out', prov1Json
+    ]);
+    runPython([
+      buildScript, '--phase1-only',
+      '--ref-csv', mlitCsv, '--abr-file', abrCsv,
+      '--out-csv', out2Csv, '--provenance-out', prov2Json
+    ]);
+
+    // Deterministic rerun check
+    assert.strictEqual(fs.readFileSync(out1Csv, 'utf8'), fs.readFileSync(out2Csv, 'utf8'));
+    assert.deepStrictEqual(
+      JSON.parse(fs.readFileSync(prov1Json, 'utf8')).records.map(({ source_ref_csv, ...rest }) => rest),
+      JSON.parse(fs.readFileSync(prov2Json, 'utf8')).records.map(({ source_ref_csv, ...rest }) => rest)
+    );
+
+    // Verify exact order produced by 6-stage sort_key:
+    // 1. city_code=99101 ('同音西市') comes before city_code=99102 ('同音東市') despite identical city_kana='ドウオンシ'
+    // 2. Within 99101:
+    //    - '学校町' (seion 'カツコウマチ', raw 'ガッコウマチ')
+    //    - 'カツ町' (seion 'カツマチ', raw 'カツマチ')
+    //    - 'カヅ町' (seion 'カツマチ', raw 'カヅマチ')
+    //    - '大字同名町' ('ドウメイチョウ')
+    //    - '同名町' ('ドウメイチョウ')
+    // 3. Followed by 99102 '同音東市' '本町'
+    const lines = fs.readFileSync(out1Csv, 'utf8').trim().split('\n').slice(1);
+    const orderedPairs = lines.map(l => {
+      const cols = l.split(',');
+      return `${cols[1]}:${cols[2]}`;
+    });
+    assert.deepStrictEqual(orderedPairs, [
+      '同音西市:学校町',
+      '同音西市:カツ町',
+      '同音西市:カヅ町',
+      '同音西市:同名町',
+      '同音西市:大字同名町',
+      '同音東市:本町'
+    ]);
+
+    // Also verify sort-address-master.py produces the exact same byte output and breaks ties by parent_town_code when official_town_name is equal
+    runPython([
+      sortScript,
+      '--input', out1Csv,
+      '--output', sortedCsv,
+      '--abr-file', abrCsv,
+      '--provenance', prov1Json
+    ]);
+    assert.strictEqual(fs.readFileSync(out1Csv, 'utf8'), fs.readFileSync(sortedCsv, 'utf8'));
+
+    // Direct parent_town_code tie-breaker test in sort-address-master.py
+    const tieInputCsv = path.join(dir, 'tie_input.csv');
+    const tieProvJson = path.join(dir, 'tie_prov.json');
+    const tieOutCsv = path.join(dir, 'tie_out.csv');
+    fs.writeFileSync(tieInputCsv, [
+      'rowId,city_name,town_name,latitude,longitude,households,population,e_stat_code',
+      '1,同音西市,同名町,35.001000,135.001000,100,200,',
+      '2,同音西市,同名町,35.002000,135.002000,150,300,'
+    ].join('\n') + '\n');
+    fs.writeFileSync(tieProvJson, JSON.stringify({
+      records: [
+        { rowId: 1, city_code: '99101', parent_town_code: '99101000900', official_town_name: '同名町', split_index: 1 },
+        { rowId: 2, city_code: '99101', parent_town_code: '99101000800', official_town_name: '同名町', split_index: 1 }
+      ]
+    }, null, 2));
+    runPython([
+      sortScript,
+      '--input', tieInputCsv,
+      '--output', tieOutCsv,
+      '--abr-file', abrCsv,
+      '--provenance', tieProvJson
+    ]);
+    const tieLines = fs.readFileSync(tieOutCsv, 'utf8').trim().split('\n').slice(1);
+    // rowId=2 has parent_town_code '99101000800' < '99101000900' (rowId=1), so rowId=2 must be sorted first!
+    assert.strictEqual(tieLines[0].split(',')[0], '2');
+    assert.strictEqual(tieLines[1].split(',')[0], '1');
   });
 });
 

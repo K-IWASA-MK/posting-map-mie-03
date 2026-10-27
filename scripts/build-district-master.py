@@ -2,20 +2,20 @@
 """
 build-district-master.py
 
-DISTRICT_DATA_ACQUISITION_RULE.md (v3.1 FINAL DESIGN CONTRACT) に準拠した
+DISTRICT_DATA_ACQUISITION_RULE.md (v3.2 FINAL DESIGN CONTRACT) に準拠した
 4-Layer 全国共通地区マスター生成コンパイラ。
 
 - Layer 1: Official Address Layer (国交省位置参照情報 data_kind=1 + 公式選挙区区割り + デジタル庁ABR)
   - --phase1-only 指定時は 3列 Area Skeleton を単独自律生成・検証。
-  - 4-Layer 実行時は正式親町骨格と sort_key を確定し（途中 rowId 採番なし）Layer 2 へ引き渡す。
+  - 4-Layer 実行時は正式親町骨格と 6段階 sort_key (city_kana, city_code, to_seion(base_kana), base_kana, int(chome_num), parent_town_name, parent_town_code) を確定し（途中 rowId 採番なし）Layer 2 へ引き渡す。
 - Layer 2: Official Statistical Atomic Layer (e-Stat A系小地域 + B系基本単位区)
   - A系 KIGO_E (E1/E2/E3) 行順非依存正規化（E1統計値保持 + 全Geometry結合保持）。
   - B系 Atomic Unit = 1 r2kb KEY_CODE（K_AREA事前統合禁止）。
   - A/B 統計保存則（diff == 0）厳格検証、1:0 Unmatched 親町の Pattern C 判定（B系 S_NAME 切り出し禁止）。
 - Layer 3: Distribution Area Builder
-  - Pattern A (1..800世帯) / Pattern B (>800世帯: ODG-01 801..999 Step 1 & Step 2 D1>=400.000m, >=1000世帯分割) / Pattern C。
+  - Pattern A (1..800世帯) / Pattern B (>800世帯: ODG-01 801..999 Step 1 & Step 2 D1>=400.000m, >=1000世帯分割・K_min下限絶対維持・不成立時HARD STOP) / Pattern C。
   - Canonical 9桁座標 Rook隣接（線分共有長 > 0 のみ隣接、Point-touch 非隣接、人工ブリッジ禁止）。
-  - Connected Components -> Farthest-First Seeds (smallest KEY_CODE tie-break) -> Balanced Region Growing -> 6-Level Lexicographic Boundary Swap。
+  - Connected Components -> Farthest-First Seeds (smallest KEY_CODE tie-break) -> Balanced Region Growing -> Minor Island Absorption (Mode A / Mode B) -> 6-Level Lexicographic Boundary Swap (Move Type A / Move Type B)。
   - 0世帯 B系 Geometry 事後帰属、世帯加重メドイド代表点 + Even-Odd PIP Gate (point-on-surface fallback)。
 - Layer 4: Final Master Compiler
   - Layer 1 sort_key + Layer 3 分割安定順 (1..K) による最終整列。
@@ -33,6 +33,7 @@ import struct
 import argparse
 import tempfile
 import shutil
+import unicodedata
 from decimal import Decimal, ROUND_HALF_UP
 from functools import cmp_to_key
 from collections import defaultdict, Counter
@@ -43,6 +44,28 @@ CHOME_NUM_MAP = {
     "十一丁目": "11", "十二丁目": "12", "十三丁目": "13", "十四丁目": "14", "十五丁目": "15",
     "十六丁目": "16", "十七丁目": "17", "十八丁目": "18", "十九丁目": "19", "二十丁目": "20"
 }
+
+SMALL_KANA_MAP = str.maketrans({
+    'ァ': 'ア', 'ィ': 'イ', 'ゥ': 'ウ', 'ェ': 'エ', 'ォ': 'オ',
+    'ッ': 'ツ', 'ャ': 'ヤ', 'ュ': 'ユ', 'ョ': 'ヨ', 'ヮ': 'ワ',
+    'ヵ': 'カ', 'ヶ': 'ケ',
+    'ぁ': 'あ', 'ぃ': 'い', 'ぅ': 'う', 'ぇ': 'え', 'ぉ': 'お',
+    'っ': 'つ', 'ゃ': 'や', 'ゅ': 'ゆ', 'ょ': 'よ', 'ゎ': 'わ',
+    'ゕ': 'か', 'ゖ': 'け',
+})
+
+
+def to_seion(kana):
+    """
+    Convert katakana/hiragana string to seion (strip dakuten/handakuten and normalize small kana)
+    for JIS 50-on primary ordering (§2.4.4).
+    """
+    if not kana:
+        return ""
+    nfd = unicodedata.normalize('NFD', kana)
+    stripped = ''.join(ch for ch in nfd if ch not in ('\u3099', '\u309a'))
+    nfc = unicodedata.normalize('NFC', stripped)
+    return nfc.translate(SMALL_KANA_MAP)
 
 
 def round_half_up_int(val):
@@ -250,6 +273,9 @@ def load_abr_readings_phase1(abr_paths):
                 city_kana = (r.get("city_kana") or r.get("市区町村名_カナ") or "").strip()
                 ward_kana = (r.get("ward_kana") or r.get("区名_カナ") or "").strip()
                 full_city_kana = f"{city_kana}{ward_kana}".strip()
+                lg_code_raw = (r.get("lg_code") or r.get("全国地方公共団体コード") or r.get("city_code") or r.get("市区町村コード") or "").strip()
+                lg_code_5 = lg_code_raw[:5] if len(lg_code_raw) >= 5 else lg_code_raw
+                abr_town_code = (r.get("machiaza_id") or r.get("town_code") or r.get("大字町丁目コード") or "").strip()
 
                 if full_city_name and full_city_kana:
                     city_readings[full_city_name] = full_city_kana
@@ -285,7 +311,9 @@ def load_abr_readings_phase1(abr_paths):
                     "base_kana": base_kana,
                     "chome_number": num,
                     "full_town": full_town,
-                    "base_town": base_town
+                    "base_town": base_town,
+                    "city_code": lg_code_5,
+                    "town_code": abr_town_code
                 }
 
                 exact_town_readings[(full_city_name, full_town)].append(entry)
@@ -329,14 +357,20 @@ def load_electoral_mapping(mapping_path, target_district):
 
 def resolve_town_sort_key(rec, city_readings, exact_town_readings, normalized_candidates, reconciliations):
     """
-    Resolve official ABR sort_key for a Layer 1 parent town record.
+    Resolve official ABR 6-stage sort_key for a Layer 1 parent town record (§2.4.4):
+      1. city_kana
+      2. city_code
+      3. to_seion(base_kana), base_kana
+      4. int(chome_num)
+      5. parent_town_name
+      6. parent_town_code
     Preserves exact Layer 1 behavior and Fail-Closed guarantees.
     """
     cname = rec['clean_city']
     tname = rec['clean_town']
     raw_name = rec['raw_town']
-    city_code = rec['city_code']
-    town_code = rec['town_code']
+    city_code = str(rec.get('city_code') or '')
+    town_code = str(rec.get('town_code') or '')
 
     city_kana = city_readings.get(cname)
     if not city_kana:
@@ -354,7 +388,7 @@ def resolve_town_sort_key(rec, city_readings, exact_town_readings, normalized_ca
         town_kana = reconciled['reconciled_reading'].strip()
         chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", tname)
         chome_num = CHOME_NUM_MAP.get(chome_match.group(1), "00") if chome_match else "00"
-        return (city_kana, town_kana, chome_num, tname, town_kana)
+        return (city_kana, city_code, to_seion(town_kana), town_kana, int(chome_num), tname, town_code)
 
     # 2. Check exact raw match in ABR
     town_entry = None
@@ -412,6 +446,13 @@ def resolve_town_sort_key(rec, city_readings, exact_town_readings, normalized_ca
         )
 
     base_kana = town_entry["base_kana"]
+    if not city_code and town_entry.get("city_code"):
+        city_code = str(town_entry["city_code"])
+        rec['city_code'] = city_code
+    if not town_code and town_entry.get("town_code"):
+        town_code = str(town_entry["town_code"])
+        rec['town_code'] = town_code
+
     chome_num = CHOME_NUM_MAP.get(chome_part, "00")
     if chome_num == "00" and town_entry.get("chome_number"):
         try:
@@ -419,7 +460,7 @@ def resolve_town_sort_key(rec, city_readings, exact_town_readings, normalized_ca
         except Exception:
             pass
 
-    return (city_kana, base_kana, chome_num, tname, base_kana)
+    return (city_kana, city_code, to_seion(base_kana), base_kana, int(chome_num), tname, town_code)
 
 
 def extract_layer1_from_mlit(args):
@@ -484,7 +525,7 @@ def extract_layer1_from_mlit(args):
                     sys.exit(f"FATAL HARD STOP [Rule 4.3]: Missing or empty official code at line {line_no}: city='{raw_city}', town='{raw_town}'")
 
                 city_code = r[col_city_code_idx].strip() if (col_city_code_idx != -1 and len(r) > col_city_code_idx) else (args.city_code or "")
-                if not city_code and len(town_code) >= 5 and town_code[:5].isdigit():
+                if not city_code and len(town_code) >= 10 and town_code[:5].isdigit():
                     city_code = town_code[:5]
                 lat = r[col_lat_idx].strip() if (col_lat_idx != -1 and len(r) > col_lat_idx) else ""
                 lon = r[col_lon_idx].strip() if (col_lon_idx != -1 and len(r) > col_lon_idx) else ""
@@ -587,7 +628,7 @@ def extract_layer1_from_mlit(args):
     for rec in target_towns:
         s_key = resolve_town_sort_key(rec, city_readings, exact_town_readings, normalized_candidates, reconciliations)
         rec['sort_key'] = s_key
-        rec['resolved_reading'] = s_key[4]
+        rec['resolved_reading'] = s_key[3]
     print("PASS [Reading Resolution]: All target towns resolved official readings successfully.")
 
     sorted_towns = sorted(target_towns, key=lambda r: r['sort_key'])
@@ -784,7 +825,7 @@ def load_layer1_parent_skeleton(args):
                 'town_code': town_code
             }
             s_key = resolve_town_sort_key(rec_for_key, city_readings, exact_town_readings, normalized_candidates, reconciliations)
-            resolved_reading = s_key[4]
+            resolved_reading = s_key[3]
         else:
             s_key = (ord_id, cname, tname)
 
@@ -1728,14 +1769,176 @@ def select_farthest_first_seed_index(cand_pool, chosen_seeds, b_units, lat0_rad)
     return s_cmp
 
 
+def select_minor_island_target_cluster(comp, clusters, b_units, adj_rook, shared_lengths_m, lat0_rad):
+    """
+    Authority v3.2 §4.4.3 & §4.6 Minor Residential Island Absorption:
+    - Mode A (Connected on All-Unit Rook Graph):
+      1. (-round(shared_boundary_m, 6)) [maximum shared boundary length]
+      2. round(d_min_cluster, 6)        [minimum meter distance]
+      3. min_cluster_KEY_CODE           [smallest official KEY_CODE]
+      4. k                              [cluster index]
+    - Mode B (Disconnected on All-Unit Rook Graph, all shared_boundary_m == 0):
+      1. over_700                       [0 if H_k + H_island <= 700 else 1]
+      2. round(d_min_cluster, 6)        [minimum meter distance]
+      3. min_cluster_KEY_CODE           [smallest official KEY_CODE]
+      4. k                              [cluster index]
+    """
+    k_clusters = len(clusters)
+    comp_set = set(comp)
+    comp_h = sum(b_units[i]['setai'] for i in comp_set)
+
+    # Determine reachability on All-Unit Rook Graph (including 0-household B-series units)
+    all_indices = list(range(len(b_units)))
+    all_comps = get_connected_components(all_indices, adj_rook)
+    comp_rep = next(iter(comp_set))
+    all_unit_comp = set(next((c for c in all_comps if comp_rep in c), comp_set))
+
+    # Direct shared boundary length between comp and each cluster k
+    direct_shared = {}
+    for k in range(k_clusters):
+        direct_shared[k] = sum(
+            shared_lengths_m.get((i, j), 0.0)
+            for i in comp_set
+            for j in clusters[k]
+        )
+
+    # Check if connected via 0-household units in all_unit_comp when direct_shared is 0
+    zero_in_comp = {
+        idx for idx in all_unit_comp
+        if b_units[idx]['setai'] == 0 and idx not in comp_set
+    }
+    bridged_shared = {}
+    for k in range(k_clusters):
+        if direct_shared[k] > 0.0:
+            bridged_shared[k] = direct_shared[k]
+        elif zero_in_comp and any(j in all_unit_comp for j in clusters[k]):
+            bridged_shared[k] = sum(
+                shared_lengths_m.get((i, j), 0.0)
+                for i in (comp_set | zero_in_comp)
+                for j in clusters[k]
+            )
+        else:
+            bridged_shared[k] = 0.0
+
+    is_mode_a = any(bridged_shared[k] > 0.0 for k in range(k_clusters))
+    mode = "MODE_A" if is_mode_a else "MODE_B"
+
+    eval_table = {}
+    for k in range(k_clusters):
+        hk = sum(b_units[i]['setai'] for i in clusters[k])
+        over_700 = 1 if (hk + comp_h) > 700 else 0
+        d_min_cluster = min(
+            dist_m(
+                float(b_units[i]['y_code']), float(b_units[i]['x_code']),
+                float(b_units[j]['y_code']), float(b_units[j]['x_code']),
+                lat0_rad
+            )
+            for i in comp_set
+            for j in clusters[k]
+        )
+        min_kc = min(str(b_units[j]['key_code']) for j in clusters[k])
+        s_len_k = bridged_shared[k]
+        if is_mode_a:
+            key_tuple = (-round(s_len_k, 6), round(d_min_cluster, 6), min_kc, k)
+        else:
+            key_tuple = (over_700, round(d_min_cluster, 6), min_kc, k)
+        eval_table[k] = {
+            'key': key_tuple,
+            'shared_boundary_m': round(s_len_k, 6),
+            'over_700': over_700,
+            'hk_before': hk,
+            'hk_after': hk + comp_h,
+            'd_min_m': round(d_min_cluster, 6),
+            'min_kc': min_kc
+        }
+
+    best_k = min(range(k_clusters), key=lambda k: eval_table[k]['key'])
+    return best_k, mode, eval_table
+
+
+def propose_boundary_swap_move(clusters, u, v, b_idx, b_units, adj_rook, move_set_override=None):
+    """
+    Authority v3.2 §4.7 Boundary Swap Level 1 — Topological Move Validator:
+    - Move Type A: Single non-articulation Atomic Unit transfer `{b_idx}`.
+    - Move Type B: Deterministic Connected Branch Transfer when `b_idx` is an articulation point
+      of its connected component in `clusters[u]`.
+      * Main Branch Selection: `(-sum(setai), min(KEY_CODE))` remains in `clusters[u]`.
+      * Transfer Unit Set: `move_set = comp_with_b - main_branch = {b_idx} U detached_branches`.
+    - Post-Move Connectivity Verification:
+      1. `keep_u` is non-empty and `comp_with_b - move_set` is a single Rook-connected component.
+      2. `move_set` is a single Rook-connected component (rejects disconnected branch transfer).
+      3. `b_idx` has real Rook adjacency (`shared_length_m > 0`) to at least one unit in `clusters[v]`
+         (rejects artificial bridges / Euclidean-only jumps).
+      4. Adding `move_set` to `clusters[v]` does not increase the connected component count of `clusters[v]`.
+    """
+    if u == v or b_idx not in clusters[u] or len(clusters[u]) <= 1:
+        return False, None, None, None, "INVALID_CLUSTER_OR_SINGLETON"
+
+    # Condition 3: Real Rook adjacency between boundary candidate b_idx and target cluster v
+    if not any(nb in clusters[v] for nb in adj_rook.get(b_idx, ())):
+        return False, None, None, None, "NO_ROOK_ADJACENCY_TO_TARGET"
+
+    orig_comps_u = get_connected_components(clusters[u], adj_rook)
+    orig_comp_count = len(orig_comps_u)
+    comp_with_b = set(next(c for c in orig_comps_u if b_idx in c))
+    other_u = clusters[u] - comp_with_b
+
+    if move_set_override is not None:
+        move_set = set(move_set_override)
+        if b_idx not in move_set or not move_set.issubset(comp_with_b):
+            return False, None, None, None, "INVALID_MOVE_SET_OVERRIDE"
+        rem_comp = comp_with_b - move_set
+        keep_u = rem_comp | other_u
+        move_type = "MOVE_TYPE_A" if len(move_set) == 1 else "MOVE_TYPE_B"
+    else:
+        rem_u = clusters[u] - {b_idx}
+        rem_comps = get_connected_components(rem_u, adj_rook)
+        if len(rem_comps) <= orig_comp_count:
+            rem_comp = comp_with_b - {b_idx}
+            keep_u = rem_u
+            move_set = {b_idx}
+            move_type = "MOVE_TYPE_A"
+        else:
+            sub_comps = get_connected_components(comp_with_b - {b_idx}, adj_rook)
+            if not sub_comps:
+                return False, "MOVE_TYPE_B", None, None, "EMPTY_SUB_COMPS"
+            sub_comps_sorted = sorted(
+                sub_comps,
+                key=lambda c: (-sum(b_units[i]['setai'] for i in c), min(str(b_units[i]['key_code']) for i in c))
+            )
+            main_branch = set(sub_comps_sorted[0])
+            rem_comp = main_branch
+            keep_u = main_branch | other_u
+            move_set = comp_with_b - main_branch
+            move_type = "MOVE_TYPE_B"
+
+    # Condition 1: Source remaining component must be non-empty and Rook-connected
+    if not keep_u or not rem_comp:
+        return False, move_type, None, None, "EMPTY_SOURCE_AFTER_MOVE"
+    if len(get_connected_components(rem_comp, adj_rook)) != 1:
+        return False, move_type, None, None, "SOURCE_COMPONENT_DISCONNECTED"
+
+    # Condition 2: Transfer unit set must be Rook-connected
+    if len(get_connected_components(move_set, adj_rook)) != 1:
+        return False, move_type, None, None, "DISCONNECTED_MOVE_SET"
+
+    # Condition 4: Target cluster component count must not increase
+    orig_v_comp_count = len(get_connected_components(clusters[v], adj_rook))
+    new_v_comp_count = len(get_connected_components(clusters[v] | move_set, adj_rook))
+    if new_v_comp_count > orig_v_comp_count:
+        return False, move_type, None, None, "TARGET_COMPONENT_DISCONNECTED"
+
+    return True, move_type, keep_u, move_set, "OK"
+
+
 def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, shared_lengths_m, lat0_rad):
     """
-    Execute Layer 3 clustering for K >= 2 (§4.4 - §4.7):
+    Execute Layer 3 clustering for K >= 2 (Authority v3.2 §4.4 - §4.7):
     1. Connected Components (major >= 200 vs minor < 200 islands)
     2. Deterministic Farthest-First Seed Selection
     3. Balanced Region Growing on positive-household Rook graph
-    4. Minor residential island (< 200 households) deterministic absorption
-    5. 6-Level Lexicographic Boundary Swap Optimization
+    4. Minor residential island (< 200 households) deterministic absorption (Mode A / Mode B)
+    5. 6-Level Lexicographic Boundary Swap Optimization (Move Type A / Move Type B)
     """
     if len(pos_indices) < k_clusters:
         return None
@@ -1773,6 +1976,9 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
         candidates = []
         for k in range(k_clusters):
             hk = sum(b_units[i]['setai'] for i in clusters[k])
+            # Single Atomic Unit > 700 must remain an isolated single-unit cluster (§4.2.2)
+            if len(clusters[k]) == 1 and hk > 700:
+                continue
             med_k, _, _ = compute_medoid_and_dist(list(clusters[k]), b_units, lat0_rad)
             lat_ck = float(b_units[med_k]['y_code'])
             lon_ck = float(b_units[med_k]['x_code'])
@@ -1780,6 +1986,9 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
             for member in clusters[k]:
                 for nb in adj_rook.get(member, ()):
                     if nb in pos_indices and nb not in assigned:
+                        # Do not merge a single >700 unit into an existing cluster
+                        if b_units[nb]['setai'] > 700:
+                            continue
                         frontier.add(nb)
             for b_idx in frontier:
                 hk_after = hk + b_units[b_idx]['setai']
@@ -1793,29 +2002,25 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
         clusters[chosen_k].add(chosen_b)
         assigned.add(chosen_b)
 
-    # Absorb any remaining disconnected positive islands (< 200 households or unseeded islands) (§4.4.3)
+    # Absorb any remaining disconnected positive islands (< 200 households or unseeded islands) (§4.4.3 Mode A / Mode B)
     absorbed_clusters = set()
+    island_absorption_events = []
     unassigned = [i for i in pos_indices if i not in assigned]
     for comp in get_connected_components(unassigned, adj_rook):
-        comp_h = sum(b_units[i]['setai'] for i in comp)
-
-        def island_target_key(k):
-            hk = sum(b_units[i]['setai'] for i in clusters[k])
-            over_700 = 1 if (hk + comp_h) > 700 else 0
-            d_min_cluster = min(
-                dist_m(float(b_units[i]['y_code']), float(b_units[i]['x_code']), float(b_units[j]['y_code']), float(b_units[j]['x_code']), lat0_rad)
-                for i in comp
-                for j in clusters[k]
-            )
-            min_kc = min(str(b_units[j]['key_code']) for j in clusters[k])
-            return (over_700, round(d_min_cluster, 6), min_kc, k)
-
-        best_k = min(range(k_clusters), key=island_target_key)
+        best_k, abs_mode, _ = select_minor_island_target_cluster(
+            comp, clusters, b_units, adj_rook, shared_lengths_m, lat0_rad
+        )
         clusters[best_k].update(comp)
         assigned.update(comp)
         absorbed_clusters.add(best_k)
+        island_absorption_events.append({
+            'target_cluster': best_k,
+            'mode': abs_mode,
+            'island_codes': sorted(str(b_units[i]['key_code']) for i in comp),
+            'island_households': sum(b_units[i]['setai'] for i in comp)
+        })
 
-    # 6-Level Lexicographic Boundary Swap Optimization (§4.7)
+    # 6-Level Lexicographic Boundary Swap Optimization (§4.7 Move Type A & Move Type B)
     def eval_lexicographic_tuple(c_dict):
         under_200 = 0
         over_700 = 0
@@ -1836,6 +2041,9 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
             comp_wsum += wsum_k
         return (under_200, over_700, under_400, dev_550_sq, round(comp_wsum, 6))
 
+    move_type_a_count = 0
+    move_type_b_count = 0
+
     for _ in range(100):
         cur_lex = eval_lexicographic_tuple(clusters)
         best_move = None
@@ -1845,34 +2053,17 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
         for u in range(k_clusters):
             if len(clusters[u]) <= 1:
                 continue
-            orig_comps_u = get_connected_components(clusters[u], adj_rook)
-            orig_comp_count = len(orig_comps_u)
             for b_idx in sorted(clusters[u], key=lambda idx: str(b_units[idx]['key_code'])):
-                rem_u = clusters[u] - {b_idx}
-                rem_comps = get_connected_components(rem_u, adj_rook)
-                if len(rem_comps) <= orig_comp_count:
-                    keep_u = rem_u
-                    move_set = {b_idx}
-                else:
-                    # Articulation vertex within its connected component: keep the largest-household branch
-                    # (tie-break: smallest min KEY_CODE) and move b_idx + detached leaf branch(es) together
-                    comp_with_b = set(next(c for c in orig_comps_u if b_idx in c))
-                    other_u = clusters[u] - comp_with_b
-                    sub_comps = get_connected_components(comp_with_b - {b_idx}, adj_rook)
-                    if not sub_comps:
-                        continue
-                    sub_comps_sorted = sorted(
-                        sub_comps,
-                        key=lambda c: (-sum(b_units[i]['setai'] for i in c), min(str(b_units[i]['key_code']) for i in c))
-                    )
-                    keep_u = set(sub_comps_sorted[0]) | other_u
-                    move_set = comp_with_b - set(sub_comps_sorted[0])
-                if not keep_u:
-                    continue
                 for v in range(k_clusters):
                     if u == v:
                         continue
-                    if not any(nb in clusters[v] for nb in adj_rook.get(b_idx, ())):
+                    # Single Atomic Unit > 700 cannot receive or donate units
+                    if len(clusters[v]) == 1 and sum(b_units[i]['setai'] for i in clusters[v]) > 700:
+                        continue
+                    is_ok, m_type, keep_u, move_set, _ = propose_boundary_swap_move(
+                        clusters, u, v, b_idx, b_units, adj_rook
+                    )
+                    if not is_ok:
                         continue
                     new_clusters = {
                         k: (keep_u if k == u else (clusters[v] | move_set if k == v else clusters[k]))
@@ -1885,24 +2076,33 @@ def run_clustering_for_k(k_clusters, pos_indices, comps_pos, b_units, adj_rook, 
                         if cand_lex < cur_lex:
                             best_move_lex = cand_lex
                             best_move_tie = cand_tie
-                            best_move = (u, v, move_set)
+                            best_move = (u, v, move_set, m_type)
 
         if best_move is None:
             break
-        u, v, move_set = best_move
+        u, v, move_set, m_type = best_move
         clusters[u] -= move_set
         clusters[v] |= move_set
+        if m_type == "MOVE_TYPE_A":
+            move_type_a_count += 1
+        elif m_type == "MOVE_TYPE_B":
+            move_type_b_count += 1
 
-    # Verify no cluster has < 200 households (§4.2.2)
+    # Verify no cluster has < 200 households AND no multi-unit cluster has > 700 households (§4.2.2)
     for k in range(k_clusters):
         hk = sum(b_units[i]['setai'] for i in clusters[k])
         if hk < 200:
+            return None
+        if hk > 700 and len(clusters[k]) > 1:
             return None
 
     return {
         'k': k_clusters,
         'clusters': clusters,
         'absorbed_clusters': absorbed_clusters,
+        'island_absorption_events': island_absorption_events,
+        'move_type_a_count': move_type_a_count,
+        'move_type_b_count': move_type_b_count,
         'lex_score': eval_lexicographic_tuple(clusters)
     }
 
@@ -2200,34 +2400,44 @@ def build_distribution_areas_for_parent_town(pt, matched_a_units, matched_b_unit
             else:
                 odg01_decision_reason = "ODG01_STEP2_D1_LT_400_PATTERN_A"
     else:
-        # H >= 1000: Principle split (§4.2)
-        k_min = math.ceil(h_a / 700.0)
-        k_max = math.floor(h_a / 400.0)
-        k_target = round_half_up_int(h_a / 550.0)
-        if k_min <= k_max:
-            cand_ks = sorted(range(k_min, k_max + 1), key=lambda k: (abs(k - k_target), k))
+        # H >= 1000: Principle split (Authority v3.2 §4.2.1 & §4.2.2)
+        if len(pos_indices) == 1:
+            # Single indivisible Atomic Unit with H >= 1000 -> K=1 with ATOMIC_UNIT_TOO_LARGE
+            chosen_clustering = None
+            odg01_decision_reason = "H_GE_1000_INDIVISIBLE_ATOMIC_UNIT_K1"
         else:
-            cand_ks = [max(2, k_target)]
+            k_min = max(2, math.ceil(h_a / 700.0))
+            k_max = math.floor(h_a / 400.0)
+            k_target = round_half_up_int(h_a / 550.0)
+            if k_min <= k_max:
+                cand_ks = sorted(range(k_min, k_max + 1), key=lambda k: (abs(k - k_target), k))
+            else:
+                cand_ks = [max(k_min, k_target)]
+                for fallback_k in range(max(cand_ks) - 1, k_min - 1, -1):
+                    if fallback_k not in cand_ks:
+                        cand_ks.append(fallback_k)
 
-        best_k_res = None
-        for ck in cand_ks:
-            res = run_clustering_for_k(ck, pos_indices, comps_pos, b_units, adj_rook, shared_lengths_m, lat0_rad)
-            if res is not None:
-                # Prefer a K in [k_min, k_max] that achieves 0 over_700 and 0 under_400 if available
-                if best_k_res is None or (res['lex_score'][:3] < best_k_res['lex_score'][:3]):
-                    best_k_res = res
-                if res['lex_score'][0] == 0 and res['lex_score'][1] == 0 and res['lex_score'][2] == 0:
-                    break
-
-        if best_k_res is None:
-            # Decrement K down to 2 if higher K could not avoid <200 clusters (§4.2.2)
-            for ck in range(min(cand_ks) - 1, 1, -1):
+            best_k_res = None
+            for ck in cand_ks:
+                # Authority v3.2 §4.2.2: K < K_min is strictly forbidden for multi-unit H >= 1000 towns
+                if ck < k_min:
+                    continue
                 res = run_clustering_for_k(ck, pos_indices, comps_pos, b_units, adj_rook, shared_lengths_m, lat0_rad)
                 if res is not None:
-                    best_k_res = res
-                    break
-        chosen_clustering = best_k_res
-        odg01_decision_reason = f"H_GE_1000_SPLIT_K{chosen_clustering['k']}" if chosen_clustering else "H_GE_1000_INDIVISIBLE_ATOMIC_UNIT_K1"
+                    # Prefer a K >= K_min that achieves 0 under_200, 0 over_700, and 0 under_400 if available
+                    if best_k_res is None or (res['lex_score'][:3] < best_k_res['lex_score'][:3]):
+                        best_k_res = res
+                    if res['lex_score'][0] == 0 and res['lex_score'][1] == 0 and res['lex_score'][2] == 0:
+                        break
+
+            if best_k_res is None:
+                sys.exit(
+                    f"FATAL HARD STOP [K Feasibility]: No feasible K >= K_min ({k_min}) for parent town "
+                    f"'{city_name} {parent_town_name}' (H={h_a}, pos_units={len(pos_indices)}). "
+                    f"Reduction to K < K_min is strictly forbidden by Authority v3.2 §4.2.2!"
+                )
+            chosen_clustering = best_k_res
+            odg01_decision_reason = f"H_GE_1000_SPLIT_K{chosen_clustering['k']}"
 
     # Build cluster list (K=1 Pattern A or K>=2 Pattern B)
     if chosen_clustering is None:
@@ -2265,14 +2475,22 @@ def build_distribution_areas_for_parent_town(pt, matched_a_units, matched_b_unit
         union_rings = dissolve_unit_rings(all_unit_rings)
         geojson_geom = rings_to_geojson_geometry(union_rings)
 
-        # Granularity exception flags (§4.2.2)
+        # Granularity exception flags (Authority v3.2 §4.2.2)
+        # >700 is ONLY permitted for a single Atomic Unit (ATOMIC_UNIT_TOO_LARGE).
+        # GRANULARITY_EXCEPTION is strictly restricted to 200..399.
         max_single_unit_h = max(b_units[i]['setai'] for i in pos_members)
-        single_large_flag = (max_single_unit_h > 700)
+        single_large_flag = (len(pos_members) == 1 and max_single_unit_h > 700)
         gran_exc = None
-        if single_large_flag and (c_households > 700 or k_total == 1 and h_a > 800):
+        if single_large_flag and (c_households > 700 or (k_total == 1 and h_a > 800)):
             gran_exc = "ATOMIC_UNIT_TOO_LARGE"
-        elif k_total >= 2 and (200 <= c_households <= 399 or c_households > 700):
+        elif k_total >= 2 and (200 <= c_households <= 399):
             gran_exc = "GRANULARITY_EXCEPTION"
+        elif k_total >= 2 and c_households > 700:
+            sys.exit(
+                f"FATAL HARD STOP [>700 Contract]: Multi-unit split cluster in '{city_name} {parent_town_name}' "
+                f"has H={c_households} > 700 across {len(pos_members)} positive Atomic Units! "
+                f"Multi-unit >700 clusters are strictly forbidden by Authority v3.2 §4.2.2."
+            )
 
         # Island absorption flag (§4.4.3)
         pos_comp_count = len(get_connected_components(pos_members, adj_rook))
@@ -2419,7 +2637,7 @@ def verify_gates_1_to_4(parent_towns, final_areas, parent_expected_stats):
                 f"FATAL HARD STOP [Gate 3 Geometry]: rowId={a['rowId']} has geometry=null without UNAVAILABLE_OFFICIAL_POLYGON!"
             )
 
-    # Gate 4: Granularity, Connectivity & e_stat_code 1:1 rule
+    # Gate 4: Granularity, Connectivity & e_stat_code 1:1 rule (Authority v3.2 §4.2.2)
     for a in final_areas:
         if a['pattern'] in ('A_NORMAL', 'B_SPLIT'):
             if int(a['households']) <= 0:
@@ -2428,8 +2646,19 @@ def verify_gates_1_to_4(parent_towns, final_areas, parent_expected_stats):
             h_val = int(a['households'])
             if h_val < 200:
                 sys.exit(f"FATAL HARD STOP [Gate 4]: Prohibited <200 household split cluster (H={h_val}) at rowId={a['rowId']}")
-            if (200 <= h_val <= 399 or h_val > 700) and not a.get('granularity_exception'):
-                sys.exit(f"FATAL HARD STOP [Gate 4]: Missing granularity_exception for H={h_val} at rowId={a['rowId']}")
+            if h_val > 700:
+                if (
+                    not a.get('single_large_basic_unit')
+                    or len(a.get('basic_unit_codes', [])) != 1
+                    or a.get('granularity_exception') != 'ATOMIC_UNIT_TOO_LARGE'
+                ):
+                    sys.exit(
+                        f"FATAL HARD STOP [Gate 4 >700 Contract]: Multi-unit >700 split cluster "
+                        f"(H={h_val}, units={len(a.get('basic_unit_codes', []))}, exc={a.get('granularity_exception')}) "
+                        f"is strictly forbidden at rowId={a['rowId']}"
+                    )
+            if 200 <= h_val <= 399 and a.get('granularity_exception') != 'GRANULARITY_EXCEPTION':
+                sys.exit(f"FATAL HARD STOP [Gate 4]: Missing GRANULARITY_EXCEPTION for H={h_val} at rowId={a['rowId']}")
             if a['e_stat_code'] != "":
                 sys.exit(f"FATAL HARD STOP [Gate 4]: Non-empty e_stat_code '{a['e_stat_code']}' on split rowId={a['rowId']}")
         if len(a['a_area_codes']) != 1 and a['e_stat_code'] != "":
@@ -2443,7 +2672,7 @@ def run_4layer_master_compiler(args):
     -> Layer 3 (Distribution Area Builder) -> Layer 4 (Final Master Compiler).
     """
     print("=" * 70)
-    print("4-LAYER UNIVERSAL MASTER DATA COMPILER (DISTRICT_DATA_ACQUISITION_RULE.md v3.1)")
+    print("4-LAYER UNIVERSAL MASTER DATA COMPILER (DISTRICT_DATA_ACQUISITION_RULE.md v3.2)")
     print(f"Output CSV:          {args.out_csv}")
     print("=" * 70)
 
@@ -2735,7 +2964,7 @@ def run_4layer_master_compiler(args):
 
         with open(temp_prov, 'w', encoding='utf-8', newline='\n') as f:
             json.dump({
-                "contract_version": "3.1",
+                "contract_version": "3.2",
                 "total_parent_towns": len(parent_towns),
                 "total_records": len(all_final_areas),
                 "total_households": total_h,
