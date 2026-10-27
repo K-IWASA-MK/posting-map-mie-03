@@ -26,7 +26,7 @@ from datetime import datetime, timezone
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Fetch district raw data autonomously from MLIT and e-Stat, and verify ABR master')
-    parser.add_argument('--city-code', required=True, help='5-digit municipality code (e.g. 24205)')
+    parser.add_argument('--city-code', required=True, help='5-digit municipality code (e.g. 00000)')
     parser.add_argument('--target-cities', action='append', help='Additional municipality codes for district-wide resolution (optional)')
     parser.add_argument('--ref-dir', default=None, help='Explicit destination directory to cache location reference data (Required for Phase 1)')
     parser.add_argument('--estat-dir', default=None, help='Directory to cache e-Stat data (optional)')
@@ -35,6 +35,9 @@ def parse_args():
     parser.add_argument('--estat-catalog-url', default=None, help='URL to fetch e-Stat small area boundary catalog (optional)')
     parser.add_argument('--estat-catalog-mock', default=None, help='Path to mock e-Stat catalog JSON/HTML file for testing (optional)')
     parser.add_argument('--estat-provenance-out', default=None, help='Path to output e-Stat provenance JSON (optional)')
+    parser.add_argument('--fetch-estat-b', action='store_true', help='Execute autonomous e-Stat B-series (Basic Unit Block / 基本単位区) fetch for the exact same census year as A-series')
+    parser.add_argument('--estat-b-dir', default=None, help='Directory to cache e-Stat B-series (基本単位区) data (optional)')
+    parser.add_argument('--estat-b-provenance-out', default=None, help='Path to output e-Stat B-series provenance JSON (optional)')
     parser.add_argument('--abr-file', action='append', help='Path to Digital Agency ABR town master CSV (Required for Phase 1 verification)')
     parser.add_argument('--abr-dir', default=None, help='Directory containing Digital Agency ABR town master CSV files')
     parser.add_argument('--data-kind', default='1', choices=['1'], help='1: 大字・町丁目レベル (data_kind=1 only; block level is strictly prohibited)')
@@ -585,6 +588,7 @@ def verify_abr_master(city_code, abr_files=None, abr_dir=None):
     return verified_reports
 
 ESTAT_MANDATORY_ATTRIBUTES = ['KEY_CODE', 'S_NAME', 'JINKO', 'SETAI', 'HCODE']
+ESTAT_B_MANDATORY_ATTRIBUTES = ['KEY_CODE', 'PREF', 'CITY', 'K_AREA', 'S_NAME', 'KIHON1', 'JINKO', 'SETAI', 'HCODE', 'X_CODE', 'Y_CODE']
 
 def extract_years_from_text(text):
     """
@@ -764,17 +768,17 @@ def verify_dbf_header_and_attributes(dbf_path):
             fields.append(name)
     return fields, num_records
 
-def resolve_latest_census_dataset(candidates, target_cities, estat_dir=None, is_mock=False):
+def resolve_latest_census_dataset(candidates, target_cities, estat_dir=None, is_mock=False, require_b_series=False, estat_b_dir=None):
     """
     Latest Census Dataset Resolution Gate:
     Evaluates census candidate years in descending order.
     Enforces compatibility gate:
       1. census_year presence
-      2. required attributes presence (KEY_CODE, S_NAME, JINKO, SETAI, HCODE)
+      2. required attributes presence (KEY_CODE, S_NAME, JINKO, SETAI, HCODE; and B-series attributes if require_b_series)
       3. boundary presence (.shp, .dbf)
-      4. municipality coverage completeness across all target_cities
+      4. municipality coverage completeness across all target_cities (for both A-series and B-series if require_b_series)
       5. e_stat_code / code-set compatibility
-    Rejects mixed years across municipalities.
+    Rejects mixed years across municipalities or between A-series and B-series.
     Falls back to latest complete common dataset if newer year is incomplete, and records reason.
     HARD STOP if no valid dataset satisfies all criteria.
     """
@@ -865,6 +869,46 @@ def resolve_latest_census_dataset(candidates, target_cities, estat_dir=None, is_
                     online_missing.append(c)
             if online_missing:
                 reason = f"Census {year} datasets not available on e-Stat portal for cities: {online_missing}."
+                fallback_reasons.append(reason)
+                print(f"[Census Gate] Skipping year {year}: {reason}")
+                continue
+
+        # Gate 5 (Stage 2A B-Series Same-Year Gate): If B-series is required, verify B-series availability for the exact same year
+        if require_b_series and not is_mock and not missing_cities and not incompatible_cities:
+            b_missing_cities = []
+            for c in target_cities:
+                has_local_b = False
+                if estat_b_dir and os.path.exists(os.path.join(estat_b_dir, c)):
+                    bc_dir = os.path.join(estat_b_dir, c)
+                    for f in os.listdir(bc_dir):
+                        fl = f.lower()
+                        if (year_str in f or (year >= 2019 and fl.startswith(f"r{year-2018}kb")) or (year < 2019 and fl.startswith(f"h{year-1988}kb"))) and (fl.endswith('.shp') or fl.endswith('.zip')):
+                            has_local_b = True
+                            break
+                if not has_local_b:
+                    test_b_url = f"https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId=B00200521{year}&code={c}&coordSys=1&format=shape&downloadType=5&datum=2000"
+                    fetched_ok = False
+                    for attempt in range(3):
+                        try:
+                            req_b = urllib.request.Request(test_b_url, headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'})
+                            with urllib.request.urlopen(req_b, timeout=90) as resp_b:
+                                if resp_b.status == 200:
+                                    zip_bytes = resp_b.read()
+                                    if len(zip_bytes) > 4 and zip_bytes[:4] == b'PK\x03\x04':
+                                        if estat_b_dir:
+                                            bc_dir = os.path.join(estat_b_dir, c)
+                                            os.makedirs(bc_dir, exist_ok=True)
+                                            zip_dest = os.path.join(bc_dir, f"estat_b_{year}_{c}.zip")
+                                            with open(zip_dest, 'wb') as zf_out:
+                                                zf_out.write(zip_bytes)
+                                        fetched_ok = True
+                                        break
+                        except Exception:
+                            pass
+                    if not fetched_ok:
+                        b_missing_cities.append(c)
+            if b_missing_cities:
+                reason = f"Census {year} B-series (Basic Unit Block) datasets not available on e-Stat portal for cities: {b_missing_cities}."
                 fallback_reasons.append(reason)
                 print(f"[Census Gate] Skipping year {year}: {reason}")
                 continue
@@ -1002,6 +1046,128 @@ def fetch_and_verify_estat_dataset(resolution_result, target_cities, estat_dir, 
 
     return provenance_data
 
+def fetch_and_verify_estat_b_dataset(resolution_result, target_cities, estat_b_dir, provenance_out=None):
+    """
+    Autonomous e-Stat B-Series (Basic Unit Block / 基本単位区) Dataset Fetch, Integrity Verification & Provenance Generation.
+    Strictly uses the EXACT same selected_census_year resolved for A-series (DISTRICT_DATA_ACQUISITION_RULE.md §3.1).
+    Verifies DBF statistical attributes, boundary geometry (.shp, .dbf, .shx, .prj), source metadata, and SHA-256 hashes.
+    """
+    if provenance_out and os.path.exists(provenance_out):
+        sys.exit(f"FATAL HARD STOP [Provenance Gate]: e-Stat B-series provenance output already exists: {provenance_out}. Overwrite is strictly forbidden!")
+
+    selected_year = resolution_result['selected_census_year']
+    year_str = str(selected_year)
+    dl_survey_id = f"B00200521{selected_year}"
+    verified_b_files = []
+
+    print(f"[e-Stat B-Series Pipeline] Processing Basic Unit Blocks (基本単位区) for exact same Census Year {selected_year} across {len(target_cities)} municipalities...")
+
+    for city_code in target_cities:
+        c_dir = os.path.join(estat_b_dir, city_code)
+        os.makedirs(c_dir, exist_ok=True)
+
+        shp_path = None
+        dbf_path = None
+        shx_path = None
+        prj_path = None
+        zip_path = None
+        dl_url = f"https://www.e-stat.go.jp/gis/statmap-search/data?dlserveyId={dl_survey_id}&code={city_code}&coordSys=1&format=shape&downloadType=5&datum=2000"
+
+        for f in os.listdir(c_dir):
+            fl = f.lower()
+            if year_str in f or (selected_year >= 2019 and fl.startswith(f"r{selected_year-2018}kb")) or (selected_year < 2019 and fl.startswith(f"h{selected_year-1988}kb")):
+                if fl.endswith('.shp'): shp_path = os.path.join(c_dir, f)
+                elif fl.endswith('.dbf'): dbf_path = os.path.join(c_dir, f)
+                elif fl.endswith('.shx'): shx_path = os.path.join(c_dir, f)
+                elif fl.endswith('.prj'): prj_path = os.path.join(c_dir, f)
+                elif fl.endswith('.zip'): zip_path = os.path.join(c_dir, f)
+
+        if not shp_path or not dbf_path or not shx_path:
+            if not zip_path or not os.path.exists(zip_path):
+                print(f"[e-Stat B-Series Fetch] Downloading official Basic Unit Block Shapefile archive for city {city_code} from {dl_url}...")
+                req = urllib.request.Request(dl_url, headers={'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'})
+                try:
+                    with urllib.request.urlopen(req, timeout=90) as resp:
+                        if resp.status != 200:
+                            sys.exit(f"FATAL HARD STOP: e-Stat B-series download failed with status {resp.status} for city {city_code}")
+                        zip_bytes = resp.read()
+                except Exception as e:
+                    sys.exit(f"FATAL HARD STOP: Failed to download e-Stat B-series data for city {city_code} from {dl_url}: {e}")
+
+                zip_path = os.path.join(c_dir, f"estat_b_{selected_year}_{city_code}.zip")
+                with open(zip_path, 'wb') as f:
+                    f.write(zip_bytes)
+
+            print(f"[e-Stat B-Series Fetch] Extracting archive {zip_path}...")
+            with zipfile.ZipFile(zip_path, 'r') as zf:
+                zf.extractall(c_dir)
+
+            for f in os.listdir(c_dir):
+                fl = f.lower()
+                if year_str in f or (selected_year >= 2019 and fl.startswith(f"r{selected_year-2018}kb")) or (selected_year < 2019 and fl.startswith(f"h{selected_year-1988}kb")):
+                    if fl.endswith('.shp'): shp_path = os.path.join(c_dir, f)
+                    elif fl.endswith('.dbf'): dbf_path = os.path.join(c_dir, f)
+                    elif fl.endswith('.shx'): shx_path = os.path.join(c_dir, f)
+                    elif fl.endswith('.prj'): prj_path = os.path.join(c_dir, f)
+
+        if not shp_path or not dbf_path or not shx_path:
+            sys.exit(f"FATAL HARD STOP: Missing B-series Shapefile (.shp/.dbf/.shx) for city {city_code} (Census Year {selected_year}) in {c_dir}")
+
+        fields, num_records = verify_dbf_header_and_attributes(dbf_path)
+        missing_b_attrs = [a for a in ESTAT_B_MANDATORY_ATTRIBUTES if a not in fields]
+        if missing_b_attrs:
+            sys.exit(f"FATAL HARD STOP: B-series DBF for city {city_code} is missing mandatory attributes {missing_b_attrs}. Found: {fields}")
+
+        verified_b_files.append({
+            'city_code': city_code,
+            'census_year': selected_year,
+            'series': 'B_BASIC_UNIT_BLOCK',
+            'dlservey_id': dl_survey_id,
+            'download_url': dl_url,
+            'zip_path': os.path.abspath(zip_path) if zip_path and os.path.exists(zip_path) else None,
+            'zip_sha256': compute_sha256(zip_path) if zip_path and os.path.exists(zip_path) else None,
+            'shp_path': os.path.abspath(shp_path),
+            'shp_sha256': compute_sha256(shp_path),
+            'dbf_path': os.path.abspath(dbf_path),
+            'dbf_sha256': compute_sha256(dbf_path),
+            'shx_path': os.path.abspath(shx_path),
+            'shx_sha256': compute_sha256(shx_path),
+            'prj_path': os.path.abspath(prj_path) if prj_path and os.path.exists(prj_path) else None,
+            'prj_sha256': compute_sha256(prj_path) if prj_path and os.path.exists(prj_path) else None,
+            'record_count': num_records,
+            'fields': fields
+        })
+
+    b_provenance_data = {
+        'latest_detected_census_year': resolution_result['latest_detected_census_year'],
+        'selected_census_year': selected_year,
+        'a_series_census_year_match': True,
+        'selection_status': resolution_result['selection_status'],
+        'fallback_reason': resolution_result['fallback_reason'],
+        'checked_at': datetime.now(timezone.utc).isoformat(),
+        'source_provider': 'Statistics Bureau, Ministry of Internal Affairs and Communications / e-Stat',
+        'dataset_id': f"Census_{selected_year}_BasicUnitBlock_B",
+        'dlservey_id': dl_survey_id,
+        'target_cities': target_cities,
+        'verified_files': verified_b_files
+    }
+
+    if provenance_out:
+        p_dir = os.path.dirname(os.path.abspath(provenance_out))
+        os.makedirs(p_dir, exist_ok=True)
+        fd, temp_prov = tempfile.mkstemp(prefix="estat_b_prov_", dir=p_dir)
+        os.close(fd)
+        try:
+            with open(temp_prov, 'w', encoding='utf-8') as f:
+                json.dump(b_provenance_data, f, ensure_ascii=False, indent=2)
+            shutil.move(temp_prov, provenance_out)
+            print(f"[e-Stat B-Series Pipeline] Provenance successfully written to {provenance_out}")
+        finally:
+            if os.path.exists(temp_prov):
+                os.remove(temp_prov)
+
+    return b_provenance_data
+
 def main():
     args = parse_args()
     print("=" * 70)
@@ -1040,7 +1206,9 @@ def main():
 
     # 3. Phase 2: Latest Census Dataset Resolution Gate & Autonomous e-Stat Fetch Pipeline
     estat_prov = None
-    if args.fetch_estat or (args.estat_dir and (args.estat_catalog_url or args.estat_catalog_mock or args.estat_provenance_out)):
+    estat_b_prov = None
+    require_b = bool(args.fetch_estat_b or args.estat_b_dir or args.estat_b_provenance_out)
+    if args.fetch_estat or require_b or (args.estat_dir and (args.estat_catalog_url or args.estat_catalog_mock or args.estat_provenance_out)):
         print("\n" + "=" * 70)
         print("PHASE 2: LATEST CENSUS DATASET RESOLUTION GATE & e-STAT PIPELINE")
         print("=" * 70)
@@ -1049,11 +1217,14 @@ def main():
             catalog_mock=args.estat_catalog_mock,
             estat_dir=args.estat_dir
         )
+        effective_b_dir = args.estat_b_dir or (os.path.join(args.estat_dir, 'b_series') if (require_b and args.estat_dir) else None)
         resolution_result = resolve_latest_census_dataset(
             candidates=candidates,
             target_cities=all_target_cities,
             estat_dir=args.estat_dir,
-            is_mock=bool(args.estat_catalog_mock)
+            is_mock=bool(args.estat_catalog_mock),
+            require_b_series=require_b,
+            estat_b_dir=effective_b_dir
         )
         if args.estat_dir:
             estat_prov = fetch_and_verify_estat_dataset(
@@ -1061,6 +1232,13 @@ def main():
                 target_cities=all_target_cities,
                 estat_dir=args.estat_dir,
                 provenance_out=args.estat_provenance_out
+            )
+        if require_b and effective_b_dir:
+            estat_b_prov = fetch_and_verify_estat_b_dataset(
+                resolution_result=resolution_result,
+                target_cities=all_target_cities,
+                estat_b_dir=effective_b_dir,
+                provenance_out=args.estat_b_provenance_out
             )
 
     print("=" * 70)
@@ -1071,6 +1249,8 @@ def main():
         print(f"  - ABR Verified:    {len(abr_reports)} file(s)")
     if estat_prov:
         print(f"  - e-Stat Year:     {estat_prov['selected_census_year']} ({estat_prov['selection_status']})")
+    if estat_b_prov:
+        print(f"  - e-Stat B-Series: {estat_b_prov['selected_census_year']} ({len(estat_b_prov['verified_files'])} municipalities verified)")
     print("=" * 70)
 
 if __name__ == '__main__':

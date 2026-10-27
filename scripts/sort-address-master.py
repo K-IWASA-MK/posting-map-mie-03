@@ -201,17 +201,26 @@ def load_abr_readings(abr_paths):
 
 def resolve_sort_key_universal(row, city_readings, exact_town_readings, normalized_candidates, provenance_map, reconciliations):
     """
-    Derive deterministic sort key adhering to DISTRICT_DATA_ACQUISITION_RULE.md §4.4.
+    Derive deterministic sort key adhering to DISTRICT_DATA_ACQUISITION_RULE.md §4.4, §4.5, §4.8.
     Keys:
       1. city_kana (50-on order)
       2. base_kana (50-on order)
       3. chome_num (numeric 00..99)
-      4. town_name (preserved tie-breaker)
-      5. row_id (preserved tie-breaker)
+      4. official_town_name (preserved parent town tie-breaker)
+      5. split_idx (0 for unsplit, 1..K for split areas)
+      6. row_id (preserved tie-breaker)
     """
     city_name = (row.get("city_name") or "").strip()
     town_name = (row.get("town_name") or "").strip()
     row_id = int(row.get("rowId") or 0)
+
+    split_match = re.search(r"\s*\((\d+)\)$", town_name)
+    if split_match:
+        split_idx = int(split_match.group(1))
+        base_town_for_lookup = town_name[:split_match.start()].strip()
+    else:
+        split_idx = 0
+        base_town_for_lookup = town_name
 
     # 1. City kana resolution
     city_kana = city_readings.get(city_name)
@@ -226,24 +235,38 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
 
     # 2. Check external reconciliation via provenance official code if available
     prov_rec = provenance_map.get(row_id)
-    raw_town = prov_rec.get('raw_town_name', town_name) if prov_rec else town_name
     if prov_rec:
+        if prov_rec.get('official_town_name'):
+            base_town_for_lookup = str(prov_rec.get('official_town_name')).strip()
+        if prov_rec.get('split_index') is not None:
+            try:
+                split_idx = int(prov_rec.get('split_index'))
+            except Exception:
+                pass
+        if prov_rec.get('raw_town_name'):
+            raw_town = str(prov_rec.get('raw_town_name')).strip()
+        elif isinstance(prov_rec.get('raw_town_names'), list) and len(prov_rec['raw_town_names']) > 0:
+            raw_town = str(prov_rec['raw_town_names'][0]).strip()
+        else:
+            raw_town = base_town_for_lookup
+
         city_code = prov_rec.get('city_code', '')
-        town_code = prov_rec.get('town_code', '')
+        town_code = prov_rec.get('town_code') or prov_rec.get('parent_town_code') or ''
         comp_key = f"{city_code}:{town_code}"
         reconciled = reconciliations.get(comp_key)
         if reconciled and reconciled.get('reconciled_reading'):
             town_kana = reconciled['reconciled_reading'].strip()
-            chome_part = ""
-            chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", town_name)
+            chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", base_town_for_lookup)
             chome_num = CHOME_NUM_MAP.get(chome_match.group(1), "00") if chome_match else "00"
-            return (city_kana, town_kana, chome_num, town_name, row_id)
+            return (city_kana, town_kana, chome_num, base_town_for_lookup, split_idx, row_id)
+    else:
+        raw_town = base_town_for_lookup
 
     # 3. Lookup in exact raw ABR readings (prioritize exact raw match)
     town_entry = None
     exact_cands = [c for c in exact_town_readings.get((city_name, raw_town), []) if c.get("base_kana")]
-    if not exact_cands and raw_town != town_name:
-        exact_cands = [c for c in exact_town_readings.get((city_name, town_name), []) if c.get("base_kana")]
+    if not exact_cands and raw_town != base_town_for_lookup:
+        exact_cands = [c for c in exact_town_readings.get((city_name, base_town_for_lookup), []) if c.get("base_kana")]
 
     if exact_cands:
         distinct_kanas = set(c["base_kana"] for c in exact_cands)
@@ -251,26 +274,26 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
             town_entry = exact_cands[0]
         elif len(distinct_kanas) > 1:
             raise ValueError(
-                f"FATAL: Ambiguous ABR reading collision for town '{city_name}' '{town_name}'. "
+                f"FATAL: Ambiguous ABR reading collision for town '{city_name}' '{base_town_for_lookup}'. "
                 f"Multiple distinct readings for exact town name: {distinct_kanas}"
             )
 
     # 4. If no exact raw match, check normalized fallback ONLY if unambiguous (distinct readings == 1)
     if not town_entry:
-        clean_town = re.sub(r"^大字", "", town_name)
+        clean_town = re.sub(r"^大字", "", base_town_for_lookup)
         cands = [c for c in normalized_candidates.get((city_name, clean_town), []) if c.get("base_kana")]
         distinct_kanas = set(c["base_kana"] for c in cands)
         if len(distinct_kanas) == 1:
             town_entry = cands[0]
         elif len(distinct_kanas) > 1:
-            raise ValueError(f"FATAL: Ambiguous ABR reading collision for town '{city_name}' '{town_name}'. Multiple distinct readings match '{clean_town}': {distinct_kanas}")
+            raise ValueError(f"FATAL: Ambiguous ABR reading collision for town '{city_name}' '{base_town_for_lookup}'. Multiple distinct readings match '{clean_town}': {distinct_kanas}")
 
     # 5. Check base_name for chome towns
     chome_part = ""
-    chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", town_name)
+    chome_match = re.search(r"([一二三四五六七八九十]+丁目)$", base_town_for_lookup)
     if not town_entry and chome_match:
         chome_part = chome_match.group(1)
-        base_name = town_name[:-len(chome_part)]
+        base_name = base_town_for_lookup[:-len(chome_part)]
         clean_base = re.sub(r"^大字", "", base_name)
         cands = [c for c in normalized_candidates.get((city_name, clean_base), []) if c.get("base_kana")]
         distinct_kanas = set(c["base_kana"] for c in cands)
@@ -280,7 +303,7 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
             raise ValueError(f"FATAL: Ambiguous ABR reading collision for base town '{city_name}' '{base_name}'. Multiple distinct readings match '{clean_base}': {distinct_kanas}")
 
     if not town_entry or not town_entry.get("base_kana"):
-        raise ValueError(f"FATAL: Unresolved ABR reading for town_name='{town_name}' in city_name='{city_name}'")
+        raise ValueError(f"FATAL: Unresolved ABR reading for town_name='{town_name}' (base='{base_town_for_lookup}') in city_name='{city_name}'")
 
     base_kana = town_entry["base_kana"]
     chome_num = CHOME_NUM_MAP.get(chome_part, "00")
@@ -290,7 +313,7 @@ def resolve_sort_key_universal(row, city_readings, exact_town_readings, normaliz
         except:
             pass
 
-    return (city_kana, base_kana, chome_num, town_name, row_id)
+    return (city_kana, base_kana, chome_num, base_town_for_lookup, split_idx, row_id)
 
 def main():
     args = parse_args()

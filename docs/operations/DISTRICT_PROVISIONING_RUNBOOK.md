@@ -60,10 +60,10 @@
   - 自治体名（例: ○○県△△市）
   - 自治体コード（JIS X 0402 / 総務省全国地方公共団体コード、例: `000000`）
   - 選挙種別（衆院小選挙区、参院選挙区、首長選、一般市議選 等）
-  - 選挙期日（または公示・告示日）と、その時点で適用される区割り法令の施行版・未施行改正・経過措置の確認結果（`docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §4.1）
+  - 選挙期日（または公示・告示日）と、その時点で適用される区割り法令の施行版・未施行改正・経過措置の確認結果（`docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §2.2）
 - **Action**:
   1. 地区ID（`districtId`）を正規化命名規則に従い確定する。
-     - 規則: 英大文字、数字、ハイフンのみ（例: `KUWANA`, `MIE-04`, `AICHI-01`）。
+     - 規則: 英大文字、数字、ハイフンのみ（例: `<DISTRICT_ID>`）。
      - 空白・特殊文字・小文字は禁止。
   2. プロビジョニング管理簿に `districtId`、対象自治体、担当者を記録。
 - **Validation**:
@@ -83,12 +83,12 @@
 - **Preconditions**:
   - Stage 1 で自治体コードおよび境界定義が確定していること。
 - **Input**:
-  - Phase 1（Area Skeleton 確定用）: 住所の母集合 = 国土交通省 位置参照情報「大字・町丁目レベル」の最新版、公式区割り（Stage 1 で確認した適用法令）、読み仮名（整列専用の補助情報）。各データの役割は `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §3.1 に従う
-  - Phase 2（後段属性・境界付与用）: 総務省 e-Stat 国勢調査小地域境界データ（Shapefile / 世界測地系）および人口・世帯数（JINKO / SETAI）等の公定統計・地理データ
+  - Layer 1（Official Address 確定用）: 住所の母集合 = 国土交通省 位置参照情報「大字・町丁目レベル（`data_kind=1`）」の最新版、公式区割り（Stage 1 で確認した適用法令および分割自治体公的資料）、読み仮名（デジタル庁ABR：整列専用の補助情報）。各データの役割は `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §2 に従う
+  - Layer 2（Official Statistical Atomic 用）: 対象全自治体で共通解決された同一国勢調査年の総務省 e-Stat A系（小地域）および B系（基本単位区）の統計表・境界データ（Shapefile / 世界測地系）
 - **Action**:
   1. **一次データの完全自律調達**: `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` に従い、対象自治体の公式一次データを完全自律取得（ゼロ人間介入原則厳守）。
-  2. **Phase 1（Area Skeleton 3列生成）**: `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §4（区割り適用・正規化・名称衝突・整列・採番）に従い、**3列のみの Area Skeleton（`rowId,city_name,town_name`）** を生成し、同規程 QG-2 / QG-3 を検証する（Phase 1 には e-Stat 等の後段データを一切持ち込まない）。
-  3. **Phase 2（後段属性・境界付与）**: 確定済み Area Skeleton（`rowId,city_name,town_name`）を基準として、後段責務として代表座標（`latitude`, `longitude`）、世帯数（`households`）、人口（`population`）、`e_stat_code`、および境界ポリゴン（飛び地 MultiPolygon 統合済みの `boundaries.geojson`）を付与し、マスター3点セット（`address_master.csv`, `boundaries.geojson`, `municipality_master.csv`）を完成させる。
+  2. **Layer 1（Official Address — 正式親町骨格確定）**: `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §2（区割り適用・郡名除去・政令市区/特別区保持・案A名称衝突回避・ABR整列キー `sort_key` 確定）に従い、正式親町骨格を確定する（Layer 1 には e-Stat 等の後段データを一切持ち込まず、この段階では最終 `rowId` を採番しない）。
+  3. **Layer 2〜4（統計原子正規化 ➔ 配布エリア構築 ➔ 最終単一採番 & 同時出力）**: `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §3〜§7 に従い、B系基本単位区による世帯加重メドイド代表点・Even-Odd PIP検証・適正粒度分割（Pattern A/B/C）を経て、Layer 4 で最後に1回だけ `rowId = 1..N` を採番し、マスター3点セット（`address_master.csv`, `boundaries.geojson`, `municipality_master.csv`）および `provenance.json` を同時生成する。
   4. **マスター3点セット同時一括交換 (Master Triad Simultaneous Replacement)**:
      - `address_master.csv` (点), `boundaries.geojson` (面), `municipality_master.csv` (枠) は不可分の3点セットである。必ず3点同時に新地区の確定データへ一括交換し、旧地区データの混在を絶対禁止とする。
   5. **`data/area_mapping.json` の初期化 (Area Mapping Initialization)**:
@@ -98,21 +98,21 @@
      - 対象自治体を入力条件とし、公式な衆議院小選挙区画定公定資料から機械的に導出（構成自治体一覧を取得してJSON配備）する。`active/` 内への自治体名ハードコードは禁止。
   7. **一次原本持ち込み禁止 (Raw Data Exclusion)**:
      - `data/raw/` および `data/raw_reference/`（旧 `data/raw_estat_r2/` 等）などのコピー元地区の原本バイナリを新地区Gitリポジトリへ持ち込んではならない。原本は新地区専用 Google Drive（`SOURCE_ARCHIVE/`）へ保管する。
-- **Validation (Master Triad Integrity Gate)**:
+- **Validation (Master Triad Integrity Gate & Gates 1〜5)**:
   - **Rule-01 (総件数 N の完全一致)**: $\text{address\_master 行数} = \text{boundaries Features} = \text{municipality total\_towns 合計} = N$
   - **Rule-02 (rowId 1..N 1:1 対応)**: `address_master.csv` の `rowId` と `boundaries.geojson` の `properties.rowId` が欠損・重複なく 1:1 一致。
   - **Rule-03 (自治体名完全一致)**: 出現するすべての `city_name` が `municipality_master.csv` と完全一致。
   - **Rule-04 (旧地区残骸ゼロ確認)**: 3点セット内に前地区の自治体名・町名・旧コードが 0件。
-  - データ監査スキル `official-data-audit` のパス。
+  - `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §13 の Gate 1〜5 およびデータ監査スキル `official-data-audit` のパス。
 - **Evidence**:
-  - 生成されたマスターデータファイル群
-  - データ監査ログ（レコード件数、世帯数合計一致証跡、Integrity Gate PASS ログ）
+  - 生成されたマスターデータファイル群および `provenance.json`
+  - データ監査ログ（レコード件数、親町統計保存則 `diff == 0` 証跡、Integrity Gate PASS ログ）
 - **Rollback**:
   - 生成データの破棄・スクリプト修正・再生成
 - **HARD STOP Condition**:
   - 公式統計データと世帯数・人口の不整合が解明できない場合。
-  - Master Triad Integrity Gate（Rule-01 〜 Rule-04）で 1 件でも不整合が検出された場合。
-  - Phase 1 で、区割り判定不能・名称衝突・読み仮名欠落のいずれかが発生した場合、または QG-2 / QG-3（集合一致・重複ゼロ・`rowId` 連続採番）が FAIL した場合（`docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §4, §5）。
+  - Master Triad Integrity Gate（Rule-01 〜 Rule-04）または Gate 1〜5 で 1 件でも不整合が検出された場合。
+  - Layer 1 で、区割り判定不能・名称衝突・読み仮名欠落のいずれかが発生した場合（`docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §2, §13）。
 
 ---
 

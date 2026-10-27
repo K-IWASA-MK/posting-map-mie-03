@@ -24,7 +24,7 @@
 | **Person ID** | `PRS-` + UUID | 自然人（党員個人）のシステム内部識別子。 | 機密 (内部) | 不可 |
 | **Staff ID** | `STF-` + 5桁コード + 連番 (`STF-00001-001`) | Hアプリおよび名簿上で党員・配布員を識別するための人間向けID。 | 支部内限定 | 可（本人のみ、または管理画面） |
 | **Branch ID** | `BR-` + 地域記号 (`BR-<DISTRICT_ID>`) | 党の組織単位である支部（例: 対象選挙区支部）の識別子。 | 公開 | 可 |
-| **Target Region ID** | `rowId` (`1..N`) ※後段属性: `e_stat_code` | 活動対象となる町丁目の地域行識別子（Phase 1 Area Skeleton で `1..N` 採番）。 | 公開 | 可 |
+| **Target Region ID** | `rowId` (`1..N`) ※単一A系対応時のみ: `e_stat_code` | 活動対象となる配布エリアの地域行識別子（Layer 4 Final Master Compiler で最後に1回だけ `1..N` 採番）。 | 公開 | 可 |
 | **Activity Record ID** | `evt-` + timestamp + random / UUID | 配布実績（「誰が・いつ・どこで・何枚配ったか」）のイベント一意識別子。 | 内部 | 可 |
 | **Request ID** | `req_` + UUID v4 | Hアプリ等からの通信における重複防止のための冪等性キー（Idempotency Key）。 | 一時情報 | 可 |
 
@@ -122,19 +122,22 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 
 ### (3) 支部活動対象地域 (`ActivityTargetRegion`) — `data/address_master.csv`
 
-- **第1段階（Phase 1 Area Skeleton）**: 先頭3列（`rowId,city_name,town_name`）のみで構成される骨格データ。公式住所データから `city_name` / `town_name`（公式に丁目が存在する場合は丁目まで含め、それより下位の小字・方角等は探索・推測・生成しない）を確定し、最終順序確定後に `rowId`（`1..N`）を採番する（e-Stat 非依存）。
-- **第2段階（Phase 2 後段付与属性）**: 確定済み Area Skeleton に対して後段責務として付与される付属属性（`latitude,longitude,households,population,e_stat_code`）。
+- **4層生成アーキテクチャ（`docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` 準拠）**:
+  - **Layer 1（Official Address）**: 公式区割り・国交省位置参照情報（`data_kind=1`）・デジタル庁ABRから正式親町骨格（`city_name, parent_town_name, sort_key`）を確定する（e-Stat非依存、この段階では `rowId` を採番しない）。
+  - **Layer 2（Official Statistical Atomic）**: 同一国勢調査年の e-Stat A系（小地域：親統計・保存則基準）および B系（基本単位区：住宅分布・代表点・分割原子）を取得・正規化する。
+  - **Layer 3（Distribution Area Builder）**: 適正粒度判定・Rook隣接クラスタ分割・世帯加重メドイド＋PIP検証により最終配布エリアを構築する（分割時は `町名 (1)` .. `(K)` を確定）。
+  - **Layer 4（Final Master Compiler）**: 全配布エリアの順序確定後に **`rowId`（`1..N`）を最後に1回だけ採番**し、8列 `address_master.csv`・`boundaries.geojson`・`municipality_master.csv`・`provenance.json` を同時出力する。
 
 | Field | 論理名 | 型 | 必須/任意 | 意味・定義 | Source | 保存先 | SSOT | 備考 |
 |---|---|---|---|---|---|---|---|---|
-| `rowId` | 通し番号 | Number | 必須 | 最終 `city_name` / `town_name` 順序確定後に `1..N` で採番される行番号 | Phase 1 Area Skeleton | CSV 1列目 | address_master.csv | 1以上の連続整数 (`1..N`) |
-| `city_name` | 自治体名 | String | 必須 | 所属する市区町村の公式名称 | Phase 1 公式住所データ | CSV 2列目 | address_master.csv | 例: `〇〇市` |
-| `town_name` | 町域名 | String | 必須 | 公式町字名称（公式に丁目が存在する場合は丁目まで含める。下位の小字・方角等は含めない） | Phase 1 公式住所データ | CSV 3列目 | address_master.csv | 例: `△△町一丁目` |
-| `latitude` | 代表緯度 | Number | 必須 | 町丁目の代表点緯度（後段付与属性） | Phase 2 後段属性 (e-Stat等) | CSV 4列目 | address_master.csv | 地図ピン初期配置座標 |
-| `longitude` | 代表経度 | Number | 必須 | 町丁目の代表点経度（後段付与属性） | Phase 2 後段属性 (e-Stat等) | CSV 5列目 | address_master.csv | 地図ピン初期配置座標 |
-| `households` | 世帯数 | Number | 任意 | 国勢調査世帯数（後段付与属性） | Phase 2 後段属性 (国勢調査統計) | CSV 6列目 | address_master.csv | ポスティング参考情報 (※ノルマではない) |
-| `population` | 人口 | Number | 任意 | 国勢調査人口（後段付与属性） | Phase 2 後段属性 (国勢調査統計) | CSV 7列目 | address_master.csv | 参考情報 |
-| `e_stat_code` | 国勢調査小地域コード | String | 任意 | e-Stat KEY_CODE（後段付与属性） | Phase 2 後段属性 (総務省統計局) | CSV 8列目 | address_master.csv | 例: `00000000000` |
+| `rowId` | 通し番号 | Number | 必須 | Layer 4 で最終配布エリア順序確定後に1回だけ `1..N` で採番される行番号 | Layer 4 Final Master Compiler | CSV 1列目 | address_master.csv | 1以上の連続整数 (`1..N`) |
+| `city_name` | 自治体名 | String | 必須 | 所属する市区町村の公式名称（郡名除去・政令市区/特別区保持） | Layer 1 公式住所データ | CSV 2列目 | address_master.csv | 例: `〇〇市` |
+| `town_name` | 配布エリア表示町名 | String | 必須 | POSTING MAP完成表示名（非分割時は正式親町名、Layer 3分割時は `町名 (1)` 等。正式親町名は `provenance.json` の `official_town_name` に保持） | Layer 1 公式住所 + Layer 3 分割連番 | CSV 3列目 | address_master.csv | 例: `△△町一丁目`, `□□町 (1)` |
+| `latitude` | 代表緯度 | Number | 必須 | 世帯加重メドイド＋Even-Odd PIP検証済みの代表点緯度 | Layer 3 (B系基本単位区 / Pattern C公式基準点) | CSV 4列目 | address_master.csv | 小数点以下6桁固定 |
+| `longitude` | 代表経度 | Number | 必須 | 世帯加重メドイド＋Even-Odd PIP検証済みの代表点経度 | Layer 3 (B系基本単位区 / Pattern C公式基準点) | CSV 5列目 | address_master.csv | 小数点以下6桁固定 |
+| `households` | 世帯数 | Number | 任意 | 当該配布エリアを構成する公式単位の世帯数実数合計（1:0未対応町のみ空欄） | Layer 2/3 国勢調査統計実数合計 | CSV 6列目 | address_master.csv | ポスティング参考情報 (※ノルマではない) |
+| `population` | 人口 | Number | 任意 | 当該配布エリアを構成する公式単位の人口実数合計（1:0未対応町のみ空欄） | Layer 2/3 国勢調査統計実数合計 | CSV 7列目 | address_master.csv | 参考情報 |
+| `e_stat_code` | 国勢調査小地域コード | String | 任意 | 最終配布エリアが公式A系小地域1件と完全1:1対応する場合のみ格納（統合・分割・1:0時は空欄） | Layer 4 (総務省統計局 A系1:1対応時) | CSV 8列目 | address_master.csv | 構成コード全量は `provenance.json` 保持 |
 
 ### (4) 個人ランキング (`RankingSummary`) — Backend 動的集計
 > **目的と位置付け**:

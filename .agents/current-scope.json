@@ -1,8 +1,21 @@
 {
-  "mission": "UNIVERSAL-MUNICIPALITY-EXACT-MATCH-001",
+  "mission": "UNIVERSAL-MASTER-DATA-4LAYER-STAGE4-MIE03-PROMOTION",
   "files": [
     ".agents/current-scope.json",
-    "active/manager/manager.js",
-    "tests/test_manager_ui_interaction.mjs"
+    ".agents/os-registry.json",
+    ".agents/rules/district-data-transition-rule.md",
+    "data/address_master.csv",
+    "data/boundaries.geojson",
+    "data/municipality_master.csv",
+    "data/provenance.json",
+    "docs/architecture/ADDRESS_EXTRACTION_RULE.md",
+    "docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md",
+    "docs/data/DATA_DICTIONARY.md",
+    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
+    "scripts/build-district-master.py",
+    "scripts/fetch-district-raw-data.py",
+    "scripts/sort-address-master.py",
+    "scripts/validate-district-data-gate.mjs",
+    "tests/test_district_data_gate.mjs"
   ]
 }

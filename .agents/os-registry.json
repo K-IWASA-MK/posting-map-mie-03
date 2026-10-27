@@ -222,11 +222,11 @@
     },
     "address-master-generation": {
       "manifestPath": ".agents/skills/address-master-generation/SKILL.md",
-      "description": "13-step address master 8-column CSV generation, census dynamic resolution, PIP topology, provenance",
+      "description": "4-layer address master 8-column CSV & GeoJSON generation, census A/B dynamic resolution, medoid PIP topology, provenance",
       "canonicalSources": [
         {
           "path": "docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md",
-          "sha256": "8b7fcecb4fd2c10b801c2e18ff9f4d661ce59ead3ced0d9937658799de589e08"
+          "sha256": "05b48310f46b348a702c2af08b742f010a9feb4b1eedd2b43c6d16d66218c436"
         }
       ],
       "evidenceSources": [
@@ -239,7 +239,7 @@
       "canonicalSources": [
         {
           "path": "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
-          "sha256": "7b666724a06c1a0ce1a0d23542ea91a3614d00b1a37a829afb0081b7f554a1d7"
+          "sha256": "2339741c5cbc18baa28e88b4f8646778679bfa6deb2263091e8aa68d57b73ad8"
         },
         {
           "path": "active/api/v2_api.js",

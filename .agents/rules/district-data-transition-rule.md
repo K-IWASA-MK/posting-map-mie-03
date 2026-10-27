@@ -19,13 +19,13 @@
 
 | 対象ファイル | 役割 | 新地区展開時の取り扱い |
 | :--- | :--- | :--- |
-| **`data/address_master.csv`** | 住所マスター (SSOT) | Phase 1 Area Skeleton（`rowId,city_name,town_name` 3列確定・`1..N` 採番）に Phase 2 後段属性を付与した確定データ（1..N）へ丸ごと差し替える |
-| **`data/boundaries.geojson`** | 境界ポリゴンデータ | Phase 1 Area Skeleton（`1..N`）に対応付けられた新地区の確定境界GeoJSON（Features: N）へ丸ごと差し替える |
-| **`data/municipality_master.csv`** | 自治体マスター | 新地区の構成自治体一覧・町数へ丸ごと差し替える |
+| **`data/address_master.csv`** | 住所マスター (SSOT) | `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` の 4-Layer パイプライン（Layer 1 正式親町骨格確定 ➔ Layer 2 A/B統計原子 ➔ Layer 3 配布エリア構築 ➔ Layer 4 最終単一 `rowId = 1..N` 採番）で生成した確定データ（1..N）へ丸ごと差し替える |
+| **`data/boundaries.geojson`** | 境界ポリゴンデータ | Layer 4 Final Master Compiler で `address_master.csv`（`rowId = 1..N`）と同時生成された新地区の確定境界GeoJSON（Features: N）へ丸ごと差し替える |
+| **`data/municipality_master.csv`** | 自治体マスター | 新地区の構成自治体一覧および Layer 4 最終配布エリア数（`total_towns`）へ丸ごと差し替える |
 
 ### 遵守事項
-- **Phase 1 Area Skeleton 先行確定の原則**: 新地区のデータ生成では、最初に **3列のみの Area Skeleton（`rowId,city_name,town_name`）** を確定する。住所の母集合、公式区割りの確定・適用（適用法令の施行版・経過措置の確認を含む）、正規化、名称衝突、整列、`rowId` 採番、および品質ゲートの定義は、正本である `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md`（§3.1, §4, §5）に従う。Phase 1 の Skeleton 決定に e-Stat・`households`・`population`・`latitude`・`longitude`・`boundaries`・投票率等を使用してはならない（これらはすべて Skeleton 確定後に付与する Phase 2 後段責務とする）。
-- **同時一括交換の義務**: 上記3ファイルは「点（address）・面（boundaries）・枠（municipality）」の不可分な3点セットである。Phase 2 まで完了した確定データを必ず3点同時に一括交換しなければならない。一部のみの先行差し替えや旧地区データの混在は絶対禁止とする。
+- **Layer 1 正式親町骨格先行確定と Layer 4 最終単一採番の原則**: 新地区のデータ生成では、最初に正本 `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md`（§2）に従い、公式区割り・国交省位置参照情報（`data_kind=1`）・デジタル庁ABRから **Layer 1 正式親町骨格（`city_name, parent_town_name, sort_key`）** を確定する（Layer 1 の決定に e-Stat・世帯数・人口・境界・投票率等を使用してはならず、途中工程で仮 `rowId` を採番・振り直してはならない）。その後 Layer 2（A系+B系統計）・Layer 3（Distribution Area Builder）を経て、Layer 4（Final Master Compiler）で最後に1回だけ `rowId = 1..N` を採番し、Gate 1〜5 を検証する。
+- **同時一括交換の義務**: 上記3ファイルは「点（address）・面（boundaries）・枠（municipality）」の不可分な3点セットである。Layer 4 で同時出力された確定データを必ず3点同時に一括交換しなければならない。一部のみの先行差し替えや旧地区データの混在は絶対禁止とする。
 
 ---
 

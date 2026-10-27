@@ -359,13 +359,21 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
       fail(`boundaries.geojson feature[${i}] must be of type Feature.`);
       continue;
     }
-    if (!feat.geometry || !Array.isArray(feat.geometry.coordinates) ||
-        (feat.geometry.type !== 'Polygon' && feat.geometry.type !== 'MultiPolygon')) {
-      fail(`boundaries.geojson feature[${i}] invalid geometry (must be Polygon or MultiPolygon with coordinates array).`);
-      continue;
-    }
-
     const props = feat.properties || {};
+    const isUnavailableOfficialPolygon =
+      feat.geometry === null && props.geometry_status === 'UNAVAILABLE_OFFICIAL_POLYGON';
+
+    if (!isUnavailableOfficialPolygon) {
+      if (
+        !feat.geometry ||
+        !Array.isArray(feat.geometry.coordinates) ||
+        feat.geometry.coordinates.length === 0 ||
+        (feat.geometry.type !== 'Polygon' && feat.geometry.type !== 'MultiPolygon')
+      ) {
+        fail(`boundaries.geojson feature[${i}] invalid geometry (must be Polygon or MultiPolygon with non-empty coordinates array, or geometry:null with geometry_status="UNAVAILABLE_OFFICIAL_POLYGON").`);
+        continue;
+      }
+    }
     const rowIdNum = Number(props.rowId);
     if (!Number.isInteger(rowIdNum) || rowIdNum <= 0) {
       fail(`boundaries.geojson feature[${i}] invalid properties.rowId "${props.rowId}".`);
