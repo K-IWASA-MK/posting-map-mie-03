@@ -1,17 +1,9 @@
 {
-  "mission": "FINAL-CANONICAL-MASTER-PRODUCTION-PROMOTION",
+  "mission": "Frontend Formation Contract Minimal Rectification",
   "files": [
-    ".agents/current-scope.json",
-    ".agents/os-registry.json",
-    ".agents/skills/address-master-generation/SKILL.md",
-    "data/address_master.csv",
-    "data/boundaries.geojson",
-    "data/municipality_master.csv",
-    "data/provenance.json",
-    "docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md",
-    "scripts/build-district-master.py",
-    "scripts/sort-address-master.py",
+    "active/manager/manager.js",
+    "scripts/validate-district-data-gate.mjs",
     "tests/test_district_data_gate.mjs",
-    "tests/test_district_scripts_universal.mjs"
+    "tests/test_manager_ui_interaction.mjs"
   ]
 }
