@@ -5,6 +5,7 @@ import os from 'node:os';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseCSV, runDistrictDataValidation } from '../scripts/validate-district-data-gate.mjs';
+import { generateStorageLocations } from '../scripts/generate-storage-locations.mjs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,7 +172,7 @@ function createSyntheticFixture(overrides = {}) {
   });
 
   const areaMappingJson = overrides.areaMappingJson ?? JSON.stringify([]);
-  const storageLocationsJson = overrides.storageLocationsJson ?? JSON.stringify(['City-A', 'City-B', 'Neighbor-C']);
+  const storageLocationsJson = overrides.storageLocationsJson ?? JSON.stringify(['City-A', 'City-B']);
 
   if (overrides.skipAddress !== true) fs.writeFileSync(path.join(tmpDir, 'address_master.csv'), addressCsv, 'utf8');
   if (overrides.skipMuni !== true) fs.writeFileSync(path.join(tmpDir, 'municipality_master.csv'), muniCsv, 'utf8');
@@ -479,6 +480,147 @@ function createSyntheticFixture(overrides = {}) {
   assert.equal(repCross.pass, true, `Same town_name across different cities must pass: ${JSON.stringify(repCross.errors)}`);
   fs.rmSync(crossDir, { recursive: true, force: true });
   console.log('  ✅ 3.15 F-2 (city_name, town_name) UNIQUE gate verified (same-city duplicate rejected with exit 1; cross-city accepted)');
+}
+
+// 3.16 Human-Facing Selection Order Contract: storage_locations.json (duplicate / missing / extra / order mismatch) & address_master municipality order
+{
+  // (a) duplicate in storage_locations.json
+  const dupStorageDir = createSyntheticFixture({
+    storageLocationsJson: JSON.stringify(['City-A', 'City-A', 'City-B'])
+  });
+  const repDupStorage = runDistrictDataValidation(dupStorageDir);
+  assert.equal(repDupStorage.pass, false, 'Duplicate in storage_locations.json must fail');
+  assert.ok(repDupStorage.errors.some(e => e.includes('storage_locations.json contains duplicate municipality "City-A"')));
+  fs.rmSync(dupStorageDir, { recursive: true, force: true });
+
+  // (b) missing in storage_locations.json
+  const missingStorageDir = createSyntheticFixture({
+    storageLocationsJson: JSON.stringify(['City-A'])
+  });
+  const repMissingStorage = runDistrictDataValidation(missingStorageDir);
+  assert.equal(repMissingStorage.pass, false, 'Missing municipality in storage_locations.json must fail');
+  assert.ok(repMissingStorage.errors.some(e => e.includes('storage_locations.json missing expected municipality "City-B"')));
+  fs.rmSync(missingStorageDir, { recursive: true, force: true });
+
+  // (c) extra in storage_locations.json
+  const extraStorageDir = createSyntheticFixture({
+    storageLocationsJson: JSON.stringify(['City-A', 'City-B', 'Neighbor-C'])
+  });
+  const repExtraStorage = runDistrictDataValidation(extraStorageDir);
+  assert.equal(repExtraStorage.pass, false, 'Extra municipality in storage_locations.json must fail');
+  assert.ok(repExtraStorage.errors.some(e => e.includes('storage_locations.json has undefined extra municipality "Neighbor-C"')));
+  fs.rmSync(extraStorageDir, { recursive: true, force: true });
+
+  // (d) order mismatch in storage_locations.json (set matches, order reversed)
+  const wrongOrderStorageDir = createSyntheticFixture({
+    storageLocationsJson: JSON.stringify(['City-B', 'City-A'])
+  });
+  const repWrongOrderStorage = runDistrictDataValidation(wrongOrderStorageDir);
+  assert.equal(repWrongOrderStorage.pass, false, 'Order mismatch in storage_locations.json must fail');
+  assert.ok(repWrongOrderStorage.errors.some(e => e.includes('storage_locations.json order mismatch at index 0: got "City-B", expected "City-A"')));
+  fs.rmSync(wrongOrderStorageDir, { recursive: true, force: true });
+
+  // (e) order(unique(address_master.city_name)) != order(municipality_master.city_name)
+  const reversedMuniCsv = [
+    'city_name,city_code,total_towns',
+    'City-B,99002,1',
+    'City-A,99001,2'
+  ].join('\n');
+  const addrMuniOrderMismatchDir = createSyntheticFixture({
+    muniCsv: reversedMuniCsv,
+    storageLocationsJson: JSON.stringify(['City-B', 'City-A'])
+  });
+  const repAddrMuniOrder = runDistrictDataValidation(addrMuniOrderMismatchDir);
+  assert.equal(repAddrMuniOrder.pass, false, 'Municipality appearance order mismatch between address_master and municipality_master must fail');
+  assert.ok(repAddrMuniOrder.errors.some(e => e.includes('address_master.csv municipality appearance order mismatch at index 0')));
+  fs.rmSync(addrMuniOrderMismatchDir, { recursive: true, force: true });
+
+  // (f) non-contiguous interleaved city blocks in address_master.csv
+  const interleavedAddrCsv = [
+    'rowId,city_name,town_name,latitude,longitude,households,population,e_stat_code',
+    '1,City-A,Town-1,35.0,136.0,10,20,1001',
+    '2,City-B,Town-3,35.2,136.2,20,40,1003',
+    '3,City-A,Town-2,35.1,136.1,15,30,1002'
+  ].join('\n');
+  const interleavedBoundsGeo = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.0, 35.0], [136.1, 35.0], [136.1, 35.1], [136.0, 35.0]]] },
+        properties: { rowId: 1, city_name: 'City-A', town_name: 'Town-1' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.2, 35.2], [136.3, 35.2], [136.3, 35.3], [136.2, 35.2]]] },
+        properties: { rowId: 2, city_name: 'City-B', town_name: 'Town-3' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.1, 35.1], [136.2, 35.1], [136.2, 35.2], [136.1, 35.1]]] },
+        properties: { rowId: 3, city_name: 'City-A', town_name: 'Town-2' }
+      }
+    ]
+  });
+  const interleavedDir = createSyntheticFixture({
+    addressCsv: interleavedAddrCsv,
+    boundariesGeo: interleavedBoundsGeo
+  });
+  const repInterleaved = runDistrictDataValidation(interleavedDir);
+  assert.equal(repInterleaved.pass, false, 'Interleaved municipality rows in address_master.csv must fail');
+  assert.ok(repInterleaved.errors.some(e => e.includes('re-appeared out of contiguous order')));
+  fs.rmSync(interleavedDir, { recursive: true, force: true });
+
+  console.log('  ✅ 3.16 Storage locations (duplicate / missing / extra / order mismatch) & address_master municipality order gates verified');
+}
+
+// 3.17 RFC 4180 Canonical Storage Locations Generator (scripts/generate-storage-locations.mjs)
+{
+  const genTmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gen-storage-test-'));
+  try {
+    // (a) Reordered columns + BOM + RFC 4180 quotes
+    const customMuniCsv = '\uFEFFcity_code,"city_name",total_towns\r\n99001,"City-Alpha",2\r\n99002,"City-Beta",3\r\n';
+    const inFile = path.join(genTmpDir, 'municipality_master.csv');
+    const outFile = path.join(genTmpDir, 'storage_locations.json');
+    fs.writeFileSync(inFile, customMuniCsv, 'utf8');
+
+    const generated = generateStorageLocations({ inputPath: inFile, outputPath: outFile });
+    assert.deepEqual(generated, ['City-Alpha', 'City-Beta']);
+    const written = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    assert.deepEqual(written, ['City-Alpha', 'City-Beta']);
+
+    // (b) Missing "city_name" header -> Fail-Closed
+    fs.writeFileSync(inFile, 'priority,name\n1,City-Alpha\n', 'utf8');
+    assert.throws(
+      () => generateStorageLocations({ inputPath: inFile, outputPath: outFile }),
+      /Required header "city_name" is missing/
+    );
+
+    // (c) Duplicate city_name -> Fail-Closed
+    fs.writeFileSync(inFile, 'city_name,city_code,total_towns\nCity-Alpha,99001,1\nCity-Alpha,99002,1\n', 'utf8');
+    assert.throws(
+      () => generateStorageLocations({ inputPath: inFile, outputPath: outFile }),
+      /Duplicate city_name "City-Alpha"/
+    );
+
+    // (d) Zero data rows -> Fail-Closed
+    fs.writeFileSync(inFile, 'city_name,city_code,total_towns\n', 'utf8');
+    assert.throws(
+      () => generateStorageLocations({ inputPath: inFile, outputPath: outFile }),
+      /has zero data rows/
+    );
+
+    // (e) Numeric-only city_code accidentally in city_name column -> Fail-Closed
+    fs.writeFileSync(inFile, 'city_name,city_code,total_towns\n99001,99001,1\n', 'utf8');
+    assert.throws(
+      () => generateStorageLocations({ inputPath: inFile, outputPath: outFile }),
+      /Invalid numeric-only city_name "99001"/
+    );
+
+    console.log('  ✅ 3.17 RFC 4180 generate-storage-locations.mjs (header resolution, BOM, quotes, and Fail-Closed negative cases) verified');
+  } finally {
+    fs.rmSync(genTmpDir, { recursive: true, force: true });
+  }
 }
 
 // ─────────────────────────────────────────────────────────────

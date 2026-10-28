@@ -45,18 +45,17 @@
 ## 4. 保管場所候補マスターの導出・配備規則（Storage Locations Protocol）
 
 - **対象ファイル**: `data/storage_locations.json`
-- **役割**: Hアプリ「保有チラシ」における保管場所候補ドロップダウンの選択肢マスター。
-- **生成思想（機械的導出の原則）**:
-  - 前地区からのデータ流用、推測、静的コピーを永久に禁止する。
-  - 市町村リストを静的な答えとして与えるのではなく、**「選挙開催地（対象自治体）」を入力条件として、公式な衆議院小選挙区画定データから機械的に導出**しなければならない。
-  - 「前の地区ではこうだったからコピー」という属人的・非決定論的プロセスを完全に排除する。
-- **正式プロトコル手順**:
-  1. **選挙開催地（対象自治体）の特定**: 今回のポスティング対象となる基礎自治体を特定する。
-  2. **公式小選挙区の特定**: 総務省または各都道府県選挙管理委員会の公定資料を根拠とし、開催地が属する「都道府県・第○区」を特定する（推測禁止）。
-  3. **構成市町村一覧の取得**: 当該小選挙区を構成する全自治体（活動拠点・保管拠点候補）を取得する。
-  4. **地区 data/ への配備**: 取得した市町村一覧を配列形式（JSON）で `data/storage_locations.json` に配置する。
+- **役割**: Hアプリ「保有チラシ」における保管場所候補ドロップダウンの選択肢マスター（`data/municipality_master.csv` の `city_name` 行順に従う派生ファイル）。
+- **生成思想（Canonical Master からの機械的導出の原則）**:
+  - `data/storage_locations.json` は独立した手入力SSOTではない。前地区からのデータ流用、推測、静的コピー、および手作業による自治体配列作成・独自順序変更を永久に禁止する。
+  - 自治体順の唯一の正本（SSOT）は、公式区割りおよびデジタル庁ABR読み仮名（`city_kana` 五十音順）に基づき確定した Canonical `data/municipality_master.csv` の行順である。
+  - 簡易な文字列分割（`split(",")` 等）や手動編集ではなく、RFC 4180 準拠かつ `"city_name"` ヘッダー解決型の汎用ジェネレータ（`scripts/generate-storage-locations.mjs`）によって機械的・決定論的に導出しなければならない。
+- **正式プロトコル手順（RUNBOOK Stage 2 Step 6）**:
+  1. **Canonical Master 4点成果物の確定**: `address-master-generation` により新地区の `data/municipality_master.csv`（公式読み仮名五十音順）を確定する。
+  2. **機械的抽出・配備**: `node scripts/generate-storage-locations.mjs` を実行し、`data/municipality_master.csv` の `"city_name"` 列を Canonical 行順のまま抽出して `data/storage_locations.json` を生成する。
+  3. **機械検証ゲート通過**: `node scripts/validate-district-data-gate.mjs` を実行し、`set(storage_locations) = set(municipality_master.city_name)` および `order(storage_locations) = order(municipality_master.city_name)`（duplicate / missing / extra / order mismatch が 0 件）を確認する。
 - **遵守事項**:
-  - **Universal Engine非侵襲**: `active/` 側の実行エンジンコード内に自治体名を一切ハードコードしてはならない。
+  - **Universal Engine非侵襲**: `active/` 側の実行エンジンコードや検証スクリプト内に地区固有の自治体名を一切ハードコードしてはならない。
   - **他地区データの完全遮断**: 過去の他地区リポジトリの `storage_locations.json` を参照・流用することを絶対禁止とする。
 
 ---
@@ -85,8 +84,9 @@
    $$\text{address\_master.csv の有効行数} = \text{boundaries.geojson の Feature数} = \text{municipality\_master.csv の total\_towns 合計} = N$$
 2. **rowId（1..N）の完全 1:1 対応**:
    - `address_master.csv` の `rowId`（1..N 連番）と `boundaries.geojson` の `properties.rowId` が欠損・重複なく 1:1 で一致すること。
-3. **自治体名の完全一致**:
-   - `address_master.csv` に出現するすべての `city_name` が `municipality_master.csv` の `city_name` と完全一致すること。
+3. **自治体名および五十音順序の完全一致**:
+   - `address_master.csv` に出現するすべての `city_name` が `municipality_master.csv` の `city_name` と完全一致し、かつ自治体初出順が `order(unique(address_master.city_name)) = order(municipality_master.city_name)` を満たすこと。
+   - `storage_locations.json` が `set(storage_locations) = set(municipality_master.city_name)` および `order(storage_locations) = order(municipality_master.city_name)` を満たし、`node scripts/validate-district-data-gate.mjs` で duplicate / missing / extra / order mismatch が Fail-Closed で検証・PASSしていること。
 4. **旧地区残骸ゼロ確認**:
    - 3点セット内に前地区の自治体名、町名、旧コードが 0件 であること（マスターデータ内のテキスト検索・キー照合による静的スキャンおよび不整合ゼロ証跡の記録）。
 

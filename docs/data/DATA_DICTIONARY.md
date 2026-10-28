@@ -263,8 +263,8 @@ POSTING MAP の中核である「誰が・いつ・どこで・何枚配った�
 
 ### (11) 保管場所候補マスター (`data/storage_locations.json`)
 - **役割**: Hアプリ「保有チラシ」における保管場所候補ドロップダウンの選択肢マスター。
-- **生成規則**: 対象自治体を入力条件とし、公式な衆議院小選挙区画定資料から機械的に導出（構成自治体一覧を文字列配列形式 `["〇〇市", "△△市", ...]` で配置）。
-- **制約**: 他地区からの流用・推測・静的コピーは永久禁止。`active/` 内への自治体名ハードコードは禁止。
+- **生成規則**: 独立した手入力SSOTではなく、Canonical `data/municipality_master.csv` の `city_name` 列（公式読み仮名五十音順）を唯一の正本（SSOT）とし、`node scripts/generate-storage-locations.mjs`（RFC 4180 準拠・`"city_name"` ヘッダー解決型ジェネレータ）により Canonical 行順のまま機械抽出した文字列配列形式 `["〇〇市", "△△市", ...]` で配置する（`set(storage_locations) = set(municipality_master.city_name)` かつ `order(storage_locations) = order(municipality_master.city_name)`）。
+- **制約**: 他地区からの流用・推測・静的コピー・手作業による自治体配列作成・独自順序変更は永久禁止。`active/` 内への自治体名ハードコードは禁止。
 
 ### (12) エリア実績マッピングメタデータ (`data/area_mapping.json`)
 - **役割**: 旧マスターから新小地域マスターへの実績ステータス継承メタデータ。

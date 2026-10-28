@@ -239,7 +239,7 @@
       "canonicalSources": [
         {
           "path": "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
-          "sha256": "2339741c5cbc18baa28e88b4f8646778679bfa6deb2263091e8aa68d57b73ad8"
+          "sha256": "d73351db9abe39cc00a767f94f43af0ad7603bfdc15fa0a601677257532183cc"
         },
         {
           "path": "active/api/v2_api.js",

@@ -58,7 +58,7 @@ version: 1.0.0
 ### 4.1 Normal Path（標準一括初期化）
 
 - **Precondition（前提条件）**:
-  - 新地区の公式データ成果物（`data/address_master.csv`, `data/boundaries.geojson`, `data/municipality_master.csv`, `data/area_mapping.json`, `data/storage_locations.json`, `data/config.js`）が `address-master-generation` および `official-data-audit` により生成・承認済みであり、適用可能な状態にあること。
+  - 新地区の公式データ成果物（`data/address_master.csv`, `data/boundaries.geojson`, `data/municipality_master.csv`, `data/area_mapping.json`, `data/storage_locations.json`, `data/config.js`）が `address-master-generation`（および `node scripts/generate-storage-locations.mjs` による `municipality_master.csv → storage_locations.json` の Canonical 五十音順抽出）ならびに `official-data-audit` により生成・承認済みであり、適用可能な状態にあること。
 - **不可分一体原則（Single Indivisible Work Unit）**:
   - **`data/** 新地区化` と `Spreadsheet Master 新地区同期`（`配布実績<Active Dataset Key>` の更新）は別々の独立フェーズではなく、単一不可分の「District Initialization（地区初期化）」作業単位** である。
   - `data/**` だけを新地区へ更新して Spreadsheet の `配布実績<Active Dataset Key>` をコピー元状態のまま放置してはならない。
@@ -84,7 +84,7 @@ version: 1.0.0
   3. Spreadsheet `配布実績<Active Dataset Key>` が新地区 `data/address_master.csv` で同期され、総件数 $N$、`rowId` `1..N` 連番、`city_name`、`town_name` が Git `data/address_master.csv` と Spreadsheet `A2:C(N+1)` で 100% 完全一致していること。
   4. `配布実績<Active Dataset Key>` の活動列 `D2:Q(N+1)`（`D` 列以降すべて）および旧行数が $N$ を超えていた場合の `N+2` 行目以降の余剰旧行がすべて空欄（non-empty = 0）であること。
   5. `SYSTEM_INFO` と `配布実績<Active Dataset Key>` を除く **その他すべての既存シート**（`名簿*`, `保有チラシ枚数*`, `受渡要請履歴*`, `PinStatus*`, `掲示板*`, `掲示板連絡履歴*`, `端末管理`, および非Activeの過月 `配布実績*` を含む全シート）において、**Row 1（ヘッダー・構造）が 100% 維持され、かつ Row 2+ の非空セル数が 0 件（Row 2+ non-empty = 0）** であること。
-  6. Git 側（`test_district_data_gate.mjs` 等）および Spreadsheet 側の双方で Self-Verify が PASS していること。
+  6. Git 側（`test_district_data_gate.mjs` による `storage_locations.json` と `municipality_master.csv` の集合・順序一致検証を含む）および Spreadsheet 側の双方で Self-Verify が PASS していること。
 
 ### 4.2 Recovery Path（片側先行更新状態からの回復経路）
 

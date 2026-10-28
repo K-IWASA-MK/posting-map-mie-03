@@ -65,7 +65,7 @@ function getCsvOrSheetDataFromFile(file) {
  * @return {string[]} 自治体順の配列
  */
 function getMunicipalityOrder() {
-  const CACHE_KEY = "MUNICIPALITY_ORDER_CACHE";
+  const CACHE_KEY = "MUNICIPALITY_ORDER_CACHE_V2";
   const CACHE_TTL = 21600; // 6時間 (GAS CacheService 最大保持期間)
 
   try {
@@ -74,7 +74,11 @@ function getMunicipalityOrder() {
       const cached = cache.get(CACHE_KEY);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (
+          Array.isArray(parsed) &&
+          parsed.length > 0 &&
+          parsed.every((c) => typeof c === "string" && c.trim().length > 0 && !/^\d+$/.test(c.trim()))
+        ) {
           return parsed;
         }
       }
@@ -84,46 +88,66 @@ function getMunicipalityOrder() {
   }
 
   const fileName = "municipality_master.csv";
-  let file = findFileByPattern("municipality_master", fileName);
-  
+  const file = findFileByPattern("municipality_master", fileName);
   const defaultList = [];
-  
+
   if (!file) {
-    try {
-      const csvContent = "priority,city_name\n";
-      const parentId = typeof CONFIG !== 'undefined' ? CONFIG.get("STORAGE_PARENT_ID") : null;
-      let folder = DriveApp.getRootFolder();
-      if (parentId) {
-        try {
-          folder = DriveApp.getFolderById(parentId);
-        } catch (fErr) {}
-      }
-      file = folder.createFile(fileName, csvContent, MimeType.PLAIN_TEXT);
-      console.warn("municipality_master.csv が見つからないため、ドライブ上に空ファイルで自動生成しました。");
-    } catch (err) {
-      console.error("municipality_master.csv の自動生成に失敗しました: " + err.message);
-      return defaultList; // エラー時はデフォルトをそのまま返す
-    }
+    console.warn("municipality_master.csv が見つかりません（Fail-Closed: 空リストを返却）。");
+    return defaultList;
   }
-  
+
   try {
     const data = getCsvOrSheetDataFromFile(file);
-    if (!data || data.length <= 1) {
+    if (!Array.isArray(data) || data.length <= 1 || !Array.isArray(data[0])) {
       return defaultList;
     }
-    
-    const cities = [];
-    // 1行目はヘッダー (priority,city_name)
-    for (let i = 1; i < data.length; i++) {
-      const cityName = String(data[i][1] || "").trim(); // 2列目 (city_name)
-      if (cityName) {
-        cities.push(cityName);
+
+    const headerRow = data[0].map((col, idx) => {
+      const raw = String(col ?? "");
+      return (idx === 0 ? raw.replace(/^\uFEFF/, "") : raw).trim();
+    });
+
+    const cityNameColIndices = [];
+    for (let c = 0; c < headerRow.length; c++) {
+      if (headerRow[c] === "city_name") {
+        cityNameColIndices.push(c);
       }
     }
 
-    // 正本からの取得成功時、CacheServiceへ保存 (派生データ高速化)
+    if (cityNameColIndices.length !== 1) {
+      console.error("municipality_master.csv に一意な city_name ヘッダーが存在しません（Fail-Closed）。");
+      return defaultList;
+    }
+
+    const cityNameColIdx = cityNameColIndices[0];
+    const cities = [];
+    const seen = new Set();
+
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row)) {
+        return defaultList;
+      }
+      // 末尾の完全空行はスキップ
+      if (row.length === 1 && String(row[0] ?? "").trim() === "") {
+        continue;
+      }
+      const cityName = String(row[cityNameColIdx] ?? "").trim();
+      if (!cityName || /^\d+$/.test(cityName) || seen.has(cityName)) {
+        console.error("municipality_master.csv に不正または重複した city_name 行が含まれています（Fail-Closed）。");
+        return defaultList;
+      }
+      seen.add(cityName);
+      cities.push(cityName);
+    }
+
+    if (cities.length === 0) {
+      return defaultList;
+    }
+
+    // 正本からの取得・検証成功時のみ V2 CacheKey へ保存
     try {
-      if (typeof CacheService !== 'undefined' && CacheService.getScriptCache && cities.length > 0) {
+      if (typeof CacheService !== 'undefined' && CacheService.getScriptCache) {
         CacheService.getScriptCache().put(CACHE_KEY, JSON.stringify(cities), CACHE_TTL);
       }
     } catch (cErr) {}

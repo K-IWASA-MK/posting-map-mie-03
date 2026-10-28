@@ -406,7 +406,193 @@ assert.equal(
 
 console.log('  ✅ Gate 5 PASS: Universal Engine 上で active/ の変更 0 行にて独立した新地区が成立することを実証');
 
+// ─── GATE 6 (SYS-01): getMunicipalityOrder() Canonical Header Resolution & Legacy Cache Isolation ───
+console.log('\n[Gate 6 / SYS-01] getMunicipalityOrder() Canonical "city_name" header resolution & MUNICIPALITY_ORDER_CACHE_V2 isolation...');
+{
+  const v2ExtractCode = fs.readFileSync(path.join(REPO_ROOT, 'active/gas/v2_extract.js'), 'utf8');
+
+  function runMunicipalityOrderScenario({
+    initialCache = {},
+    fileExists = true,
+    csvRows = null,
+    throwOnParse = false
+  }) {
+    const cacheStore = { ...initialCache };
+    let createFileCallCount = 0;
+
+    const mockFile = fileExists
+      ? {
+          getMimeType: () => 'text/csv',
+          getBlob: () => ({
+            getDataAsString: () => ''
+          })
+        }
+      : null;
+
+    const extractContext = vm.createContext({
+      console: {
+        log: () => {},
+        warn: () => {},
+        error: () => {}
+      },
+      MimeType: {
+        GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet',
+        PLAIN_TEXT: 'text/plain'
+      },
+      CacheService: {
+        getScriptCache: () => ({
+          get: (k) => (Object.prototype.hasOwnProperty.call(cacheStore, k) ? cacheStore[k] : null),
+          put: (k, v) => {
+            cacheStore[k] = String(v);
+          }
+        })
+      },
+      DriveApp: {
+        searchFiles: () => ({
+          hasNext: () => Boolean(mockFile),
+          next: () => mockFile
+        }),
+        getFilesByName: () => ({
+          hasNext: () => Boolean(mockFile),
+          next: () => mockFile
+        }),
+        getRootFolder: () => ({
+          createFile: () => {
+            createFileCallCount++;
+            return mockFile;
+          }
+        }),
+        getFolderById: () => ({
+          createFile: () => {
+            createFileCallCount++;
+            return mockFile;
+          }
+        })
+      },
+      Utilities: {
+        parseCsv: () => {
+          if (throwOnParse) {
+            throw new Error('Synthetic CSV parse failure');
+          }
+          return csvRows;
+        }
+      }
+    });
+
+    vm.runInContext(v2ExtractCode, extractContext);
+    // Override getCsvOrSheetDataFromFile if throwOnParse is true to ensure exception inside getMunicipalityOrder
+    if (throwOnParse) {
+      vm.runInContext(
+        `getCsvOrSheetDataFromFile = function() { throw new Error("Synthetic parse error"); };`,
+        extractContext
+      );
+    }
+    const result = vm.runInContext('getMunicipalityOrder()', extractContext);
+    return { result: Array.from(result), cacheStore, createFileCallCount };
+  }
+
+  // 1. Legacy Cache Poisoning Isolation Test:
+  // Pre-populate legacy key "MUNICIPALITY_ORDER_CACHE" with ["99001", "99002"]
+  const scenario1 = runMunicipalityOrderScenario({
+    initialCache: {
+      MUNICIPALITY_ORDER_CACHE: JSON.stringify(['99001', '99002'])
+    },
+    fileExists: true,
+    csvRows: [
+      ['city_name', 'city_code', 'total_towns'],
+      ['City-A', '99001', '10'],
+      ['City-B', '99002', '20']
+    ]
+  });
+  assert.deepEqual(
+    scenario1.result,
+    ['City-A', 'City-B'],
+    'Must ignore legacy MUNICIPALITY_ORDER_CACHE and resolve "city_name" column in Canonical order'
+  );
+  assert.equal(
+    scenario1.result.some(v => /^\d+$/.test(v)),
+    false,
+    'city_code must NEVER leak into getMunicipalityOrder() return value'
+  );
+  assert.equal(
+    scenario1.cacheStore.MUNICIPALITY_ORDER_CACHE_V2,
+    JSON.stringify(['City-A', 'City-B']),
+    'Only MUNICIPALITY_ORDER_CACHE_V2 must store the validated municipality names'
+  );
+
+  // 2. Dynamic Header Resolution (non-zero column index & UTF-8 BOM)
+  const scenario2 = runMunicipalityOrderScenario({
+    fileExists: true,
+    csvRows: [
+      ['\uFEFFcity_code', 'city_name', 'total_towns'],
+      ['99001', 'Alpha-Shi', '5'],
+      ['99002', 'Beta-Cho', '8']
+    ]
+  });
+  assert.deepEqual(scenario2.result, ['Alpha-Shi', 'Beta-Cho']);
+  assert.equal(scenario2.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, JSON.stringify(['Alpha-Shi', 'Beta-Cho']));
+
+  // 3. Negative Fail-Closed Cases (must return [] and NEVER write to MUNICIPALITY_ORDER_CACHE_V2 or create files on Drive)
+  // (a) municipality_master.csv missing
+  const negMissingFile = runMunicipalityOrderScenario({ fileExists: false });
+  assert.deepEqual(negMissingFile.result, []);
+  assert.equal(negMissingFile.createFileCallCount, 0, 'Must NEVER auto-create legacy priority,city_name CSV on Drive');
+  assert.equal(negMissingFile.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  // (b) city_name header missing
+  const negMissingHeader = runMunicipalityOrderScenario({
+    fileExists: true,
+    csvRows: [
+      ['priority', 'name'],
+      ['1', 'City-A']
+    ]
+  });
+  assert.deepEqual(negMissingHeader.result, []);
+  assert.equal(negMissingHeader.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  // (c) empty data (header only)
+  const negEmptyData = runMunicipalityOrderScenario({
+    fileExists: true,
+    csvRows: [['city_name', 'city_code', 'total_towns']]
+  });
+  assert.deepEqual(negEmptyData.result, []);
+  assert.equal(negEmptyData.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  // (d) invalid data (numeric city_code or blank in city_name column)
+  const negInvalidData = runMunicipalityOrderScenario({
+    fileExists: true,
+    csvRows: [
+      ['city_name', 'city_code', 'total_towns'],
+      ['99001', '99001', '10']
+    ]
+  });
+  assert.deepEqual(negInvalidData.result, []);
+  assert.equal(negInvalidData.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  // (e) duplicate city_name
+  const negDuplicate = runMunicipalityOrderScenario({
+    fileExists: true,
+    csvRows: [
+      ['city_name', 'city_code', 'total_towns'],
+      ['City-A', '99001', '10'],
+      ['City-A', '99002', '20']
+    ]
+  });
+  assert.deepEqual(negDuplicate.result, []);
+  assert.equal(negDuplicate.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  // (f) parse failure
+  const negParseFail = runMunicipalityOrderScenario({
+    fileExists: true,
+    throwOnParse: true
+  });
+  assert.deepEqual(negParseFail.result, []);
+  assert.equal(negParseFail.cacheStore.MUNICIPALITY_ORDER_CACHE_V2, undefined);
+
+  console.log('  ✅ Gate 6 (SYS-01) PASS: Canonical "city_name" header resolution, MUNICIPALITY_ORDER_CACHE_V2 isolation, and 6 Fail-Closed conditions verified');
+}
+
 console.log('\n====================================================');
-console.log('🎉 ALL 5 GATES OF PHASE 21 ANCHOR TEST PASSED (100%)');
+console.log('🎉 ALL 6 GATES OF PHASE 21 ANCHOR TEST PASSED (100%)');
 console.log('   UNIVERSAL MULTI-REGION ARCHITECTURE IS FULLY PROVEN!');
 console.log('====================================================\n');

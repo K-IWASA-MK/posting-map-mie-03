@@ -283,11 +283,15 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
   }
 
   const validCities = new Set(muniExpectedMap.keys());
+  const canonicalMuniOrder = Array.from(muniExpectedMap.keys());
 
   // 4. address_master 行バリデーション & 集計
   const addressRowMap = new Map();
   const addressCityCount = new Map();
   const addressCityTownSeen = new Map();
+  const addressCityAppearanceOrder = [];
+  const addressCityAppearanceSet = new Set();
+  let prevAddressCity = null;
   for (let i = 0; i < addressData.rows.length; i++) {
     const row = addressData.rows[i];
     const rowIdNum = Number(row.rowId);
@@ -304,6 +308,16 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
     const townName = (row.town_name ?? '').toString().trim();
     if (!cityName) fail(`address_master.csv row ${i + 2}: empty city_name.`);
     if (!townName) fail(`address_master.csv row ${i + 2}: empty town_name.`);
+
+    if (cityName) {
+      if (!addressCityAppearanceSet.has(cityName)) {
+        addressCityAppearanceSet.add(cityName);
+        addressCityAppearanceOrder.push(cityName);
+      } else if (prevAddressCity !== cityName) {
+        fail(`address_master.csv row ${i + 2}: city_name "${cityName}" re-appeared out of contiguous order after "${prevAddressCity}".`);
+      }
+      prevAddressCity = cityName;
+    }
 
     if (cityName && townName) {
       const cityTownKey = `${cityName}\u0000${townName}`;
@@ -438,6 +452,17 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
     }
   }
 
+  // order(unique(address_master.city_name)) = order(municipality_master.city_name)
+  if (addressCityAppearanceOrder.length === canonicalMuniOrder.length) {
+    for (let cIdx = 0; cIdx < canonicalMuniOrder.length; cIdx++) {
+      if (addressCityAppearanceOrder[cIdx] !== canonicalMuniOrder[cIdx]) {
+        fail(`address_master.csv municipality appearance order mismatch at index ${cIdx}: got "${addressCityAppearanceOrder[cIdx]}", expected "${canonicalMuniOrder[cIdx]}" from municipality_master.csv.`);
+      }
+    }
+  } else {
+    fail(`address_master.csv unique municipality count (${addressCityAppearanceOrder.length}) does not match municipality_master.csv count (${canonicalMuniOrder.length}).`);
+  }
+
   // Rule-02: rowId 1..N 1:1 対応・連続性
   if (N_address === expectedTotalN && N_geo === expectedTotalN && expectedTotalN > 0) {
     for (let id = 1; id <= expectedTotalN; id++) {
@@ -512,10 +537,45 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
     if (!Array.isArray(storageData)) {
       fail(`storage_locations.json must be an array.`);
     } else {
+      const storageCities = [];
+      const storageSeen = new Set();
+      let hasElementFormatError = false;
+
       for (let sIdx = 0; sIdx < storageData.length; sIdx++) {
         const item = storageData[sIdx];
         if (typeof item !== 'string' || item.trim().length === 0) {
           fail(`storage_locations.json element[${sIdx}] must be a non-empty string.`);
+          hasElementFormatError = true;
+          continue;
+        }
+        const trimmed = item.trim();
+        if (storageSeen.has(trimmed)) {
+          fail(`storage_locations.json contains duplicate municipality "${trimmed}" at index ${sIdx}.`);
+        }
+        storageSeen.add(trimmed);
+        storageCities.push(trimmed);
+      }
+
+      if (!hasElementFormatError) {
+        // missing: municipality_master.csv に存在するが storage_locations.json に欠落
+        for (const c of validCities) {
+          if (!storageSeen.has(c)) {
+            fail(`storage_locations.json missing expected municipality "${c}" from municipality_master.csv.`);
+          }
+        }
+        // extra: storage_locations.json に存在するが municipality_master.csv に未定義
+        for (const c of storageCities) {
+          if (!validCities.has(c)) {
+            fail(`storage_locations.json has undefined extra municipality "${c}" not in municipality_master.csv.`);
+          }
+        }
+        // order mismatch: order(storage_locations) = order(municipality_master.city_name)
+        if (storageCities.length === canonicalMuniOrder.length) {
+          for (let sIdx = 0; sIdx < canonicalMuniOrder.length; sIdx++) {
+            if (storageCities[sIdx] !== canonicalMuniOrder[sIdx]) {
+              fail(`storage_locations.json order mismatch at index ${sIdx}: got "${storageCities[sIdx]}", expected "${canonicalMuniOrder[sIdx]}" from municipality_master.csv.`);
+            }
+          }
         }
       }
     }

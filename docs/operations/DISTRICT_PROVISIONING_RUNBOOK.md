@@ -94,14 +94,16 @@
   5. **`data/area_mapping.json` の初期化 (Area Mapping Initialization)**:
      - 新規立ち上げ地区（旧実績が存在しない地区）では、誤ったステータス継承・データ汚染を防止するため、**必ず空配列 `[]` に初期化**する。旧地区のマッピングを残存させることは重大事故（別地区エリアの誤爆完了扱い）となるため絶対禁止とする。
   6. **保管場所候補マスターの機械的導出 (Storage Locations Protocol)**:
-     - `data/storage_locations.json`（チラシ保管場所選択肢）は、前地区からの流用や静的コピーを永久禁止する。
-     - 対象自治体を入力条件とし、公式な衆議院小選挙区画定公定資料から機械的に導出（構成自治体一覧を取得してJSON配備）する。`active/` 内への自治体名ハードコードは禁止。
+     - `data/storage_locations.json`（チラシ保管場所選択肢）は独立した手入力SSOTではなく、前地区からの流用・静的コピー・手作業による自治体配列作成・独自順序変更を永久禁止する。
+     - Stage 2 Step 3〜4 で確定した Canonical `data/municipality_master.csv` を唯一の正本（SSOT）とし、`node scripts/generate-storage-locations.mjs`（RFC 4180 準拠・`"city_name"` ヘッダー解決型ジェネレータ）を実行して `city_name` 列を Canonical 行順（公式読み仮名五十音順）のまま機械抽出し `data/storage_locations.json` を決定論的に生成する。`active/` 内への自治体名ハードコードは禁止。
   7. **一次原本持ち込み禁止 (Raw Data Exclusion)**:
      - `data/raw/` および `data/raw_reference/`（旧 `data/raw_estat_r2/` 等）などのコピー元地区の原本バイナリを新地区Gitリポジトリへ持ち込んではならない。原本は新地区専用 Google Drive（`SOURCE_ARCHIVE/`）へ保管する。
 - **Validation (Master Triad Integrity Gate & Gates 1〜5)**:
   - **Rule-01 (総件数 N の完全一致)**: $\text{address\_master 行数} = \text{boundaries Features} = \text{municipality total\_towns 合計} = N$
   - **Rule-02 (rowId 1..N 1:1 対応)**: `address_master.csv` の `rowId` と `boundaries.geojson` の `properties.rowId` が欠損・重複なく 1:1 一致。
-  - **Rule-03 (自治体名完全一致)**: 出現するすべての `city_name` が `municipality_master.csv` と完全一致。
+  - **Rule-03 (自治体名・五十音順序の完全一致)**:
+    - `address_master.csv` に出現するすべての `city_name` が `municipality_master.csv` と完全一致し、かつ自治体初出順が `order(unique(address_master.city_name)) = order(municipality_master.city_name)` を満たすこと。
+    - `storage_locations.json` が `set(storage_locations) = set(municipality_master.city_name)` および `order(storage_locations) = order(municipality_master.city_name)` を満たし、`node scripts/validate-district-data-gate.mjs` において duplicate / missing / extra / order mismatch が 0 件（PASS）であること。
   - **Rule-04 (旧地区残骸ゼロ確認)**: 3点セット内に前地区の自治体名・町名・旧コードが 0件。
   - `docs/architecture/DISTRICT_DATA_ACQUISITION_RULE.md` §13 の Gate 1〜5 およびデータ監査スキル `official-data-audit` のパス。
 - **Evidence**:
