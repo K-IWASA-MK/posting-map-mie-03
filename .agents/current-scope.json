@@ -1,9 +1,17 @@
 {
-  "mission": "Frontend Formation Contract Minimal Rectification",
+  "mission": "H-App / Dashboard Human-Facing Selection Order Universal Audit",
   "files": [
-    "active/manager/manager.js",
+    ".agents/current-scope.json",
+    "scripts/generate-storage-locations.mjs",
+    "data/storage_locations.json",
     "scripts/validate-district-data-gate.mjs",
     "tests/test_district_data_gate.mjs",
-    "tests/test_manager_ui_interaction.mjs"
+    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
+    ".agents/rules/district-data-transition-rule.md",
+    ".agents/skills/district-app-deployment/SKILL.md",
+    "docs/data/DATA_DICTIONARY.md",
+    ".agents/os-registry.json",
+    "active/gas/v2_extract.js",
+    "tests/test_phase21_multiregion_verification.mjs"
   ]
 }
