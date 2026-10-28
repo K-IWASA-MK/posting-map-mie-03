@@ -402,6 +402,85 @@ function createSyntheticFixture(overrides = {}) {
   console.log('  ✅ 3.14 Auxiliary JSON non-array format rejected');
 }
 
+// 3.15 F-2 Data Contract Gate: (city_name, town_name) UNIQUE 検証 (同一自治体内の同名町域拒絶 & 異自治体間の同名町域受容)
+{
+  // (a) 同一 city_name (City-A) 内に同一 town_name (Town-1) が2件存在 -> Fail-Closed (pass: false & CLI exit 1)
+  const dupTownAddr = [
+    'rowId,city_name,town_name,latitude,longitude,households,population,e_stat_code',
+    '1,City-A,Town-1,35.0,136.0,10,20,1001',
+    '2,City-A,Town-1,35.1,136.1,15,30,1002',
+    '3,City-B,Town-3,35.2,136.2,20,40,1003'
+  ].join('\n');
+  const dupTownGeo = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.0, 35.0], [136.1, 35.0], [136.1, 35.1], [136.0, 35.0]]] },
+        properties: { rowId: 1, city_name: 'City-A', town_name: 'Town-1' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.1, 35.1], [136.2, 35.1], [136.2, 35.2], [136.1, 35.1]]] },
+        properties: { rowId: 2, city_name: 'City-A', town_name: 'Town-1' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.2, 35.2], [136.3, 35.2], [136.3, 35.3], [136.2, 35.2]]] },
+        properties: { rowId: 3, city_name: 'City-B', town_name: 'Town-3' }
+      }
+    ]
+  });
+  const dupDir = createSyntheticFixture({ addressCsv: dupTownAddr, boundariesGeo: dupTownGeo });
+  const repDup = runDistrictDataValidation(dupDir);
+  assert.equal(repDup.pass, false, 'Duplicate (city_name, town_name) within same city_name must fail');
+  assert.ok(
+    repDup.errors.some(e => e.includes('duplicate (city_name, town_name) pair ("City-A", "Town-1")')),
+    `Expected duplicate (city_name, town_name) error, got: ${JSON.stringify(repDup.errors)}`
+  );
+  try {
+    execSync(`node ${SCRIPT_PATH} --data-dir "${dupDir}"`, { cwd: REPO_ROOT, encoding: 'utf8', stdio: 'pipe' });
+    assert.fail('CLI must exit with code 1 when duplicate (city_name, town_name) exists');
+  } catch (err) {
+    assert.equal(err.status, 1, 'CLI exit code must be 1 on duplicate (city_name, town_name)');
+  } finally {
+    fs.rmSync(dupDir, { recursive: true, force: true });
+  }
+
+  // (b) 異なる city_name (City-A と City-B) に同じ town_name (Town-1) が存在 -> 正常受容 (pass: true)
+  const crossCitySameTownAddr = [
+    'rowId,city_name,town_name,latitude,longitude,households,population,e_stat_code',
+    '1,City-A,Town-1,35.0,136.0,10,20,1001',
+    '2,City-A,Town-2,35.1,136.1,15,30,1002',
+    '3,City-B,Town-1,35.2,136.2,20,40,1003'
+  ].join('\n');
+  const crossCitySameTownGeo = JSON.stringify({
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.0, 35.0], [136.1, 35.0], [136.1, 35.1], [136.0, 35.0]]] },
+        properties: { rowId: 1, city_name: 'City-A', town_name: 'Town-1' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.1, 35.1], [136.2, 35.1], [136.2, 35.2], [136.1, 35.1]]] },
+        properties: { rowId: 2, city_name: 'City-A', town_name: 'Town-2' }
+      },
+      {
+        type: 'Feature',
+        geometry: { type: 'Polygon', coordinates: [[[136.2, 35.2], [136.3, 35.2], [136.3, 35.3], [136.2, 35.2]]] },
+        properties: { rowId: 3, city_name: 'City-B', town_name: 'Town-1' }
+      }
+    ]
+  });
+  const crossDir = createSyntheticFixture({ addressCsv: crossCitySameTownAddr, boundariesGeo: crossCitySameTownGeo });
+  const repCross = runDistrictDataValidation(crossDir);
+  assert.equal(repCross.pass, true, `Same town_name across different cities must pass: ${JSON.stringify(repCross.errors)}`);
+  fs.rmSync(crossDir, { recursive: true, force: true });
+  console.log('  ✅ 3.15 F-2 (city_name, town_name) UNIQUE gate verified (same-city duplicate rejected with exit 1; cross-city accepted)');
+}
+
 // ─────────────────────────────────────────────────────────────
 // 4. CLI 実行によるプロセス終了コード検証 (Fail-Closed)
 // ─────────────────────────────────────────────────────────────

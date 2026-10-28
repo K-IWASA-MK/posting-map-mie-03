@@ -1149,6 +1149,254 @@ console.log("\n▶ [UI TEST 6] Desktop 2-Level Drilldown & Turnout Common SSOT C
   assert.equal(getEl('fact-total-stocks').textContent, '1,300', "『ALL』選択時、保有チラシ在庫 KPI は全件合算の 1,300 枚であること");
 
   console.log("  ✅ UI TEST 8 PASS: '北区' vs '堺市北区' exact-match isolation on Map Pin / Area KPI / Records KPI / Stocks KPI & ALL aggregation verified");
+
+  // -------------------------------------------------------------
+  // [UI TEST 9] FRONTEND FORMATION CONTRACT MINIMAL RECTIFICATION
+  // (F-1 / F-4 / F-5 + Product Behavior Preservation Gate: Behavior Diff = 0 on Normal Inputs)
+  // -------------------------------------------------------------
+  console.log("\n▶ [UI TEST 9] Frontend Formation Contract (F-1 / F-4 / F-5) & Behavior Diff = 0 Verification");
+
+  // 9.1 Static Verification: F-1 dummy formulas, bindBoundariesStatsToPins, and new window.* globals are absent
+  assert.ok(
+    !managerCode.includes('((pin.rowId * 137') &&
+    !managerCode.includes('((selectedPin.rowId * 137') &&
+    !managerCode.includes('Math.round(households * 2.35)'),
+    "F-1a: manager.js から疑似乱数世帯数 (137式) および推定人口 (×2.35) の生成式が完全撤去されていること"
+  );
+  assert.ok(
+    !managerCode.includes('bindBoundariesStatsToPins'),
+    "F-1b: manager.js から bindBoundariesStatsToPins 関数定義および全 call site が完全撤去されていること"
+  );
+  assert.ok(
+    !managerCode.includes('window.getLatestElection') && !managerCode.includes('window.normalizeStatNumber'),
+    "ガバナンス制約: F-1/F-5 のための新規 window.* global 公開が行われていないこと"
+  );
+
+  // 9.2 F-1 Behavior Diff = 0 Proof on Normal Positive Stats + Strict 0 vs null Distinction
+  {
+    sandbox.window.DashboardState.globalPinStatus = { completed: [], inProgress: [] };
+
+    // (A) 正常な正数統計 (households: 200, population: 500) -> 変更前と1文字も違わず完全一致 (Behavior Diff = 0)
+    const normalPin = { rowId: 301, cityName: cityA, townName: '正常町', fullName: `${cityA} 正常町`, lat: 35.01, lng: 136.61, households: 200, population: 500 };
+    sandbox.window.DashboardState.masterPins = [normalPin];
+    sandbox.selectTownArea(301);
+
+    const statusCfgUnassigned = sandbox.getAreaStatusConfig(false, false);
+    const expectedStatusBadge = `<span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded" style="color: ${statusCfgUnassigned.color}; background-color: ${statusCfgUnassigned.color}1A; border: 1px solid ${statusCfgUnassigned.color}33;">${statusCfgUnassigned.statusText}</span>`;
+    const expectedNormalRightBottomHtml = `
+    <div class="flex flex-col justify-between h-full">
+      <div>
+        <div class="flex items-center justify-between pb-2.5 border-b border-borderNormal">
+          <div class="flex items-center gap-1.5 text-sm font-bold text-white tracking-wide">
+            <span>👥</span>
+            <span>エリア統計</span>
+          </div>
+          ${expectedStatusBadge}
+        </div>
+
+        <div class="area-stats-body mt-2.5 lg:mt-3 space-y-1.5 lg:space-y-2.5">
+          <div class="flex justify-between items-center text-[13px]">
+            <span class="text-textSub flex items-center gap-1"><span>🏠</span><span>世帯数</span></span>
+            <span class="font-mono font-bold text-white text-[15px]">200 <span class="text-xs font-normal text-textSub">世帯</span></span>
+          </div>
+          <div class="flex justify-between items-center text-[13px]">
+            <span class="text-textSub flex items-center gap-1"><span>👥</span><span>推定人口</span></span>
+            <span class="font-mono font-bold text-white text-[15px]">500 <span class="text-xs font-normal text-textSub">人</span></span>
+          </div>
+        </div>
+      </div>
+
+${'      '}
+    </div>
+  `;
+    assert.equal(
+      getEl('right-slot-bottom').innerHTML,
+      expectedNormalRightBottomHtml,
+      "Behavior Diff = 0 (F-1的正数統計): PC右下エリア統計のHTMLが変更前と1文字も違わず完全一致すること"
+    );
+    assert.equal(
+      getEl('selected-area-households').textContent,
+      '🏠 世帯数: 200世帯',
+      "Behavior Diff = 0 (F-1正数統計): スマホ詳細の世帯数表示が変更前と完全一致すること"
+    );
+    assert.equal(
+      getEl('selected-area-meta').textContent,
+      '👥 推定人口: 500人',
+      "Behavior Diff = 0 (F-1正数統計): スマホ詳細の人口表示が変更前と完全一致すること"
+    );
+
+    // (B) 統計値 0 (households: 0, population: 0) -> 架空値に化けず厳格に 0 として表示
+    const zeroPin = { rowId: 302, cityName: cityA, townName: 'ゼロ世帯町', fullName: `${cityA} ゼロ世帯町`, lat: 35.02, lng: 136.62, households: 0, population: 0 };
+    sandbox.window.DashboardState.masterPins = [zeroPin];
+    sandbox.selectTownArea(302);
+    assert.ok(
+      getEl('right-slot-bottom').innerHTML.includes('>0 <span class="text-xs font-normal text-textSub">世帯</span>') &&
+      getEl('right-slot-bottom').innerHTML.includes('>0 <span class="text-xs font-normal text-textSub">人</span>'),
+      "F-1 (0保持): 世帯数0・人口0のピンが架空統計値に化けず PC右下で '0 世帯' / '0 人' と表示されること"
+    );
+    assert.equal(getEl('selected-area-households').textContent, '🏠 世帯数: 0世帯', "F-1 (0保持): スマホ詳細で '🏠 世帯数: 0世帯' と表示されること");
+    assert.equal(getEl('selected-area-meta').textContent, '👥 推定人口: 0人', "F-1 (0保持): スマホ詳細で '👥 推定人口: 0人' と表示されること");
+
+    // (C) 統計値 null (Pattern C: households: null, population: null) -> 架空値を生成せず '--' / '' 表示
+    const nullPin = { rowId: 303, cityName: cityA, townName: '統計未紐付町', fullName: `${cityA} 統計未紐付町`, lat: 35.03, lng: 136.63, households: null, population: null };
+    sandbox.window.DashboardState.masterPins = [nullPin];
+    lastCreatedMarkers = [];
+    sandbox.renderPinsOnMap(mockMap, mockLayer, [nullPin]);
+    lastCreatedMarkers[0].trigger('click');
+    assert.ok(
+      getEl('right-slot-bottom').innerHTML.includes('>-->') === false &&
+      getEl('right-slot-bottom').innerHTML.includes('>-</span>') === false &&
+      getEl('right-slot-bottom').innerHTML.includes('>-- <span class="text-xs font-normal text-textSub">世帯</span>') &&
+      getEl('right-slot-bottom').innerHTML.includes('>-- <span class="text-xs font-normal text-textSub">人</span>'),
+      "F-1 (null区別): Marker click 時も null 統計ピンは架空値を生成せず '-- 世帯' / '-- 人' と表示されること"
+    );
+    assert.equal(getEl('selected-area-households').textContent, '', "F-1 (null区別): スマホ詳細で null 世帯数は空文字 (非表示) であること");
+    assert.equal(getEl('selected-area-meta').textContent, '', "F-1 (null区別): スマホ詳細で null 人口は空文字 (非表示) であること");
+
+    // (D) boundaries.geojson による masterPins / selectedPin の統計後上書きが発生しないことの検証
+    const ssotPin = { rowId: 304, cityName: cityA, townName: 'SSOT検証町', fullName: `${cityA} SSOT検証町`, lat: 35.04, lng: 136.64, households: 150, population: 350 };
+    sandbox.window.DashboardState.masterPins = [ssotPin];
+    sandbox.window.DashboardState.selectedPin = ssotPin;
+    sandbox.renderRightBottomAreaStats(ssotPin);
+
+    const prevFetch = sandbox.fetch;
+    sandbox.fetch = async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { rowId: 304, households: 9999, population: 8888 },
+            geometry: { type: 'Polygon', coordinates: [[[136.6, 35.0], [136.7, 35.0], [136.7, 35.1], [136.6, 35.0]]] }
+          }
+        ]
+      })
+    });
+    await sandbox.loadBoundariesGeoJson();
+    sandbox.fetch = prevFetch;
+
+    assert.equal(ssotPin.households, 150, "F-1 (SSOT分離): loadBoundariesGeoJson 実行後も pin.households (150) が boundaries.geojson (9999) で上書きされないこと");
+    assert.equal(ssotPin.population, 350, "F-1 (SSOT分離): loadBoundariesGeoJson 実行後も pin.population (350) が boundaries.geojson (8888) で上書きされないこと");
+    assert.ok(
+      getEl('right-slot-bottom').innerHTML.includes('150') && !getEl('right-slot-bottom').innerHTML.includes('9,999'),
+      "F-1 (SSOT分離): PC右下表示も address_master.csv SSOT値 (150) を維持すること"
+    );
+    assert.ok(sandbox.window.DashboardState.boundariesLayer !== null, "F-1 (Geometry SSOT維持): boundariesLayer 自体は正常に生成・保持されること");
+  }
+
+  // 9.3 F-4 escapeHtml(0) === '0' & Behavior Diff = 0 on Existing Strings/Nulls
+  {
+    assert.equal(sandbox.escapeHtml(0), '0', "F-4: escapeHtml(0) が空文字ではなく '0' を返すこと");
+    assert.equal(sandbox.escapeHtml(null), '', "F-4 Behavior Diff = 0: escapeHtml(null) は '' を返すこと");
+    assert.equal(sandbox.escapeHtml(undefined), '', "F-4 Behavior Diff = 0: escapeHtml(undefined) は '' を返すこと");
+    assert.equal(sandbox.escapeHtml(''), '', "F-4 Behavior Diff = 0: escapeHtml('') は '' を返すこと");
+    assert.equal(
+      sandbox.escapeHtml('<div class="a">&\'test\'</div>'),
+      '&lt;div class=&quot;a&quot;&gt;&amp;&#039;test&#039;&lt;/div&gt;',
+      "F-4 Behavior Diff = 0: HTML特殊文字のエスケープ結果が変更前と完全一致すること"
+    );
+  }
+
+  // 9.4 F-5 Latest Election Resolution (max(electionDate)) & Behavior Diff = 0 on Descending Data + Parity with H-App
+  {
+    // (A) 現在の降順選挙データ (sampleElectionData) における変更前後の完全一致 (Behavior Diff = 0)
+    sandbox.window.DashboardState.cities = [cityA, cityB, cityC];
+    const descResultAll = JSON.parse(JSON.stringify(sandbox.getMunicipalityTurnout(sampleElectionData, 'ALL')));
+    assert.deepEqual(
+      descResultAll,
+      {
+        name: '全域',
+        electionType: 'general',
+        electionName: '2026総選挙',
+        electionDate: '2026/02',
+        turnout: '58.80',
+        prevTurnout: '56.64',
+        showDiff: true,
+        diffPt: '+2.16',
+        diffIcon: '▲',
+        history: [
+          { year: '2026', turnout: '58.80' },
+          { year: '2024', turnout: '56.64' },
+          { year: '2021', turnout: '55.31' }
+        ],
+        eligibleVoters: 400000,
+        voters: 235200,
+        nationalTurnout: '--',
+        districtTurnout: '58.80'
+      },
+      "Behavior Diff = 0 (F-5降順選挙データ ALL): getMunicipalityTurnout の全13返却フィールドが変更前と完全一致すること"
+    );
+
+    const descResultCityA = JSON.parse(JSON.stringify(sandbox.getMunicipalityTurnout(sampleElectionData, cityA)));
+    assert.deepEqual(
+      descResultCityA,
+      {
+        name: cityA,
+        electionType: 'general',
+        electionName: '2026総選挙',
+        electionDate: '2026/02',
+        turnout: '64.07',
+        prevTurnout: '62.34',
+        showDiff: true,
+        diffPt: '+1.73',
+        diffIcon: '▲',
+        history: [
+          { year: '2026', turnout: '64.07' },
+          { year: '2024', turnout: '62.34' },
+          { year: '2021', turnout: '60.94' }
+        ],
+        eligibleVoters: 400000,
+        voters: 235200,
+        nationalTurnout: '--',
+        districtTurnout: '58.80'
+      },
+      "Behavior Diff = 0 (F-5降順選挙データ 自治体指定): getMunicipalityTurnout の全13返却フィールドが変更前と完全一致すること"
+    );
+
+    // (B) 順不同の elections 配列 ([2021, 2026, 2024]) でも降順データと100%同一の結果になること
+    const unorderedElectionData = {
+      elections: [
+        sampleElectionData.elections[2], // 2021-10-31
+        sampleElectionData.elections[0], // 2026-02-08 (latest)
+        sampleElectionData.elections[1]  // 2024-10-27 (prev)
+      ]
+    };
+    const unorderedResultCityA = JSON.parse(JSON.stringify(sandbox.getMunicipalityTurnout(unorderedElectionData, cityA)));
+    assert.deepEqual(
+      unorderedResultCityA,
+      descResultCityA,
+      "F-5: elections配列が順不同であっても max(electionDate) により降順時と100%同一の最新・前回・過去3回推移を解決すること"
+    );
+
+    // (C) H-App (render.js) の getLatestElection と Dashboard (manager.js) の getLatestElection の Domain Contract Parity Test
+    const hAppRenderJs = fs.readFileSync(path.resolve('./active/h-app/render.js'), 'utf8');
+    const hAppGetLatestCode = hAppRenderJs.substring(
+      hAppRenderJs.indexOf('function getLatestElection'),
+      hAppRenderJs.indexOf('window.getLatestElection = getLatestElection;')
+    );
+    const paritySandbox = {};
+    vm.createContext(paritySandbox);
+    vm.runInContext(`${hAppGetLatestCode}; this.hAppGetLatest = getLatestElection;`, paritySandbox);
+
+    const parityCases = [
+      unorderedElectionData,
+      sampleElectionData,
+      { elections: [{ electionId: 'NO-DATE' }, { electionId: 'WITH-DATE', electionDate: '2023-04-09' }] },
+      { elections: [] },
+      null
+    ];
+    for (const testCase of parityCases) {
+      assert.deepEqual(
+        sandbox.getLatestElection(testCase),
+        paritySandbox.hAppGetLatest(testCase),
+        "F-5 Parity: H-App と Dashboard の getLatestElection が全テストケースで完全に同一の結果を返すこと"
+      );
+    }
+  }
+
+  console.log("  ✅ UI TEST 9 PASS: F-1 / F-4 / F-5 contracts, H-App parity, and Behavior Diff = 0 on normal inputs verified");
 }
 
 console.log("\n====================================================");

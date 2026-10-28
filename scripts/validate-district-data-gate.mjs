@@ -287,6 +287,7 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
   // 4. address_master 行バリデーション & 集計
   const addressRowMap = new Map();
   const addressCityCount = new Map();
+  const addressCityTownSeen = new Map();
   for (let i = 0; i < addressData.rows.length; i++) {
     const row = addressData.rows[i];
     const rowIdNum = Number(row.rowId);
@@ -303,6 +304,16 @@ export function runDistrictDataValidation(dataDir = DEFAULT_DATA_DIR) {
     const townName = (row.town_name ?? '').toString().trim();
     if (!cityName) fail(`address_master.csv row ${i + 2}: empty city_name.`);
     if (!townName) fail(`address_master.csv row ${i + 2}: empty town_name.`);
+
+    if (cityName && townName) {
+      const cityTownKey = `${cityName}\u0000${townName}`;
+      if (addressCityTownSeen.has(cityTownKey)) {
+        const firstRowNum = addressCityTownSeen.get(cityTownKey);
+        fail(`address_master.csv row ${i + 2}: duplicate (city_name, town_name) pair ("${cityName}", "${townName}") already defined at row ${firstRowNum}.`);
+      } else {
+        addressCityTownSeen.set(cityTownKey, i + 2);
+      }
+    }
 
     if (cityName && !validCities.has(cityName)) {
       fail(`address_master.csv row ${i + 2}: undefined city_name "${cityName}" not in municipality_master.csv.`);

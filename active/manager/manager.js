@@ -511,7 +511,6 @@ async function loadAddressMaster() {
       populateCitySelector(masterCities);
     }
     populateAreaSelector(pins);
-    bindBoundariesStatsToPins();
     renderPinsOnMap(DashboardState.map, DashboardState.markersLayer, pins);
 
     if (DashboardState.map && pins.length > 0) {
@@ -553,7 +552,6 @@ async function loadBoundariesGeoJson() {
 
     DashboardState.boundariesLayer = layer;
 
-    bindBoundariesStatsToPins();
     updateBoundariesVisibility();
 
     console.log('[Boundaries Layer Loaded] Pure geographic background layer initialized.');
@@ -570,38 +568,6 @@ async function loadAreaMapping() {
     console.log('[Area Mapping Loaded] Total mapped parent areas:', mappingData.length);
   } catch (err) {
     console.warn('[Area Mapping Load Info - None loaded or not found]', err.message);
-  }
-}
-
-function bindBoundariesStatsToPins() {
-  if (!DashboardState.masterPins || DashboardState.masterPins.length === 0) return;
-  if (!DashboardState.boundariesGeoJson || !Array.isArray(DashboardState.boundariesGeoJson.features)) return;
-
-  const statsMap = new Map();
-  DashboardState.boundariesGeoJson.features.forEach(f => {
-    if (f.properties && f.properties.rowId !== undefined) {
-      statsMap.set(f.properties.rowId, {
-        population: f.properties.population,
-        households: f.properties.households
-      });
-    }
-  });
-
-  DashboardState.masterPins.forEach(pin => {
-    const stats = statsMap.get(pin.rowId);
-    if (stats) {
-      if (stats.population !== undefined) pin.population = stats.population;
-      if (stats.households !== undefined) pin.households = stats.households;
-    }
-  });
-
-  if (DashboardState.selectedPin) {
-    const selStats = statsMap.get(DashboardState.selectedPin.rowId);
-    if (selStats) {
-      if (selStats.population !== undefined) DashboardState.selectedPin.population = selStats.population;
-      if (selStats.households !== undefined) DashboardState.selectedPin.households = selStats.households;
-      renderRightBottomAreaStats(DashboardState.selectedPin);
-    }
   }
 }
 
@@ -1198,8 +1164,8 @@ function selectTownArea(target) {
   const isInProgress = inProgressList.includes(pin.rowId);
   const statusCfg = getAreaStatusConfig(isCompleted, isInProgress);
 
-  const households = pin.households || Math.max(120, ((pin.rowId * 137 + 240) % 480) + 160);
-  const population = pin.population || Math.round(households * 2.35);
+  const households = normalizeStatNumber(pin.households);
+  const population = normalizeStatNumber(pin.population);
 
   if (typeof showAreaDetail === 'function') {
     showAreaDetail({
@@ -1469,8 +1435,8 @@ function renderPinsOnMap(mapInstance, layerGroup, pins) {
 
     marker.on('click', () => {
       DashboardState.selectedPin = pin;
-      const households = pin.households || Math.max(120, ((pin.rowId * 137 + 240) % 480) + 160);
-      const population = pin.population || Math.round(households * 2.35);
+      const households = normalizeStatNumber(pin.households);
+      const population = normalizeStatNumber(pin.population);
       showAreaDetail({
         name: pin.fullName,
         statusCfg: statusCfg,
@@ -1731,6 +1697,17 @@ async function loadElectionTurnoutData() {
   }
 }
 
+function getLatestElection(electionData) {
+  if (!electionData || !Array.isArray(electionData.elections) || electionData.elections.length === 0) {
+    return null;
+  }
+  return electionData.elections.reduce((latest, current) => {
+    if (!latest || !latest.electionDate) return current;
+    if (!current || !current.electionDate) return latest;
+    return String(current.electionDate) > String(latest.electionDate) ? current : latest;
+  }, null);
+}
+
 function getMunicipalityTurnout(electionData, cityName) {
   const isAll = !cityName || cityName === 'ALL';
   const targetName = isAll ? '全域' : cityName;
@@ -1754,9 +1731,16 @@ function getMunicipalityTurnout(electionData, cityName) {
     };
   }
 
-  const elections = electionData.elections;
-  const currentElection = elections[0] || {};
-  const prevElection = elections[1] || {};
+  const elections = electionData.elections.slice().sort((a, b) => {
+    const dateA = a && a.electionDate ? String(a.electionDate) : '';
+    const dateB = b && b.electionDate ? String(b.electionDate) : '';
+    if (dateA && dateB && dateA !== dateB) {
+      return dateB > dateA ? 1 : -1;
+    }
+    return 0;
+  });
+  const currentElection = getLatestElection(electionData) || elections[0] || {};
+  const prevElection = elections.find(e => e !== currentElection) || {};
 
   // 各選挙オブジェクトの electionType を優先（未指定時は national プロパティの有無で自動フォールバック）
   const electionType = currentElection.electionType || (currentElection.national !== undefined ? 'national' : 'local');
@@ -1968,6 +1952,12 @@ function renderRightTopTurnout(selectedCity) {
   `;
 }
 
+function normalizeStatNumber(val) {
+  if (val === null || val === undefined || val === '') return null;
+  const num = Number(val);
+  return Number.isFinite(num) ? num : null;
+}
+
 function renderRightBottomAreaStats(selectedPin) {
   const containerEl = document.getElementById('right-slot-bottom');
   if (!containerEl) return;
@@ -1998,8 +1988,10 @@ function renderRightBottomAreaStats(selectedPin) {
   const statusCfg = getAreaStatusConfig(isCompleted, isInProgress);
   const statusBadgeHtml = `<span class="text-xs font-mono font-bold px-2.5 py-0.5 rounded" style="color: ${statusCfg.color}; background-color: ${statusCfg.color}1A; border: 1px solid ${statusCfg.color}33;">${statusCfg.statusText}</span>`;
 
-  const households = selectedPin.households || Math.max(120, ((selectedPin.rowId * 137 + 240) % 480) + 160);
-  const population = selectedPin.population || Math.round(households * 2.35);
+  const households = normalizeStatNumber(selectedPin.households);
+  const population = normalizeStatNumber(selectedPin.population);
+  const householdsStr = households !== null ? households.toLocaleString() : '--';
+  const populationStr = population !== null ? population.toLocaleString() : '--';
 
   let resultSectionHtml = '';
   if (isInProgress) {
@@ -2054,11 +2046,11 @@ function renderRightBottomAreaStats(selectedPin) {
         <div class="area-stats-body mt-2.5 lg:mt-3 space-y-1.5 lg:space-y-2.5">
           <div class="flex justify-between items-center text-[13px]">
             <span class="text-textSub flex items-center gap-1"><span>🏠</span><span>世帯数</span></span>
-            <span class="font-mono font-bold text-white text-[15px]">${households.toLocaleString()} <span class="text-xs font-normal text-textSub">世帯</span></span>
+            <span class="font-mono font-bold text-white text-[15px]">${householdsStr} <span class="text-xs font-normal text-textSub">世帯</span></span>
           </div>
           <div class="flex justify-between items-center text-[13px]">
             <span class="text-textSub flex items-center gap-1"><span>👥</span><span>推定人口</span></span>
-            <span class="font-mono font-bold text-white text-[15px]">${population.toLocaleString()} <span class="text-xs font-normal text-textSub">人</span></span>
+            <span class="font-mono font-bold text-white text-[15px]">${populationStr} <span class="text-xs font-normal text-textSub">人</span></span>
           </div>
         </div>
       </div>
@@ -2095,16 +2087,18 @@ function showAreaDetail(data) {
     if (turnoutCityEl) turnoutCityEl.textContent = turnoutInfo.name;
     if (turnoutValEl) turnoutValEl.textContent = turnoutVal;
   }
+  const normHouseholds = normalizeStatNumber(data.households);
+  const normPopulation = normalizeStatNumber(data.population);
   if (householdsEl) {
-    if (data.households !== undefined && data.households !== null) {
-      householdsEl.textContent = `🏠 世帯数: ${Number(data.households).toLocaleString()}世帯`;
+    if (normHouseholds !== null) {
+      householdsEl.textContent = `🏠 世帯数: ${normHouseholds.toLocaleString()}世帯`;
     } else {
       householdsEl.textContent = '';
     }
   }
   if (metaEl) {
-    if (data.population !== undefined && data.population !== null) {
-      metaEl.textContent = `👥 推定人口: ${Number(data.population).toLocaleString()}人`;
+    if (normPopulation !== null) {
+      metaEl.textContent = `👥 推定人口: ${normPopulation.toLocaleString()}人`;
     } else if (data.meta) {
       metaEl.textContent = data.meta;
     } else {
@@ -2830,8 +2824,7 @@ function renderMainStageMobile() {
   startTimer();
 }
 function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
+  return String(str ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
