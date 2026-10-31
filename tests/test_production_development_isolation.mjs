@@ -6,12 +6,15 @@ import { fileURLToPath } from 'node:url';
 import {
   MANIFEST_FILENAME,
   captureSourceConnectionFingerprint,
+  evaluateConfigJsCode,
+  evaluateConfigJsFile,
   runCommandSafe,
   runGateA,
   runGateB
 } from '../scripts/check-development-isolation-gate.mjs';
 import {
   cleanupProofWorkspace,
+  sanitizeConfigJsContent,
   spawnIsolatedWorkspace
 } from '../scripts/spawn-isolated-development-workspace.mjs';
 
@@ -59,16 +62,31 @@ function createSyntheticProductionRepo(baseTempDir) {
   fs.writeFileSync(path.join(sourceDir, '.env.example'), 'EXAMPLE_TOKEN=placeholder\n', 'utf8');
   fs.writeFileSync(path.join(sourceDir, '.agents', 'placeholder.json'), '{"ok":true}\n', 'utf8');
 
-  // Tracked production config & CNAME
+  // Tracked production config (Canonical window.PMS_CLIENT_CONFIG nested schema) & CNAME
   fs.writeFileSync(
     path.join(sourceDir, 'data', 'config.js'),
     [
-      'const CONFIG = {',
-      "  districtId: 'SYNTH-DISTRICT-01',",
-      "  gasWebAppUrl: 'https://script.google.com/macros/s/AKfycb_SYNTH_PROD_DEP_ID_999/exec',",
-      "  liffId: '2009999999-SynthProdLiff'",
+      'window.PMS_CLIENT_CONFIG = {',
+      '  version: "2.0.0",',
+      '  districtId: "SYNTH-DISTRICT-01",',
+      '  status: "ACTIVE",',
+      '  environment: "production",',
+      '  api: {',
+      '    gasWebAppUrl: "https://script.google.com/macros/s/AKfycb_SYNTH_PROD_DEP_ID_999/exec"',
+      '  },',
+      '  staticMaster: {',
+      '    addressCsvFilename: "address_master.csv",',
+      '    boundariesGeojsonFilename: "boundaries.geojson",',
+      '    electionHistoryFilename: "election_history.json"',
+      '  },',
+      '  line: {',
+      '    liffId: "2009999999-SynthProdLiff"',
+      '  },',
+      '  features: {',
+      '    photoUpload: true,',
+      '    gpsTracking: true',
+      '  }',
       '};',
-      'if (typeof window !== "undefined") { window.CONFIG = CONFIG; }',
       ''
     ].join('\n'),
     'utf8'
@@ -97,20 +115,23 @@ function createSyntheticProductionRepo(baseTempDir) {
     'utf8'
   );
 
-  // Tracked runtime files with Fail-Closed guards
+  // Tracked runtime files with Canonical window.PMS_CLIENT_CONFIG Fail-Closed guards
   fs.writeFileSync(
     path.join(sourceDir, 'active', 'h-app', 'app.js'),
-    'export function bootApp() { if (!window.CONFIG || !window.CONFIG.liffId) { throw new Error("LIFF missing"); } }\n',
+    'export function bootApp() { if (!window.PMS_CLIENT_CONFIG || !window.PMS_CLIENT_CONFIG.line || !window.PMS_CLIENT_CONFIG.line.liffId) { throw new Error("LIFF missing"); } }\n',
     'utf8'
   );
   fs.writeFileSync(
     path.join(sourceDir, 'active', 'h-app', 'modules', 'api.js'),
     [
-      "const GAS_API_URL = (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.gasWebAppUrl) || '';",
-      "if (!GAS_API_URL) {",
-      "  throw new Error('CRITICAL: CONFIG.gasWebAppUrl is missing in data/config.js');",
+      'function getApiUrl() {',
+      "  if (typeof window !== 'undefined' && window.PMS_CLIENT_CONFIG && window.PMS_CLIENT_CONFIG.api && window.PMS_CLIENT_CONFIG.api.gasWebAppUrl) {",
+      '    return window.PMS_CLIENT_CONFIG.api.gasWebAppUrl;',
+      '  }',
+      "  throw new Error('[H-App Config Error] PMS_CLIENT_CONFIG.api.gasWebAppUrl が未設定です。config.js を確認してください。');",
       '}',
-      'export const apiReady = true;',
+      'const API_URL = getApiUrl();',
+      'export const apiReady = Boolean(API_URL);',
       ''
     ].join('\n'),
     'utf8'
@@ -118,9 +139,11 @@ function createSyntheticProductionRepo(baseTempDir) {
   fs.writeFileSync(
     path.join(sourceDir, 'active', 'manager', 'manager.js'),
     [
-      "const GAS_API_URL = (typeof window !== 'undefined' && window.CONFIG && window.CONFIG.gasWebAppUrl) || '';",
-      "if (!GAS_API_URL) {",
-      "  throw new Error('CRITICAL: CONFIG.gasWebAppUrl is missing in data/config.js');",
+      'function getApiUrl() {',
+      "  if (typeof window !== 'undefined' && window.PMS_CLIENT_CONFIG && window.PMS_CLIENT_CONFIG.api && window.PMS_CLIENT_CONFIG.api.gasWebAppUrl) {",
+      '    return window.PMS_CLIENT_CONFIG.api.gasWebAppUrl;',
+      '  }',
+      "  throw new Error('[Dashboard Config Error] PMS_CLIENT_CONFIG.api.gasWebAppUrl が未設定です。config.js を確認してください。');",
       '}',
       ''
     ].join('\n'),
@@ -128,7 +151,16 @@ function createSyntheticProductionRepo(baseTempDir) {
   );
   fs.writeFileSync(
     path.join(sourceDir, 'index.html'),
-    '<!DOCTYPE html><html><head><script src="./data/config.js"></script><script>if (!window.CONFIG.liffId) { console.error("No LIFF"); }</script></head><body></body></html>\n',
+    [
+      '<!DOCTYPE html><html><head>',
+      '<script src="./data/config.js"></script>',
+      '<script>',
+      '  const liffId = (window.PMS_CLIENT_CONFIG && window.PMS_CLIENT_CONFIG.line && window.PMS_CLIENT_CONFIG.line.liffId) || null;',
+      '  if (!liffId) { console.error("LIFF ID not configured in config.js"); }',
+      '</script>',
+      '</head><body></body></html>',
+      ''
+    ].join('\n'),
     'utf8'
   );
 
@@ -195,7 +227,7 @@ function createSyntheticProductionRepo(baseTempDir) {
   return sourceDir;
 }
 
-console.log('🧪 Running Production Development Isolation Suite (21 Cases)...');
+console.log('🧪 Running Production Development Isolation Suite (21 Core Cases + 7 Regression Cases = 28 Cases)...');
 
 const rootTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'posting-map-iso-test-'));
 
@@ -373,7 +405,7 @@ try {
     const cleanCfg = fs.readFileSync(cfgPath, 'utf8');
     fs.writeFileSync(
       cfgPath,
-      cleanCfg.replace('liffId: ""', "liffId: '2009999999-SynthProdLiff'"),
+      cleanCfg.replace('liffId: ""', 'liffId: "2009999999-SynthProdLiff"'),
       'utf8'
     );
     try {
@@ -585,7 +617,7 @@ try {
 
     const baselineSha = proofSpawn.sourceBaselineSha;
 
-    // Violation of Condition 7: passing finalDir as both --target and --final-target
+    // Violation of Condition 1: passing finalDir as --target
     assert.throws(
       () => cleanupProofWorkspace({
         sourceRoot: sourceDir,
@@ -637,7 +669,128 @@ try {
     console.log('  ✅ T-21: Proof Cleanup 7-condition guard passed.');
   }
 
-  console.log('🎉 All 21 Production Development Isolation test cases PASSED!');
+  // ─────────────────────────────────────────────────────────────
+  // Regression Tests R1..R7 (Transaction A2 Canonical PMS_CLIENT_CONFIG Contract)
+  // ─────────────────────────────────────────────────────────────
+
+  // R1: PMS_CLIENT_CONFIG nested schema parsed accurately (both synthetic & real repo data/config.js)
+  {
+    const parsedSynth = evaluateConfigJsFile(path.join(sourceDir, 'data', 'config.js'));
+    assert.equal(parsedSynth.districtId, 'SYNTH-DISTRICT-01');
+    assert.equal(parsedSynth.gasWebAppUrl, 'https://script.google.com/macros/s/AKfycb_SYNTH_PROD_DEP_ID_999/exec');
+    assert.equal(parsedSynth.liffId, '2009999999-SynthProdLiff');
+
+    const parsedRealRepo = evaluateConfigJsFile(path.join(REPO_ROOT, 'data', 'config.js'));
+    assert.equal(typeof parsedRealRepo.districtId, 'string');
+    assert.equal(parsedRealRepo.districtId.trim().length > 0, true);
+    assert.equal(typeof parsedRealRepo.gasWebAppUrl, 'string');
+    assert.equal(typeof parsedRealRepo.liffId, 'string');
+    console.log('  ✅ R1: PMS_CLIENT_CONFIG nested schema parsed accurately.');
+  }
+
+  // R2: After Sanitization -> api.gasWebAppUrl === "", line.liffId === "", districtId & sibling fields preserved
+  {
+    const rawRealConfig = fs.readFileSync(path.join(REPO_ROOT, 'data', 'config.js'), 'utf8');
+    const beforeEval = evaluateConfigJsCode(rawRealConfig, 'real data/config.js before');
+    const sanitizedText = sanitizeConfigJsContent(rawRealConfig);
+    const afterEval = evaluateConfigJsCode(sanitizedText, 'real data/config.js after');
+
+    assert.equal(afterEval.gasWebAppUrl, '');
+    assert.equal(afterEval.liffId, '');
+    assert.equal(afterEval.raw.api.gasWebAppUrl, '');
+    assert.equal(afterEval.raw.line.liffId, '');
+    assert.equal(afterEval.districtId, beforeEval.districtId);
+    assert.equal(afterEval.raw.version, beforeEval.raw.version);
+    assert.equal(afterEval.raw.status, beforeEval.raw.status);
+    assert.equal(afterEval.raw.environment, beforeEval.raw.environment);
+    assert.equal(JSON.stringify(afterEval.raw.staticMaster), JSON.stringify(beforeEval.raw.staticMaster));
+    assert.equal(JSON.stringify(afterEval.raw.features), JSON.stringify(beforeEval.raw.features));
+    console.log('  ✅ R2: Sanitization clears api.gasWebAppUrl & line.liffId while preserving districtId and all other fields.');
+  }
+
+  // R3: Legacy window.CONFIG-only schema -> FAIL (No legacy fallback allowed)
+  {
+    const legacyConfigCode = [
+      'const CONFIG = { districtId: "LEGACY-01", gasWebAppUrl: "", liffId: "" };',
+      'window.CONFIG = CONFIG;'
+    ].join('\n');
+    assert.throws(
+      () => evaluateConfigJsCode(legacyConfigCode, 'legacy-window-CONFIG'),
+      /window\.PMS_CLIENT_CONFIG is missing or invalid/
+    );
+    console.log('  ✅ R3: Legacy window.CONFIG-only schema rejected (Fail-Closed).');
+  }
+
+  // R4: PMS_CLIENT_CONFIG.api missing or api.gasWebAppUrl property missing -> FAIL
+  {
+    const missingApiObj = 'window.PMS_CLIENT_CONFIG = { districtId: "D1", line: { liffId: "" } };';
+    assert.throws(
+      () => evaluateConfigJsCode(missingApiObj, 'missing-api'),
+      /window\.PMS_CLIENT_CONFIG\.api is missing or invalid/
+    );
+
+    const missingGasProp = 'window.PMS_CLIENT_CONFIG = { districtId: "D1", api: {}, line: { liffId: "" } };';
+    assert.throws(
+      () => evaluateConfigJsCode(missingGasProp, 'missing-gasWebAppUrl'),
+      /window\.PMS_CLIENT_CONFIG\.api\.gasWebAppUrl property is missing/
+    );
+    console.log('  ✅ R4: PMS_CLIENT_CONFIG.api / gasWebAppUrl missing rejected (Fail-Closed).');
+  }
+
+  // R5: PMS_CLIENT_CONFIG.line missing or line.liffId property missing -> FAIL
+  {
+    const missingLineObj = 'window.PMS_CLIENT_CONFIG = { districtId: "D1", api: { gasWebAppUrl: "" } };';
+    assert.throws(
+      () => evaluateConfigJsCode(missingLineObj, 'missing-line'),
+      /window\.PMS_CLIENT_CONFIG\.line is missing or invalid/
+    );
+
+    const missingLiffProp = 'window.PMS_CLIENT_CONFIG = { districtId: "D1", api: { gasWebAppUrl: "" }, line: {} };';
+    assert.throws(
+      () => evaluateConfigJsCode(missingLiffProp, 'missing-liffId'),
+      /window\.PMS_CLIENT_CONFIG\.line\.liffId property is missing/
+    );
+    console.log('  ✅ R5: PMS_CLIENT_CONFIG.line / liffId missing rejected (Fail-Closed).');
+  }
+
+  // R6: PMS_CLIENT_CONFIG.districtId missing or empty -> FAIL
+  {
+    const missingDistrict = 'window.PMS_CLIENT_CONFIG = { api: { gasWebAppUrl: "" }, line: { liffId: "" } };';
+    assert.throws(
+      () => evaluateConfigJsCode(missingDistrict, 'missing-districtId'),
+      /window\.PMS_CLIENT_CONFIG\.districtId is missing or empty/
+    );
+
+    const emptyDistrict = 'window.PMS_CLIENT_CONFIG = { districtId: "   ", api: { gasWebAppUrl: "" }, line: { liffId: "" } };';
+    assert.throws(
+      () => evaluateConfigJsCode(emptyDistrict, 'empty-districtId'),
+      /window\.PMS_CLIENT_CONFIG\.districtId is missing or empty/
+    );
+    console.log('  ✅ R6: PMS_CLIENT_CONFIG.districtId missing/empty rejected (Fail-Closed).');
+  }
+
+  // R7: Real Runtime guard verification (Gate B B-06) verifies PMS_CLIENT_CONFIG contract and rejects legacy window.CONFIG guard
+  {
+    const gateBPass = runGateB({ sourceRoot: sourceDir, targetRoot: inspectTarget });
+    assert.equal(gateBPass.checks.B06.pass, true, 'B-06 must pass on canonical PMS_CLIENT_CONFIG runtime');
+
+    const apiPath = path.join(inspectTarget, 'active', 'h-app', 'modules', 'api.js');
+    const origApi = fs.readFileSync(apiPath, 'utf8');
+    fs.writeFileSync(
+      apiPath,
+      'if (!window.CONFIG || !window.CONFIG.gasWebAppUrl) { throw new Error("legacy"); }\n',
+      'utf8'
+    );
+    try {
+      const gateBFail = runGateB({ sourceRoot: sourceDir, targetRoot: inspectTarget });
+      assert.equal(gateBFail.checks.B06.pass, false, 'B-06 must fail if api.js uses legacy window.CONFIG instead of PMS_CLIENT_CONFIG');
+    } finally {
+      fs.writeFileSync(apiPath, origApi, 'utf8');
+    }
+    console.log('  ✅ R7: Runtime guard verification enforces PMS_CLIENT_CONFIG contract.');
+  }
+
+  console.log('🎉 All 28 Production Development Isolation test cases (T-01..T-21 + R1..R7) PASSED!');
 } finally {
   fs.rmSync(rootTmp, { recursive: true, force: true });
 }

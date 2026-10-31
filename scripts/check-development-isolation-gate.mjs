@@ -138,21 +138,58 @@ export function compareSourceFingerprints(beforeFp, afterFp) {
   };
 }
 
-export function evaluateConfigJsFile(configPath) {
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Missing config.js at ${configPath}`);
+export function evaluateConfigJsCode(code, label = 'data/config.js') {
+  if (typeof code !== 'string' || !code.trim()) {
+    throw new Error(`Fail-Closed: Empty or invalid config.js content in ${label}`);
   }
-  const code = fs.readFileSync(configPath, 'utf8');
   const sandbox = { window: {} };
   vm.createContext(sandbox);
-  vm.runInContext(`${code}\n;globalThis.__EXTRACTED_CONFIG__ = typeof CONFIG !== 'undefined' ? CONFIG : window.CONFIG;`, sandbox, {
-    timeout: 2000
-  });
-  const cfg = sandbox.__EXTRACTED_CONFIG__;
-  if (!cfg || typeof cfg !== 'object') {
-    throw new Error(`Failed to evaluate CONFIG object from ${configPath}`);
+  try {
+    vm.runInContext(code, sandbox, { timeout: 2000 });
+  } catch (err) {
+    throw new Error(`Fail-Closed: config.js evaluation error in ${label}: ${err.message}`);
   }
-  return cfg;
+
+  const pmsConfig = sandbox.window && sandbox.window.PMS_CLIENT_CONFIG;
+  if (!pmsConfig || typeof pmsConfig !== 'object' || Array.isArray(pmsConfig)) {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG is missing or invalid in ${label}`);
+  }
+  if (typeof pmsConfig.districtId !== 'string' || pmsConfig.districtId.trim() === '') {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG.districtId is missing or empty in ${label}`);
+  }
+  if (!pmsConfig.api || typeof pmsConfig.api !== 'object' || Array.isArray(pmsConfig.api)) {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG.api is missing or invalid in ${label}`);
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(pmsConfig.api, 'gasWebAppUrl') ||
+    typeof pmsConfig.api.gasWebAppUrl !== 'string'
+  ) {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG.api.gasWebAppUrl property is missing or not a string in ${label}`);
+  }
+  if (!pmsConfig.line || typeof pmsConfig.line !== 'object' || Array.isArray(pmsConfig.line)) {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG.line is missing or invalid in ${label}`);
+  }
+  if (
+    !Object.prototype.hasOwnProperty.call(pmsConfig.line, 'liffId') ||
+    typeof pmsConfig.line.liffId !== 'string'
+  ) {
+    throw new Error(`Fail-Closed: window.PMS_CLIENT_CONFIG.line.liffId property is missing or not a string in ${label}`);
+  }
+
+  return {
+    districtId: pmsConfig.districtId,
+    gasWebAppUrl: pmsConfig.api.gasWebAppUrl,
+    liffId: pmsConfig.line.liffId,
+    raw: pmsConfig
+  };
+}
+
+export function evaluateConfigJsFile(configPath) {
+  if (!fs.existsSync(configPath)) {
+    throw new Error(`Fail-Closed: Missing config.js at ${configPath}`);
+  }
+  const code = fs.readFileSync(configPath, 'utf8');
+  return evaluateConfigJsCode(code, configPath);
 }
 
 function safeParseJsonFile(filePath) {
@@ -603,14 +640,12 @@ export function runGateA({ sourceRoot, targetRoot, baselineSha }) {
   let sourceDistrictId = null;
   try {
     const srcCfgCode = readBaselineBlobBuffer(absSource, resolvedBaseline, 'data/config.js', sourceHeadMatchesBaseline).toString('utf8');
-    const sandbox = { window: {} };
-    vm.createContext(sandbox);
-    vm.runInContext(`${srcCfgCode}\n;globalThis.__CFG__ = typeof CONFIG !== 'undefined' ? CONFIG : window.CONFIG;`, sandbox, { timeout: 2000 });
-    sourceDistrictId = sandbox.__CFG__ && sandbox.__CFG__.districtId;
+    const srcEvaluated = evaluateConfigJsCode(srcCfgCode, 'Source baseline data/config.js');
+    sourceDistrictId = srcEvaluated.districtId;
   } catch (_) {
     sourceDistrictId = null;
   }
-  if (!targetDistrictId || typeof targetDistrictId !== 'string' || (sourceDistrictId && targetDistrictId !== sourceDistrictId)) {
+  if (!targetDistrictId || typeof targetDistrictId !== 'string' || !sourceDistrictId || targetDistrictId !== sourceDistrictId) {
     dataMismatches.push('data/config.js:districtId_mismatch');
   }
   checks.A08 = {
@@ -759,29 +794,34 @@ export function runGateB({ sourceRoot, targetRoot, baselineSha, expectedSourceFi
       : `B-05 FAIL: Post-git-init subchecks failed: ${failedSubChecks.join(', ')}`
   };
 
-  // B-06: Runtime Fail-Closed & District Data Gate Verification
+  // B-06: Runtime Fail-Closed & District Data Gate Verification (Canonical window.PMS_CLIENT_CONFIG Contract)
   let b06Pass = false;
   const b06Errors = [];
   try {
+    const targetCfg = evaluateConfigJsFile(path.join(absTarget, 'data', 'config.js'));
     const apiPath = path.join(absTarget, 'active', 'h-app', 'modules', 'api.js');
     const managerPath = path.join(absTarget, 'active', 'manager', 'manager.js');
     const indexPath = path.join(absTarget, 'index.html');
 
     if (fs.existsSync(apiPath)) {
       const apiCode = fs.readFileSync(apiPath, 'utf8');
-      const executableApiSnippet = apiCode.replace(/^\s*export\s+/gm, '');
-      const sandbox = { window: { CONFIG: { gasWebAppUrl: '', liffId: '' } }, CONFIG: { gasWebAppUrl: '', liffId: '' } };
-      vm.createContext(sandbox);
-      let threwExpected = false;
-      try {
-        vm.runInContext(executableApiSnippet, sandbox, { timeout: 2000 });
-      } catch (err) {
-        if (err && String(err.message).includes('CONFIG.gasWebAppUrl is missing')) {
-          threwExpected = true;
+      if (!apiCode.includes('PMS_CLIENT_CONFIG.api.gasWebAppUrl')) {
+        b06Errors.push('active/h-app/modules/api.js does not reference canonical PMS_CLIENT_CONFIG.api.gasWebAppUrl');
+      } else {
+        const executableApiSnippet = apiCode.replace(/^\s*export\s+/gm, '');
+        const sandbox = { window: { PMS_CLIENT_CONFIG: targetCfg.raw } };
+        vm.createContext(sandbox);
+        let threwExpected = false;
+        try {
+          vm.runInContext(executableApiSnippet, sandbox, { timeout: 2000 });
+        } catch (err) {
+          if (err && String(err.message).includes('PMS_CLIENT_CONFIG.api.gasWebAppUrl')) {
+            threwExpected = true;
+          }
         }
-      }
-      if (!threwExpected) {
-        b06Errors.push('active/h-app/modules/api.js did not throw Fail-Closed error when gasWebAppUrl is empty');
+        if (!threwExpected) {
+          b06Errors.push('active/h-app/modules/api.js did not throw Fail-Closed error when PMS_CLIENT_CONFIG.api.gasWebAppUrl is empty');
+        }
       }
     } else {
       b06Errors.push('active/h-app/modules/api.js missing');
@@ -789,8 +829,8 @@ export function runGateB({ sourceRoot, targetRoot, baselineSha, expectedSourceFi
 
     if (fs.existsSync(managerPath)) {
       const mgrCode = fs.readFileSync(managerPath, 'utf8');
-      if (!mgrCode.includes('CONFIG.gasWebAppUrl is missing')) {
-        b06Errors.push('active/manager/manager.js missing Fail-Closed gasWebAppUrl guard');
+      if (!mgrCode.includes('PMS_CLIENT_CONFIG.api.gasWebAppUrl')) {
+        b06Errors.push('active/manager/manager.js missing Fail-Closed PMS_CLIENT_CONFIG.api.gasWebAppUrl guard');
       }
     } else {
       b06Errors.push('active/manager/manager.js missing');
@@ -798,8 +838,8 @@ export function runGateB({ sourceRoot, targetRoot, baselineSha, expectedSourceFi
 
     if (fs.existsSync(indexPath)) {
       const idxCode = fs.readFileSync(indexPath, 'utf8');
-      if (!idxCode.includes('!window.CONFIG.liffId')) {
-        b06Errors.push('index.html missing Fail-Closed liffId guard');
+      if (!idxCode.includes('PMS_CLIENT_CONFIG.line.liffId')) {
+        b06Errors.push('index.html missing Fail-Closed PMS_CLIENT_CONFIG.line.liffId guard');
       }
     } else {
       b06Errors.push('index.html missing');

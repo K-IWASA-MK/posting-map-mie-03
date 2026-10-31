@@ -119,21 +119,26 @@ export function spawnIsolatedWorkspace({
     throw new Error(`Fail-Closed: tar extraction failed into target directory: ${tarRes.stderr || ''}`);
   }
 
-  // Step 4: Target-Only Production Connection Sanitization
+  // Step 4: Target-Only Production Connection Sanitization (Canonical window.PMS_CLIENT_CONFIG Contract)
   const targetConfigPath = path.join(realTarget, 'data', 'config.js');
   if (!fs.existsSync(targetConfigPath)) {
     throw new Error('Fail-Closed: Exported target is missing data/config.js.');
   }
+  const beforeTargetCfg = evaluateConfigJsFile(targetConfigPath);
   const rawConfig = fs.readFileSync(targetConfigPath, 'utf8');
   const sanitizedConfig = sanitizeConfigJsContent(rawConfig);
   fs.writeFileSync(targetConfigPath, sanitizedConfig, 'utf8');
 
   const evaluatedTargetCfg = evaluateConfigJsFile(targetConfigPath);
   if (evaluatedTargetCfg.gasWebAppUrl !== '' || evaluatedTargetCfg.liffId !== '') {
-    throw new Error('Fail-Closed: Target data/config.js sanitization failed to clear gasWebAppUrl or liffId.');
+    throw new Error('Fail-Closed: Target data/config.js sanitization failed to clear PMS_CLIENT_CONFIG.api.gasWebAppUrl or PMS_CLIENT_CONFIG.line.liffId.');
   }
-  if (!evaluatedTargetCfg.districtId || typeof evaluatedTargetCfg.districtId !== 'string') {
-    throw new Error('Fail-Closed: Target data/config.js districtId was lost during sanitization.');
+  if (
+    typeof evaluatedTargetCfg.districtId !== 'string' ||
+    evaluatedTargetCfg.districtId.trim() === '' ||
+    evaluatedTargetCfg.districtId !== beforeTargetCfg.districtId
+  ) {
+    throw new Error('Fail-Closed: Target data/config.js PMS_CLIENT_CONFIG.districtId was lost or altered during sanitization.');
   }
 
   const targetCnamePath = path.join(realTarget, 'CNAME');
@@ -149,8 +154,8 @@ export function spawnIsolatedWorkspace({
     targetRealpath: realTarget,
     sourceFingerprintBefore,
     sanitizedFields: [
-      'data/config.js:gasWebAppUrl',
-      'data/config.js:liffId',
+      'data/config.js:PMS_CLIENT_CONFIG.api.gasWebAppUrl',
+      'data/config.js:PMS_CLIENT_CONFIG.line.liffId',
       'CNAME'
     ]
   };
