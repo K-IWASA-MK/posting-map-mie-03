@@ -2,7 +2,6 @@
   "mission": "Production Development Isolation Skill & Tooling",
   "files": [
     "scripts/check-development-isolation-gate.mjs",
-    "scripts/spawn-isolated-development-workspace.mjs",
     "tests/test_production_development_isolation.mjs"
   ]
 }
