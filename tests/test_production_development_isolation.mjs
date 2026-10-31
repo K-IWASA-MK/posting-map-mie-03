@@ -243,7 +243,7 @@ function createSyntheticProductionRepo(baseTempDir) {
   return sourceDir;
 }
 
-console.log('🧪 Running Production Development Isolation Suite (21 Core Cases + 7 Regression Cases = 28 Cases)...');
+console.log('🧪 Running Production Development Isolation Suite (21 Core Cases + 9 Regression Cases = 30 Cases)...');
 
 const rootTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'posting-map-iso-test-'));
 
@@ -838,7 +838,35 @@ try {
     console.log('  ✅ R8: NUL-safe Git path extraction preserves ASCII, space, and Japanese (dakuten) tracked paths (missing=0, extra=0, modified=0).');
   }
 
-  console.log('🎉 All 29 Production Development Isolation test cases (T-01..T-21 + R1..R8) PASSED!');
+  // R9: Formal Skill Registration & OS Registry Active Wiring (Finish Mission)
+  {
+    const skillPath = path.join(REPO_ROOT, '.agents', 'skills', 'production-development-isolation', 'SKILL.md');
+    assert.equal(fs.existsSync(skillPath), true, 'R9: .agents/skills/production-development-isolation/SKILL.md must exist');
+    const skillText = fs.readFileSync(skillPath, 'utf8');
+    assert.equal(skillText.includes('name: production-development-isolation'), true, 'R9: SKILL.md must declare name: production-development-isolation');
+    assert.equal(skillText.includes('CANONICAL / ACTIVE'), true, 'R9: SKILL.md must declare Status: CANONICAL / ACTIVE');
+    assert.equal(skillText.includes('<SOURCE_PRODUCTION_ROOT>'), true, 'R9: SKILL.md must use <SOURCE_PRODUCTION_ROOT> placeholder');
+    assert.equal(skillText.includes('<PROOF_TARGET>'), true, 'R9: SKILL.md must use <PROOF_TARGET> placeholder');
+    assert.equal(skillText.includes('<FINAL_DEVELOPMENT_TARGET>'), true, 'R9: SKILL.md must use <FINAL_DEVELOPMENT_TARGET> placeholder');
+    assert.equal(skillText.includes('<SOURCE_BASELINE_SHA>'), true, 'R9: SKILL.md must use <SOURCE_BASELINE_SHA> placeholder');
+
+    const regPath = path.join(REPO_ROOT, '.agents', 'os-registry.json');
+    const regObj = JSON.parse(fs.readFileSync(regPath, 'utf8'));
+    assert.equal(Boolean(regObj.capabilityPacks['production-development-isolation']), true, 'R9: capabilityPacks must include production-development-isolation');
+    assert.equal(
+      regObj.rolePackAssignments.execution.includes('production-development-isolation'),
+      true,
+      'R9: rolePackAssignments.execution must include production-development-isolation'
+    );
+    assert.equal(
+      regObj.operationalKnowledgeSurfaces.includes('.agents/skills/production-development-isolation/SKILL.md'),
+      true,
+      'R9: operationalKnowledgeSurfaces must include .agents/skills/production-development-isolation/SKILL.md'
+    );
+    console.log('  ✅ R9: Formal Skill (production-development-isolation) & OS Registry active wiring verified.');
+  }
+
+  console.log('🎉 All 30 Production Development Isolation test cases (T-01..T-21 + R1..R9) PASSED!');
 } finally {
   fs.rmSync(rootTmp, { recursive: true, force: true });
 }

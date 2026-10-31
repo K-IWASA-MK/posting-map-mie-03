@@ -17,6 +17,7 @@ skills:
   - knowledge-governance
   - behavior-preservation
   - district-app-deployment
+  - production-development-isolation
 model: inherit
 ---
 

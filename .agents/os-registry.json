@@ -43,7 +43,8 @@
       "release-integrity",
       "knowledge-governance",
       "behavior-preservation",
-      "district-app-deployment"
+      "district-app-deployment",
+      "production-development-isolation"
     ],
     "worker": [
       "h-app-architecture",
@@ -249,6 +250,23 @@
       "evidenceSources": [
         "docs/research/evidence_kuwana_historical_lessons.md"
       ]
+    },
+    "production-development-isolation": {
+      "manifestPath": ".agents/skills/production-development-isolation/SKILL.md",
+      "description": "Production freeze preservation, clean git archive export, runtime connection sanitization, Gate A/B isolation verification, and independent workspace spawn",
+      "canonicalSources": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "23b8fa9644f90a1873e0edff4aa65d83f7ebf0cb8e936a183e03c34dfb06b094"
+        },
+        {
+          "path": ".agents/rules/verification-gates.md",
+          "sha256": "9efaf760e7094c681dfaf5e6da9243f6bffbe96abb4347c7bd1cf2ccd24eb770"
+        }
+      ],
+      "evidenceSources": [
+        "docs/research/evidence_kuwana_historical_lessons.md"
+      ]
     }
   },
   "taskContracts": {
@@ -372,6 +390,7 @@
     ".agents/skills/knowledge-governance/SKILL.md",
     ".agents/skills/official-data-audit/SKILL.md",
     ".agents/skills/address-master-generation/SKILL.md",
-    ".agents/skills/district-app-deployment/SKILL.md"
+    ".agents/skills/district-app-deployment/SKILL.md",
+    ".agents/skills/production-development-isolation/SKILL.md"
   ]
 }
