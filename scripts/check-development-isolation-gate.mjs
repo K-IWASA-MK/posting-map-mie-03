@@ -264,14 +264,17 @@ export function extractSourceProductionIdentifiers(sourceRoot) {
 }
 
 export function listBaselineTrackedFiles(sourceRoot, baselineSha) {
-  const res = runCommandSafe('git', ['ls-tree', '-r', '--name-only', baselineSha], { cwd: sourceRoot });
+  const res = runCommandSafe(
+    'git',
+    ['-c', 'core.quotePath=false', 'ls-tree', '-r', '-z', '--name-only', baselineSha],
+    { cwd: sourceRoot }
+  );
   if (res.status !== 0) {
     throw new Error(`Fail-Closed: git ls-tree failed for ${baselineSha}`);
   }
   return (res.stdout || '')
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean);
+    .split('\0')
+    .filter(entry => entry.length > 0);
 }
 
 export function readBaselineBlobBuffer(sourceRoot, baselineSha, relPath, sourceHeadMatchesBaseline = false) {

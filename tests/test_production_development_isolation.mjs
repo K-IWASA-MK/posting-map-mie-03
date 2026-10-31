@@ -8,6 +8,7 @@ import {
   captureSourceConnectionFingerprint,
   evaluateConfigJsCode,
   evaluateConfigJsFile,
+  listBaselineTrackedFiles,
   runCommandSafe,
   runGateA,
   runGateB
@@ -32,7 +33,7 @@ function createSyntheticProductionRepo(baseTempDir) {
   fs.mkdirSync(path.join(sourceDir, 'active', 'manager'), { recursive: true });
   fs.mkdirSync(path.join(sourceDir, 'scripts'), { recursive: true });
   fs.mkdirSync(path.join(sourceDir, 'tests'), { recursive: true });
-  fs.mkdirSync(path.join(sourceDir, 'docs'), { recursive: true });
+  fs.mkdirSync(path.join(sourceDir, 'docs', 'manuals'), { recursive: true });
   fs.mkdirSync(path.join(sourceDir, '.github', 'workflows'), { recursive: true });
   fs.mkdirSync(path.join(sourceDir, '.agents'), { recursive: true });
 
@@ -184,6 +185,21 @@ function createSyntheticProductionRepo(baseTempDir) {
   fs.writeFileSync(
     path.join(sourceDir, 'docs', 'architecture_example.md'),
     '# Architecture Example\nSample domain: `synth-prod.example.org` and endpoint `https://script.google.com/macros/s/AKfycb_SYNTH_PROD_DEP_ID_999/exec`.\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(sourceDir, 'docs', 'manuals', 'Sample Operational Guide.md'),
+    '# Sample Operational Guide\nASCII filename with spaces.\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(sourceDir, 'docs', 'manuals', 'サンプル ご利用ガイド.md'),
+    '# サンプル ご利用ガイド\n日本語・濁点・空白を含むドキュメント。\n',
+    'utf8'
+  );
+  fs.writeFileSync(
+    path.join(sourceDir, 'docs', 'manuals', '手引き データ確認表.pdf'),
+    '%PDF-1.4 synthetic pdf content\n',
     'utf8'
   );
 
@@ -790,7 +806,39 @@ try {
     console.log('  ✅ R7: Runtime guard verification enforces PMS_CLIENT_CONFIG contract.');
   }
 
-  console.log('🎉 All 28 Production Development Isolation test cases (T-01..T-21 + R1..R7) PASSED!');
+  // R8: NUL-safe Git Path Fidelity for Japanese (with dakuten) + Space + ASCII tracked filenames (Transaction A3)
+  {
+    const trackedList = listBaselineTrackedFiles(sourceDir, 'HEAD');
+    assert.equal(
+      trackedList.includes('docs/manuals/Sample Operational Guide.md'),
+      true,
+      'R8 must preserve ASCII space-containing tracked path'
+    );
+    assert.equal(
+      trackedList.includes('docs/manuals/サンプル ご利用ガイド.md'),
+      true,
+      'R8 must preserve raw UTF-8 Japanese + dakuten + space tracked path without octal C-quoting'
+    );
+    assert.equal(
+      trackedList.includes('docs/manuals/手引き データ確認表.pdf'),
+      true,
+      'R8 must preserve raw UTF-8 Japanese + dakuten + space PDF path without octal C-quoting'
+    );
+    assert.equal(
+      trackedList.some(p => p.includes('\\3')),
+      false,
+      'R8 tracked path list must contain zero octal C-escaped sequences'
+    );
+
+    const gateARes = runGateA({ sourceRoot: sourceDir, targetRoot: inspectTarget });
+    assert.equal(gateARes.checks.A03.pass, true, 'A-03 must pass with Japanese and space-containing paths');
+    assert.equal(gateARes.checks.A03.missingTracked.length, 0, 'A-03 missingTracked must be 0');
+    assert.equal(gateARes.checks.A03.extraFiles.length, 0, 'A-03 extraFiles must be 0');
+    assert.equal(gateARes.checks.A03.modifiedNonSanitized.length, 0, 'A-03 modifiedNonSanitized must be 0');
+    console.log('  ✅ R8: NUL-safe Git path extraction preserves ASCII, space, and Japanese (dakuten) tracked paths (missing=0, extra=0, modified=0).');
+  }
+
+  console.log('🎉 All 29 Production Development Isolation test cases (T-01..T-21 + R1..R8) PASSED!');
 } finally {
   fs.rmSync(rootTmp, { recursive: true, force: true });
 }
