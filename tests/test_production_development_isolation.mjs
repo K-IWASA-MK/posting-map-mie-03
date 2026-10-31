@@ -838,7 +838,7 @@ try {
     console.log('  ✅ R8: NUL-safe Git path extraction preserves ASCII, space, and Japanese (dakuten) tracked paths (missing=0, extra=0, modified=0).');
   }
 
-  // R9: Formal Skill Registration & OS Registry Active Wiring (Finish Mission)
+  // R9: Formal Skill Registration & OS Registry Active Wiring (SKILL.md documented contract === implemented contract)
   {
     const skillPath = path.join(REPO_ROOT, '.agents', 'skills', 'production-development-isolation', 'SKILL.md');
     assert.equal(fs.existsSync(skillPath), true, 'R9: .agents/skills/production-development-isolation/SKILL.md must exist');
@@ -849,6 +849,53 @@ try {
     assert.equal(skillText.includes('<PROOF_TARGET>'), true, 'R9: SKILL.md must use <PROOF_TARGET> placeholder');
     assert.equal(skillText.includes('<FINAL_DEVELOPMENT_TARGET>'), true, 'R9: SKILL.md must use <FINAL_DEVELOPMENT_TARGET> placeholder');
     assert.equal(skillText.includes('<SOURCE_BASELINE_SHA>'), true, 'R9: SKILL.md must use <SOURCE_BASELINE_SHA> placeholder');
+
+    // Verify all 9 SourceConnectionFingerprint keys are documented
+    const expectedFpKeys = [
+      'headSha',
+      'gitStatusPorcelain',
+      'gitRemoteVerbose',
+      'gitConfigLocal',
+      'rootClaspJson',
+      'activeClaspJson',
+      'deploymentJson',
+      'dataConfigJs',
+      'cnameFile'
+    ];
+    for (const fpKey of expectedFpKeys) {
+      assert.equal(skillText.includes(fpKey), true, `R9: SKILL.md must document SourceConnectionFingerprint key "${fpKey}"`);
+    }
+
+    // Verify all 9 canonical .isolated-dev-manifest.json fields are documented and stale names are absent
+    const expectedManifestKeys = [
+      'schemaVersion',
+      'markerType',
+      'mode',
+      'runId',
+      'spawnedAt',
+      'sourceBaselineSha',
+      'targetRealpath',
+      'sourceFingerprintBefore',
+      'sanitizedFields'
+    ];
+    for (const mKey of expectedManifestKeys) {
+      assert.equal(skillText.includes(mKey), true, `R9: SKILL.md must document canonical manifest key "${mKey}"`);
+    }
+    const forbiddenStaleNames = [
+      'isolationMode',
+      'sanitizedFiles',
+      'masterDataDigests',
+      'verificationStatus',
+      'active/dashboard/app.js'
+    ];
+    for (const stale of forbiddenStaleNames) {
+      assert.equal(skillText.includes(stale), false, `R9: SKILL.md must NOT contain stale/non-existent identifier "${stale}"`);
+    }
+
+    // Verify B-06 canonical runtime targets are documented
+    assert.equal(skillText.includes('active/h-app/modules/api.js'), true, 'R9: SKILL.md must document active/h-app/modules/api.js');
+    assert.equal(skillText.includes('active/manager/manager.js'), true, 'R9: SKILL.md must document active/manager/manager.js');
+    assert.equal(skillText.includes('scripts/validate-district-data-gate.mjs'), true, 'R9: SKILL.md must document scripts/validate-district-data-gate.mjs');
 
     const regPath = path.join(REPO_ROOT, '.agents', 'os-registry.json');
     const regObj = JSON.parse(fs.readFileSync(regPath, 'utf8'));
@@ -863,7 +910,7 @@ try {
       true,
       'R9: operationalKnowledgeSurfaces must include .agents/skills/production-development-isolation/SKILL.md'
     );
-    console.log('  ✅ R9: Formal Skill (production-development-isolation) & OS Registry active wiring verified.');
+    console.log('  ✅ R9: Formal Skill (production-development-isolation) documented contract === implemented contract & OS Registry active wiring verified.');
   }
 
   console.log('🎉 All 30 Production Development Isolation test cases (T-01..T-21 + R1..R9) PASSED!');
