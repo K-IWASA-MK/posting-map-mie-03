@@ -1,15 +1,8 @@
 {
   "mission": "Production Development Isolation Skill & Tooling",
   "files": [
-    "AGENTS.md",
-    ".agents/rules/agent-authority.md",
-    ".agents/rules/verification-gates.md",
-    ".agents/agents/auditor/agent.md",
-    ".agents/os-registry.json",
-    "scripts/spawn-isolated-development-workspace.mjs",
     "scripts/check-development-isolation-gate.mjs",
-    "package.json",
-    "tests/test_production_development_isolation.mjs",
-    "tests/run_all_tests.mjs"
+    "scripts/spawn-isolated-development-workspace.mjs",
+    "tests/test_production_development_isolation.mjs"
   ]
 }
