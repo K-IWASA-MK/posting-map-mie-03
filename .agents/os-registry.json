@@ -179,7 +179,7 @@
       "canonicalSources": [
         {
           "path": ".agents/rules/verification-gates.md",
-          "sha256": "08666291fece6761f9e5b3b1e2fb2db9f17c47642efa88ce04707ad160329f74"
+          "sha256": "9efaf760e7094c681dfaf5e6da9243f6bffbe96abb4347c7bd1cf2ccd24eb770"
         },
         {
           "path": ".agents/workflows/development/workflow.md",
@@ -200,7 +200,7 @@
         },
         {
           "path": "AGENTS.md",
-          "sha256": "0ed3c778bf35cfd78623f9535d0faf22779010171c6ea16cc72b6a1135505057"
+          "sha256": "23b8fa9644f90a1873e0edff4aa65d83f7ebf0cb8e936a183e03c34dfb06b094"
         }
       ],
       "evidenceSources": [

@@ -146,6 +146,8 @@ Google Drive / Google Sheets / Google Apps Script等のGoogleサービスを操�
 - リポジトリ内部だけでは判断できない事項は、他地区を見て補完・推測せず「UNDETERMINED」とする。
 - 「アクセスできる」と「参照してよい」は別であり、現在の作業リポジトリ以外はAIエージェントにとって存在しないものとして扱う。
 - 複数リポジトリを同時に参照しない。
+- **Production Development Isolation Spawn & Audit 専用極小例外**:
+  - `AGENTS.md` §5 に規定される通り、本番凍結リポジトリ（`<SOURCE_PRODUCTION_ROOT>`）から開発専用ワークスペースを分離生成・監査する工程に限り、`scripts/spawn-isolated-development-workspace.mjs` および `scripts/check-development-isolation-gate.mjs` による新規空ディレクトリ（`<PROOF_TARGET>` / `<FINAL_DEVELOPMENT_TARGET>`）への Clean Export・Sanitization・Gate A/B 検証・新規 `git init`・7条件ガード付き `<PROOF_TARGET>` 削除（Execution AI）、および `<SOURCE_PRODUCTION_ROOT>` と `<PROOF_TARGET>` / `<FINAL_DEVELOPMENT_TARGET>` 双方の READ ONLY 分離監査（Independent Auditor AI）を限定的に認める。他地区リポジトリの参照・探索は永久に禁止とする。
 
 ### 指示外変更の即時停止原則（発見 ➔ 報告 ➔ STOP）
 実装中に別機能・他ファイルの改善点や問題を発見した場合、勝手に修正コードを追加してはならない。必ず「発見 ➔ 報告 ➔ STOP」としてMASTERの指示を仰ぐこと。同一ファイル内であっても、指示された関数・処理以外の便乗改善は固く禁止する。

@@ -19,6 +19,8 @@
     "gate:entrance": "node scripts/check-entrance-gate.mjs",
     "gate:cleanup": "node scripts/check-cleanup-gate.mjs",
     "gate:auditor": "node scripts/check-auditor-gate.mjs",
+    "isolate:spawn": "node scripts/spawn-isolated-development-workspace.mjs",
+    "gate:isolation": "node scripts/check-development-isolation-gate.mjs",
     "check:knowledge": "node scripts/check-knowledge-gate.mjs",
     "build:manager-css": "tailwindcss -i ./active/manager/tailwind-input.css -o ./active/manager/assets/manager.tailwind.css --minify"
   },

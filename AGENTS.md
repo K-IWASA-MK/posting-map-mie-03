@@ -53,6 +53,13 @@
     6. `transcript.jsonl` のリポジトリ内へのコピー・保存・commit の禁止。
     7. 環境変数欠損、path不一致、file不存在、JSONL parse失敗はすべて Fail-Closed（exit 1）とする。
     8. 本例外を一般的なリポジトリ外読み取り許可へ拡大・解釈してはならない。
+- **Production Development Isolation Spawn & Audit 専用極小例外**:
+  - 本番凍結リポジトリ（`<SOURCE_PRODUCTION_ROOT>`）から分離された開発専用ワークスペースを生成・検品する Mission に限り、`scripts/spawn-isolated-development-workspace.mjs` および `scripts/check-development-isolation-gate.mjs` を用いた以下の操作を限定的に認める。
+  - 許可条件:
+    1. Execution AI は、`<SOURCE_PRODUCTION_ROOT>`（READ ONLY）の確定 Baseline SHA（`<SOURCE_BASELINE_SHA>`）から、CLI引数 `--target` で明示指定された新規空ディレクトリ（`<PROOF_TARGET>` または `<FINAL_DEVELOPMENT_TARGET>`）への `git archive` Clean Export、Production接続値の無害化（Sanitization）、Gate A / Gate B 検証、新規独立 `git init`、および全7条件ガードを満たした `<PROOF_TARGET>` のクリーンアップ削除のみを実行できる。
+    2. Independent Auditor AI（`auditor`）は、Isolation Audit において `<SOURCE_PRODUCTION_ROOT>`（READ ONLY）と `<PROOF_TARGET>` または `<FINAL_DEVELOPMENT_TARGET>`（READ ONLY）の双方に対し、`node scripts/check-development-isolation-gate.mjs` および READ ONLY Git 検査を実行して分離完全性と Source Zero-Mutation（Source Connection Fingerprint 完全一致）を検証できる。
+    3. 既存の非空ディレクトリへの上書き・削除は一切禁止（Fail-Closed / Exit 1）とする。
+    4. 他地区リポジトリの参照・探索・比較は永久に禁止（例外なし）とする。
 
 ## 6. Execution Governance & Approval Gates — ABSOLUTE
 1. **Stage 0 Entrance Gatekeeper & Implementation Approval Gate**:

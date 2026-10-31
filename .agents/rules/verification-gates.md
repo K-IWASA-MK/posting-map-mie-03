@@ -117,6 +117,12 @@ AI社員の作業は、必ず以下の「Verification Gate」と「客観的証�
   7. 環境変数欠損、path不一致、file不存在、JSONL parse失敗はすべて Fail-Closed（exit 1）とする。
   8. 本例外を一般的なリポジトリ外読み取り許可へ拡大解釈することを永久に禁止する。
 
+### Production Development Isolation Gate & Repository Boundary 専用極小例外
+- 本番凍結リポジトリ（`<SOURCE_PRODUCTION_ROOT>`）から開発専用ワークスペース（`<PROOF_TARGET>` / `<FINAL_DEVELOPMENT_TARGET>`）を分離生成する際は、`scripts/spawn-isolated-development-workspace.mjs` および `scripts/check-development-isolation-gate.mjs` により以下の機械検証関門を通過しなければならない：
+  1. **Gate A (Pre-Git-Init Isolation Gate: A-01〜A-10)**: `.git` 不在、明示的 Local/Secret Binding Deny、Baseline Tracked File Preservation（`<SOURCE_BASELINE_SHA>` の tracked file set + `.isolated-dev-manifest.json` との完全一致・余剰混入0・欠落0）、Runtime-to-Fixture 非接続、実GAS URL 0件、Canonical 空値（`gasWebAppUrl === ""`, `liffId === ""`, `CNAME === ""`）、5分類検査による `RUNTIME_BINDING = 0 / DEPLOYMENT_BINDING = 0 / LOCAL_BINDING = 0`、マスターデータ4成果物完全保持、Template Mode SSOT Validator PASS、Manifest 整合性。
+  2. **Gate B (Post-Git-Init & Source Zero-Mutation Gate: B-01〜B-08)**: 独立 Git root 一致、`git remote -v` 空、Initial Commit 数 `1` かつ Baseline SHA 非同一、Working Tree clean、Gate A 再検証 PASS、Runtime Fail-Closed 挙動確認、Source Baseline SHA / clean 維持、および 9項目 **Source Connection Fingerprint**（`HEAD SHA`, `git status --porcelain`, `git remote -v`, `git config --local --list`, `.clasp.json`, `active/.clasp.json`, `deployment.json`, `data/config.js`, `CNAME`）の `SOURCE_FINGERPRINT_BEFORE === SOURCE_FINGERPRINT_AFTER` 完全一致。
+  3. **Repository Boundary 極小例外の境界**: 当該 Spawn / Gate / 7条件ガード付き `<PROOF_TARGET>` 削除および Independent Auditor による `<SOURCE_PRODUCTION_ROOT>` + `<PROOF_TARGET>` / `<FINAL_DEVELOPMENT_TARGET>` の READ ONLY 監査のみを認め、非空ディレクトリへの上書きおよび他地区リポジトリの参照・探索は永久に禁止する。
+
 ### Report Truth Gate（完了報告値直接機械取得・突合関門）
 - **義務**: 完了報告（Completion Report / `walkthrough.md` / チャット報告）を作成する際、AI社員が自身の記憶や過去のコンテキストから数値を記述することを絶対禁止とする。
 - **Action**: その時点の実ファイル（`data/address_master.csv` 等）を直接コマンド（`head`, `tail`, `wc -l` 等）で機械抽出し、先頭行ID/町名、末尾行ID/町名、総件数、合計人口、世帯数、代表座標等の確定値を報告書に埋め込み、1文字の狂いもなく実ファイルと完全一致することを検証・提示する。
