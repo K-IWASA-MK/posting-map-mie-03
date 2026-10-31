@@ -1,17 +1,15 @@
 {
-  "mission": "H-App / Dashboard Human-Facing Selection Order Universal Audit",
+  "mission": "Production Development Isolation Skill & Tooling",
   "files": [
-    ".agents/current-scope.json",
-    "scripts/generate-storage-locations.mjs",
-    "data/storage_locations.json",
-    "scripts/validate-district-data-gate.mjs",
-    "tests/test_district_data_gate.mjs",
-    "docs/operations/DISTRICT_PROVISIONING_RUNBOOK.md",
-    ".agents/rules/district-data-transition-rule.md",
-    ".agents/skills/district-app-deployment/SKILL.md",
-    "docs/data/DATA_DICTIONARY.md",
+    "AGENTS.md",
+    ".agents/rules/agent-authority.md",
+    ".agents/rules/verification-gates.md",
+    ".agents/agents/auditor/agent.md",
     ".agents/os-registry.json",
-    "active/gas/v2_extract.js",
-    "tests/test_phase21_multiregion_verification.mjs"
+    "scripts/spawn-isolated-development-workspace.mjs",
+    "scripts/check-development-isolation-gate.mjs",
+    "package.json",
+    "tests/test_production_development_isolation.mjs",
+    "tests/run_all_tests.mjs"
   ]
 }
