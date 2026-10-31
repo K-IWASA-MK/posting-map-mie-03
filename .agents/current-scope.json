@@ -2,6 +2,11 @@
   "mission": "Production Development Isolation Skill & Tooling",
   "files": [
     "scripts/check-development-isolation-gate.mjs",
-    "tests/test_production_development_isolation.mjs"
+    "scripts/spawn-isolated-development-workspace.mjs",
+    "tests/test_production_development_isolation.mjs",
+    ".agents/skills/production-development-isolation/SKILL.md",
+    ".agents/os-registry.json",
+    ".agents/agents/execution/agent.md",
+    "scripts/check-knowledge-gate.mjs"
   ]
 }
