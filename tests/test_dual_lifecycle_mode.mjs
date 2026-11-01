@@ -303,7 +303,7 @@ function createSandbox(initialSS) {
         return {
           getResponseCode() { return 200; },
           getContentText() {
-            return "rowId,cityName,townName\n1,桑名市,大山田1丁目\n2,桑名市,大山田2丁目\n";
+            return "rowId,cityName,townName\n1,サンプル市,大山田1丁目\n2,サンプル市,大山田2丁目\n";
           }
         };
       }
@@ -374,8 +374,8 @@ runCase("ELECTION Mode Initial Provisioning (Zero master sheets, direct 5 sheets
   const { context } = createSandbox(ss);
 
   const sampleAddrs = [
-    { rowId: 1, cityName: "桑名市", townName: "大山田1丁目" },
-    { rowId: 2, cityName: "桑名市", townName: "大山田2丁目" }
+    { rowId: 1, cityName: "サンプル市", townName: "大山田1丁目" },
+    { rowId: 2, cityName: "サンプル市", townName: "大山田2丁目" }
   ];
 
   const testFixedDate = new Date("2026-10-10T12:00:00+09:00");
@@ -618,7 +618,7 @@ runCase("All-or-Nothing Compensating Rollback (Interrupted creation safely undon
     return originalInsertSheet(name);
   };
 
-  const sampleAddrs = [{ rowId: 1, cityName: "桑名市", townName: "大山田" }];
+  const sampleAddrs = [{ rowId: 1, cityName: "サンプル市", townName: "大山田" }];
 
   assert.throws(() => {
     context.DistrictProvisioner.getInstance().createOperationalDataset(ss, "2026-12", sampleAddrs);
@@ -951,7 +951,7 @@ runCase("Counterexample 8: Provisioning Without Mode -> ELECTION Auto-fallback P
   const { context } = createSandbox(ss);
 
   const sampleAddrs = [
-    { rowId: 1, cityName: "桑名市", townName: "大山田1丁目" }
+    { rowId: 1, cityName: "サンプル市", townName: "大山田1丁目" }
   ];
 
   const mutationsBefore = ss.mutationCount;
@@ -978,7 +978,7 @@ runCase("Counterexample 9: Active Dataset Key & contractStartDate Derived from S
   const { context } = createSandbox(ss);
 
   const sampleAddrs = [
-    { rowId: 1, cityName: "桑名市", townName: "大山田1丁目" }
+    { rowId: 1, cityName: "サンプル市", townName: "大山田1丁目" }
   ];
 
   const testFixedDate = new Date("2026-11-20T14:30:00+09:00");
@@ -1019,7 +1019,7 @@ runCase("Counterexample 10: Caller override of activeDatasetKey & contractStartD
   const { context } = createSandbox(ss);
 
   const sampleAddrs = [
-    { rowId: 1, cityName: "桑名市", townName: "大山田1丁目" }
+    { rowId: 1, cityName: "サンプル市", townName: "大山田1丁目" }
   ];
 
   const testFixedDate = new Date("2026-10-10T10:00:00+09:00");
@@ -1242,14 +1242,14 @@ runCase("Case 22: Month-Rollover Pre-Generation Regression (2026-10-31 -> 2026-1
   const types = ["distribution", "staff", "flyer", "transfer", "pin"];
 
   // --- Part A: SUBSCRIPTION Mode (10/30 -> 10/31 -> 11/01 -> 11/30 -> 12/01) ---
-  const ssSub = new MockSpreadsheet("ss-rollover-sub", "MIE-03");
+  const ssSub = new MockSpreadsheet("ss-rollover-sub", "TEST_SUB_DIST");
   const sysSub = ssSub.addSheet("SYSTEM_INFO");
   sysSub.grid = [
     ["項目", "内容"],
-    ["地区コード", "MIE-03"],
+    ["地区コード", "TEST_SUB_DIST"],
     ["運用モード", "SUBSCRIPTION"],
     ["Active Dataset Key", "2026-10"],
-    ["HアプリURL", "https://mie-03.postingmap.jp/"],
+    ["HアプリURL", "https://sub-test.postingmap.jp/"],
     ["契約終了日", "2026-11-30"]
   ];
   prefixes.forEach(p => {
@@ -1283,7 +1283,7 @@ runCase("Case 22: Month-Rollover Pre-Generation Regression (2026-10-31 -> 2026-1
   // 3) 2026-11-01 (月初 00:00 JST 以降): Resolver が即座に 2026-11 の既存シートを解決し、Daily Trigger は 5/5 No-op (mutation 0)
   const nov01Date = new Date("2026-11-01T00:00:01+09:00");
   types.forEach((t, idx) => {
-    const resolved = resolverSub.getCurrentSheet(t, nov01Date, "MIE-03");
+    const resolved = resolverSub.getCurrentSheet(t, nov01Date, "TEST_SUB_DIST");
     assert.ok(resolved, `Current sheet for ${t} must immediately resolve on 2026-11-01`);
     assert.equal(resolved.getName(), `${prefixes[idx]}2026-11`);
   });
@@ -1308,7 +1308,7 @@ runCase("Case 22: Month-Rollover Pre-Generation Regression (2026-10-31 -> 2026-1
 
   const dec01Date = new Date("2026-12-01T00:00:01+09:00");
   types.forEach((t, idx) => {
-    const resolved = resolverSub.getCurrentSheet(t, dec01Date, "MIE-03");
+    const resolved = resolverSub.getCurrentSheet(t, dec01Date, "TEST_SUB_DIST");
     assert.ok(resolved, `Current sheet for ${t} must immediately resolve on 2026-12-01`);
     assert.equal(resolved.getName(), `${prefixes[idx]}2026-12`);
   });
