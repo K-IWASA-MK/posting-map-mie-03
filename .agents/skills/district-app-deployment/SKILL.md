@@ -106,10 +106,15 @@ version: 1.0.0
 
 ---
 
-## 6. Runtime Push Rule (共通 Runtime の無改変反映)
+## 6. Runtime Push & Installable Trigger Rule (共通 Runtime の無改変反映と日次トリガー設定)
 
 1. `git diff active/` が完全に空（0 バイト変更）であることを確認する。
 2. `<BOUND_SCRIPT_ID>` に対して `clasp push` を実行し、現在の Git `active/**`（Universal Engine）をそのまま Spreadsheet-bound GAS へ反映する。
+3. **日次 Installable Trigger の登録と実在確認（必須）**:
+   - Google Drive 上での Spreadsheet 複製（`makeCopy`）時には Container-bound GAS の Installable Trigger は引き継がれない（初期状態 = 0 個）。
+   - `<BOUND_SCRIPT_ID>` において、以下の 2 つの時間主導型（日次・午前 0 時〜1 時 JST）Installable Trigger を必ず登録し、Apps Script の `/triggers` 画面で両トリガーが実在・有効であることを確認する：
+     1. `rolloverMonthlySheetsDailyCheck`（`SUBSCRIPTION` モードにおける月末日の翌月 5 シート先行生成・当月自己修復、`ELECTION` モードでは No-op）
+     2. `cleanupPinStatusDaily`（当月 `PinStatus` シートの日次クリーンアップ）
 
 ---
 

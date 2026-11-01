@@ -300,8 +300,36 @@ function setupRosterSheet(districtId = "") {
  * 日次トリガーから実行される月次判定・自動生成関数
  * (M-02: v2_ui.js から移設)
  */
-function rolloverMonthlySheetsDailyCheck() {
+function rolloverMonthlySheetsDailyCheck(nowOverride = null, options = {}, districtId = "") {
   if (typeof DistrictProvisioner !== 'undefined' && DistrictProvisioner.getInstance) {
-    DistrictProvisioner.getInstance().rolloverMonthlySheets(null, {}, "");
+    const provisioner = DistrictProvisioner.getInstance();
+    const isDateObj = (v) => Boolean(v && typeof v.getTime === 'function' && !isNaN(v.getTime()));
+    const now = isDateObj(nowOverride)
+      ? nowOverride
+      : (options && isDateObj(options.now) ? options.now : new Date());
+
+    const resolveMonthStr = (d) => {
+      if (typeof MonthlySheetResolver !== 'undefined' && MonthlySheetResolver.getInstance) {
+        return MonthlySheetResolver.getInstance().getCurrentMonth(d);
+      }
+      if (typeof Utilities !== 'undefined' && typeof Utilities.formatDate === 'function') {
+        return Utilities.formatDate(d, "JST", "yyyy-MM");
+      }
+      const jstDate = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+      const y = jstDate.getUTCFullYear();
+      const m = String(jstDate.getUTCMonth() + 1).padStart(2, '0');
+      return `${y}-${m}`;
+    };
+
+    const currentMonth = resolveMonthStr(now);
+    const currentRes = provisioner.rolloverMonthlySheets(currentMonth, options, districtId);
+
+    // JST基準で翌日(now + 24h)が翌月となる月末日(10/31, 11/30等)は、翌月5シートを先行生成する
+    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const nextMonth = resolveMonthStr(tomorrow);
+    if (nextMonth !== currentMonth && currentRes && currentRes.success === true) {
+      return provisioner.rolloverMonthlySheets(nextMonth, options, districtId);
+    }
+    return currentRes;
   }
 }

@@ -1234,6 +1234,128 @@ runCase("Case 21: Active Dataset Key Plain-Text Write-Boundary Enforcement & She
   assert.notEqual(typeof coercedVal, "string", "Coerced value must not be primitive string");
 });
 
+// =============================================================================
+// TEST 22: Case 22: Month-Rollover Pre-Generation Regression (2026-10-31 -> 2026-11-01 & 2026-11-30 -> 2026-12-01)
+// =============================================================================
+runCase("Case 22: Month-Rollover Pre-Generation Regression (2026-10-31 -> 2026-11-01 & 2026-11-30 -> 2026-12-01)", () => {
+  const prefixes = ["配布実績", "名簿", "保有チラシ枚数", "受渡要請履歴", "PinStatus"];
+  const types = ["distribution", "staff", "flyer", "transfer", "pin"];
+
+  // --- Part A: SUBSCRIPTION Mode (10/30 -> 10/31 -> 11/01 -> 11/30 -> 12/01) ---
+  const ssSub = new MockSpreadsheet("ss-rollover-sub", "MIE-03");
+  const sysSub = ssSub.addSheet("SYSTEM_INFO");
+  sysSub.grid = [
+    ["項目", "内容"],
+    ["地区コード", "MIE-03"],
+    ["運用モード", "SUBSCRIPTION"],
+    ["Active Dataset Key", "2026-10"],
+    ["HアプリURL", "https://mie-03.postingmap.jp/"],
+    ["契約終了日", "2026-11-30"]
+  ];
+  prefixes.forEach(p => {
+    ssSub.addSheet(`${p}2026-10`, [["H1", "H2"], ["oct-row-1", "oct-val-1"]]);
+  });
+
+  const { context: ctxSub } = createSandbox(ssSub);
+  const resolverSub = ctxSub.MonthlySheetResolver.getInstance();
+
+  // 1) 2026-10-30 (通常日): 2026-10 は 5/5 存在のため No-op (mutation 0)、2026-11 は未生成
+  const mutBefore1030 = ssSub.mutationCount;
+  const res1030 = ctxSub.rolloverMonthlySheetsDailyCheck(new Date("2026-10-30T00:15:00+09:00"));
+  assert.equal(res1030.success, true);
+  assert.equal(res1030.noop, true);
+  assert.equal(ssSub.mutationCount, mutBefore1030, "2026-10-30 daily check must be 100% No-op");
+  assert.equal(ssSub.getSheetByName("配布実績2026-11"), null, "2026-11 must not be created on 2026-10-30");
+
+  // 2) 2026-10-31 (月末日): 2026-11 の5シートが先行生成され、10/31中の Resolver は 2026-10 を維持
+  const oct31Date = new Date("2026-10-31T00:15:00+09:00");
+  const res1031 = ctxSub.rolloverMonthlySheetsDailyCheck(oct31Date);
+  assert.equal(res1031.success, true);
+  assert.equal(res1031.month, "2026-11");
+  assert.equal(res1031.created.length, 5, "All 5 sheets for 2026-11 must be pre-created on 2026-10-31");
+  prefixes.forEach(p => {
+    assert.ok(ssSub.getSheetByName(`${p}2026-11`), `${p}2026-11 must exist on 2026-10-31 after daily trigger`);
+    assert.ok(ssSub.getSheetByName(`${p}2026-10`), `${p}2026-10 must be preserved`);
+  });
+  assert.equal(ssSub.getSheetByName("配布実績2026-10").grid[1][0], "oct-row-1", "October data must remain intact");
+  assert.equal(resolverSub.resolveSheetNameForSs(ssSub, "distribution", oct31Date), "配布実績2026-10", "On 2026-10-31, Resolver must still resolve to 2026-10");
+
+  // 3) 2026-11-01 (月初 00:00 JST 以降): Resolver が即座に 2026-11 の既存シートを解決し、Daily Trigger は 5/5 No-op (mutation 0)
+  const nov01Date = new Date("2026-11-01T00:00:01+09:00");
+  types.forEach((t, idx) => {
+    const resolved = resolverSub.getCurrentSheet(t, nov01Date, "MIE-03");
+    assert.ok(resolved, `Current sheet for ${t} must immediately resolve on 2026-11-01`);
+    assert.equal(resolved.getName(), `${prefixes[idx]}2026-11`);
+  });
+  const mutBefore1101 = ssSub.mutationCount;
+  const res1101 = ctxSub.rolloverMonthlySheetsDailyCheck(new Date("2026-11-01T00:15:00+09:00"));
+  assert.equal(res1101.success, true);
+  assert.equal(res1101.noop, true);
+  assert.equal(res1101.month, "2026-11");
+  assert.equal(ssSub.mutationCount, mutBefore1101, "2026-11-01 daily check must be 100% No-op with 0 mutations");
+
+  // 4) 2026-11-30 (30日月末日) -> 2026-12-01: GAS trigger event object が第1引数に渡された場合も含め 2026-12 の5シートを先行生成
+  const nov30Date = new Date("2026-11-30T00:15:00+09:00");
+  const fakeGasTriggerEvent = { year: 2026, month: 11, "day-of-month": 30, triggerUid: "gas-time-trigger" };
+  const res1130 = ctxSub.rolloverMonthlySheetsDailyCheck(fakeGasTriggerEvent, { now: nov30Date });
+  assert.equal(res1130.success, true);
+  assert.equal(res1130.month, "2026-12");
+  assert.equal(res1130.created.length, 5, "All 5 sheets for 2026-12 must be pre-created on 2026-11-30");
+  prefixes.forEach(p => {
+    assert.ok(ssSub.getSheetByName(`${p}2026-12`), `${p}2026-12 must exist on 2026-11-30 after daily trigger`);
+  });
+  assert.equal(resolverSub.resolveSheetNameForSs(ssSub, "staff", nov30Date), "名簿2026-11", "On 2026-11-30, Resolver must still resolve to 2026-11");
+
+  const dec01Date = new Date("2026-12-01T00:00:01+09:00");
+  types.forEach((t, idx) => {
+    const resolved = resolverSub.getCurrentSheet(t, dec01Date, "MIE-03");
+    assert.ok(resolved, `Current sheet for ${t} must immediately resolve on 2026-12-01`);
+    assert.equal(resolved.getName(), `${prefixes[idx]}2026-12`);
+  });
+  const mutBefore1201 = ssSub.mutationCount;
+  const res1201 = ctxSub.rolloverMonthlySheetsDailyCheck(new Date("2026-12-01T00:15:00+09:00"));
+  assert.equal(res1201.success, true);
+  assert.equal(res1201.noop, true);
+  assert.equal(res1201.month, "2026-12");
+  assert.equal(ssSub.mutationCount, mutBefore1201, "2026-12-01 daily check must be 100% No-op with 0 mutations");
+
+  // --- Part B: ELECTION Mode (10/31 -> 11/01 & 11/30 -> 12/01 must be 100% No-op, mutation 0) ---
+  const ssElec = new MockSpreadsheet("ss-rollover-elec", "KUWANA");
+  const sysElec = ssElec.addSheet("SYSTEM_INFO");
+  sysElec.grid = [
+    ["項目", "内容"],
+    ["地区コード", "KUWANA"],
+    ["運用モード", "ELECTION"],
+    ["Active Dataset Key", "2026-10"],
+    ["HアプリURL", "https://kuwana.postingmap.jp/"],
+    ["契約終了日", "2026-12-31"]
+  ];
+  prefixes.forEach(p => {
+    ssElec.addSheet(`${p}2026-10`, [["H1", "H2"]]);
+  });
+
+  const { context: ctxElec } = createSandbox(ssElec);
+  const resolverElec = ctxElec.MonthlySheetResolver.getInstance();
+  const initialElecMutations = ssElec.mutationCount;
+  const initialElecSheetCount = ssElec.getSheets().length;
+
+  for (const dStr of [
+    "2026-10-31T00:15:00+09:00",
+    "2026-11-01T00:15:00+09:00",
+    "2026-11-30T00:15:00+09:00",
+    "2026-12-01T00:15:00+09:00"
+  ]) {
+    const d = new Date(dStr);
+    const r = ctxElec.rolloverMonthlySheetsDailyCheck(d);
+    assert.equal(r.success, true);
+    assert.equal(r.noop, true);
+    assert.equal(r.mode, "ELECTION");
+    assert.equal(ssElec.mutationCount, initialElecMutations, `ELECTION mode must have 0 mutations at ${dStr}`);
+    assert.equal(ssElec.getSheets().length, initialElecSheetCount, `ELECTION mode sheet count must not change at ${dStr}`);
+    assert.equal(resolverElec.resolveSheetNameForSs(ssElec, "distribution", d), "配布実績2026-10");
+  }
+});
+
 console.log('\n================================================================');
 console.log(`🎉 ALL ${passCount}/${testCount} DUAL LIFECYCLE VERIFICATION CASES PASSED PERFECTLY!`);
 console.log('================================================================\n');
