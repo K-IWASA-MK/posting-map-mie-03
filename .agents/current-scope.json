@@ -1,12 +1,8 @@
 {
-  "mission": "Production Development Isolation Skill & Tooling",
+  "mission": "MIE-03 SUBSCRIPTION 月跨ぎ自動ロールオーバー障害 — Production Incident Investigation",
   "files": [
-    "scripts/check-development-isolation-gate.mjs",
-    "scripts/spawn-isolated-development-workspace.mjs",
-    "tests/test_production_development_isolation.mjs",
-    ".agents/skills/production-development-isolation/SKILL.md",
-    ".agents/os-registry.json",
-    ".agents/agents/execution/agent.md",
-    "scripts/check-knowledge-gate.mjs"
+    "active/gas/v2_batch.js",
+    ".agents/skills/district-app-deployment/SKILL.md",
+    "tests/test_dual_lifecycle_mode.mjs"
   ]
 }
